@@ -1,0 +1,74 @@
+# macOS / editor-local state
+.DS_Store
+._*
+.Spotlight-V100/
+.Trashes/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python cache / virtual environments / generated packaging
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / TypeScript / build and test output
+node_modules/
+.pnpm-store/
+.vite/
+*.tsbuildinfo
+build/
+dist/
+.coverage
+.coverage.*
+/htmlcov/
+/coverage/
+/test-results/
+/playwright-report/
+/web/coverage/
+/web/test-results/
+/web/playwright-report/
+.cache/
+
+# Secrets and local-only configuration; examples are versioned
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+/config/local/
+/secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Runtime locations, never repository evidence or fixtures
+/runtime/
+/data/postgres/
+/data/artifacts/
+/data/checkpoints/
+/data/logs/
+/pgdata/
+/artifacts/
+/checkpoints/
+/logs/
+
+# Disposable execution/benchmark output
+/tmp/
+/temp/
+/benchmarks/tmp/
+/benchmarks/output/
+/benchmarks/.cache/
+
+# Keep dependency locks, migrations, .agents/skills, ADR/docs, scripts and
+# selected raw evidence (including .log/.json/.csv) source controlled.
+# Evidence uses docs/evidence/; never store credentials there.
