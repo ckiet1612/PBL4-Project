@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexa.invalid/contracts/1.0.0-b01/workload-manifests.schema.json",
+  "title": "Nexa workload manifests",
+  "oneOf": [
+    { "$ref": "#/$defs/checkpointManifest" },
+    { "$ref": "#/$defs/resultManifest" },
+    { "$ref": "#/$defs/chunkOutputManifest" }
+  ],
+  "$defs": {
+    "uuidV7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "fileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "logical_name", "media_type", "size_bytes", "checksum"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/uuidV7" },
+        "logical_name": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" },
+        "media_type": { "type": "string", "minLength": 1, "maxLength": 127 },
+        "size_bytes": { "type": "integer", "minimum": 0, "maximum": 10737418240 },
+        "checksum": { "$ref": "#/$defs/checksum" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "job_id", "session_id", "attempt_id", "job_fence", "input_checksum", "spec_checksum", "template_id", "template_version", "adapter_id", "adapter_version", "image_digest"],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/uuidV7" },
+        "job_id": { "$ref": "#/$defs/uuidV7" },
+        "session_id": { "$ref": "#/$defs/uuidV7" },
+        "attempt_id": { "$ref": "#/$defs/uuidV7" },
+        "job_fence": { "type": "integer", "minimum": 1 },
+        "input_checksum": { "$ref": "#/$defs/checksum" },
+        "spec_checksum": { "$ref": "#/$defs/checksum" },
+        "template_id": { "type": "string", "enum": ["cpu-iterative", "pytorch-cifar10-cnn", "batch-inference"] },
+        "template_version": { "type": "integer", "minimum": 1 },
+        "adapter_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,63}$" },
+        "adapter_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "image_digest": { "$ref": "#/$defs/checksum" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architecture", "device_type", "framework", "framework_version", "checkpointable", "restart_safe"],
+      "properties": {
+        "architecture": { "type": "string", "enum": ["linux/amd64", "linux/arm64"] },
+        "device_type": { "type": "string", "enum": ["CPU", "CUDA"] },
+        "framework": { "type": "string", "enum": ["PYTHON", "PYTORCH"] },
+        "framework_version": { "type": "string", "minLength": 1, "maxLength": 63 },
+        "cuda_version": { "oneOf": [{ "type": "string", "maxLength": 31 }, { "type": "null" }] },
+        "minimum_driver_version": { "oneOf": [{ "type": "string", "maxLength": 31 }, { "type": "null" }] },
+        "gpu_compute_capability": { "oneOf": [{ "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" }, { "type": "null" }] },
+        "checkpointable": { "type": "boolean" },
+        "restart_safe": { "type": "boolean" }
+      }
+    },
+    "runtimeCursor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "epoch", "item_cursor"],
+      "properties": {
+        "step": { "type": "integer", "minimum": 0 },
+        "epoch": { "type": "integer", "minimum": 0 },
+        "item_cursor": { "type": "integer", "minimum": 0 },
+        "accumulator": { "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "null" }] },
+        "sampler_state_checksum": { "oneOf": [{ "$ref": "#/$defs/checksum" }, { "type": "null" }] }
+      }
+    },
+    "chunkOutputReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "checksum"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/uuidV7" },
+        "checksum": { "$ref": "#/$defs/checksum" }
+      }
+    },
+    "checkpointManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schema_version", "checkpoint_id", "checkpoint_sequence", "created_at", "provenance", "compatibility", "cursor", "state_components", "files", "manifest_checksum"],
+      "properties": {
+        "kind": { "const": "CHECKPOINT" },
+        "schema_version": { "const": 1 },
+        "checkpoint_id": { "$ref": "#/$defs/uuidV7" },
+        "checkpoint_sequence": { "type": "integer", "minimum": 1 },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "cursor": { "$ref": "#/$defs/runtimeCursor" },
+        "state_components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["ACCUMULATOR", "MODEL", "OPTIMIZER", "RNG_PYTHON", "RNG_NUMPY", "RNG_TORCH_CPU", "RNG_TORCH_CUDA", "SAMPLER", "INFERENCE_CURSOR"] }
+        },
+        "files": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/fileEntry" } },
+        "chunk_output_manifest": { "$ref": "#/$defs/chunkOutputReference" },
+        "manifest_checksum": { "$ref": "#/$defs/checksum" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "provenance": {
+                "type": "object",
+                "properties": { "template_id": { "const": "batch-inference" } },
+                "required": ["template_id"]
+              }
+            },
+            "required": ["provenance"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "chunk_output_manifest": { "$ref": "#/$defs/chunkOutputReference" } },
+            "required": ["chunk_output_manifest"]
+          },
+          "else": {
+            "type": "object",
+            "properties": { "chunk_output_manifest": false }
+          }
+        }
+      ]
+    },
+    "resultManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schema_version", "result_id", "created_at", "provenance", "status", "files", "metrics", "manifest_checksum"],
+      "properties": {
+        "kind": { "const": "RESULT" },
+        "schema_version": { "const": 1 },
+        "result_id": { "$ref": "#/$defs/uuidV7" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "status": { "const": "SUCCEEDED" },
+        "files": { "type": "array", "minItems": 1, "maxItems": 1024, "items": { "$ref": "#/$defs/fileEntry" } },
+        "metrics": { "type": "object", "additionalProperties": { "oneOf": [{ "type": "number" }, { "type": "string" }, { "type": "boolean" }, { "type": "null" }] }, "maxProperties": 128 },
+        "chunk_output_manifest": { "$ref": "#/$defs/chunkOutputReference" },
+        "manifest_checksum": { "$ref": "#/$defs/checksum" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "provenance": {
+                "type": "object",
+                "properties": { "template_id": { "const": "batch-inference" } },
+                "required": ["template_id"]
+              }
+            },
+            "required": ["provenance"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "chunk_output_manifest": { "$ref": "#/$defs/chunkOutputReference" } },
+            "required": ["chunk_output_manifest"]
+          },
+          "else": {
+            "type": "object",
+            "properties": { "chunk_output_manifest": false }
+          }
+        }
+      ]
+    },
+    "chunkOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunk_id", "start_index", "end_index_exclusive", "source_attempt_id", "source_job_fence", "file"],
+      "properties": {
+        "chunk_id": { "type": "string", "pattern": "^chunk-[0-9]{8}$" },
+        "start_index": { "type": "integer", "minimum": 0 },
+        "end_index_exclusive": { "type": "integer", "minimum": 1 },
+        "source_attempt_id": { "$ref": "#/$defs/uuidV7" },
+        "source_job_fence": { "type": "integer", "minimum": 1 },
+        "file": { "$ref": "#/$defs/fileEntry" }
+      }
+    },
+    "chunkOutputManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schema_version", "provenance", "model_checksum", "chunks", "manifest_checksum"],
+      "properties": {
+        "kind": { "const": "CHUNK_OUTPUT" },
+        "schema_version": { "const": 1 },
+        "provenance": {
+          "allOf": [
+            { "$ref": "#/$defs/provenance" },
+            { "type": "object", "properties": { "template_id": { "const": "batch-inference" } } }
+          ]
+        },
+        "model_checksum": { "$ref": "#/$defs/checksum" },
+        "chunks": { "type": "array", "minItems": 1, "maxItems": 100000, "items": { "$ref": "#/$defs/chunkOutput" } },
+        "manifest_checksum": { "$ref": "#/$defs/checksum" }
+      }
+    }
+  }
+}

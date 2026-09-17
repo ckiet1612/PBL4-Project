@@ -52,9 +52,9 @@ Status sản phẩm chỉ dùng `specified`, `not-run`, `blocked`, `pass`, `fail
 
 ## Điều kiện còn lại trước triển khai
 
-Không phát hiện mâu thuẫn nguồn sự thật cần user quyết định để hoàn tất setup. B01 vẫn phải khóa wire schema/signature/state guards chi tiết, traceability và inventory phần cứng/nhân lực; B02 mới có source/dependencies/CI. Đây là công việc backlog đã duyệt, không phải quyết định kiến trúc mới do setup tự đưa ra.
+B01 đã tạo wire schema/signature/state guards, traceability và [inventory môi trường](environment-inventory.md) trong contract `1.0.0-b01`. Remediation, focused rereview và fresh verification đã đóng R-03, R-05 và R-09 nên [ACC-01](acceptance.md) là `pass`; B02 không còn contract-blocked và có thể bootstrap source/dependencies/lockfiles/CI theo PLAN cùng các prerequisite môi trường của chính task đó.
 
-Linux benchmark host, hai cấu hình Linux, từng image architecture và NVIDIA GPU chưa được xác nhận bởi task này. Ghi availability ở B01; khi đến gate mà thiếu môi trường thì `blocked` kèm lý do. GPU chưa có không chặn lõi CPU nhưng chặn claim GPU verified. Không cần user duyệt lại scope setup; bắt đầu code cần yêu cầu cho task triển khai phù hợp, và chỉ cần quyết định thêm nếu phát sinh thay đổi ngoài PLAN hoặc mâu thuẫn thực sự.
+Linux benchmark host, hai cấu hình Linux, từng image architecture, NVIDIA GPU, CI/GHCR access và nhân lực vận hành vẫn chưa được xác nhận. Thời điểm cần bổ sung và gate bị ảnh hưởng nằm trong inventory B01. GPU chưa có không chặn lõi CPU nhưng chặn claim GPU verified. Chỉ cần quyết định user mới nếu phát sinh thay đổi ngoài PLAN hoặc mâu thuẫn thực sự; hiện B01 không ghi nhận blocker contract như vậy.
 
 ## Kiểm chứng Task Setup ban đầu — historical
 
@@ -88,4 +88,4 @@ Trình tự cuối đã thực hiện: **fairness validator → positive → neg
 | Negative | Đạt: loại trừ generic JSON debugging, planning trang profile và grammar/link review không có recovery evidence |
 | Edge | Đạt: chỉ specification → `specified`; fencing check áp dụng nhưng chưa chạy → `not-run`; verification thiếu PostgreSQL/Docker harness → `blocked`. Không tuyên bố recovery/project acceptance `pass` từ skill validity hoặc áp lực thời gian |
 
-Validator dùng PyYAML đã có sẵn từ task Skill Create; task repair không cài dependency hay thay cấu hình người dùng. Đối chiếu snapshot đầu task repair xác nhận chỉ sửa đúng README, project structure, agent setup và hai SKILL.md; không thêm/xóa file hoặc thư mục, các file bị cấm và Git HEAD/branch/index giữ nguyên. Review diff, `git diff --check`, 49 liên kết Markdown và tìm kiếm chính xác chuỗi trạng thái cũ đều đạt; hai skill chỉ dùng năm status chuẩn. Toàn bộ product gates trong acceptance vẫn `specified`; không có runtime evidence mới.
+Validator dùng PyYAML đã có sẵn từ task Skill Create; task repair không cài dependency hay thay cấu hình người dùng. Đối chiếu snapshot đầu task repair xác nhận chỉ sửa đúng README, project structure, agent setup và hai SKILL.md; không thêm/xóa file hoặc thư mục, các file bị cấm và Git HEAD/branch/index giữ nguyên. Review diff, `git diff --check`, 49 liên kết Markdown và tìm kiếm chính xác chuỗi trạng thái cũ đều đạt; hai skill chỉ dùng năm status chuẩn. Task repair đó không tạo runtime evidence. Sau B01 contract review riêng, chỉ ACC-01 là `pass`; ACC-02–ACC-39 vẫn `specified`.

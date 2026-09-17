@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: project/agent setup, chưa triển khai sản phẩm.** Repository chứa kế hoạch, tài liệu hướng dẫn và hai project skills dạng instruction-only; chưa có source, tests, manifests, lockfiles, migrations, Compose hay CI. Các thông số hiệu năng là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01 contract `1.0.0-b01` đang remediation sau review, chưa triển khai sản phẩm.** Repository chứa kế hoạch, OpenAPI/domain/state/internal/recovery/workload contract, ADR, traceability, inventory môi trường và hai project skills dạng instruction-only; chưa có source, product tests, dependency manifests/lockfiles, migrations, Compose hay CI. Các thông số hiệu năng vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -22,13 +22,15 @@ Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho 
 | [PLAN.md](PLAN.md) | Quyết định đã duyệt, requirements chi tiết, 6 giai đoạn, 25 task B01–B25, DoD |
 | [AGENTS.md](AGENTS.md) | Quy tắc ngắn cho agent, invariant và điều kiện hoàn tất task |
 | [Project structure](docs/project-structure.md) | Cây hiện tại, target placement, kiến trúc, ownership và chiều dependency |
-| [Contracts](docs/contracts.md) | API `/v1`, domain/data model, state machine, internal interfaces và compatibility |
+| [Contracts](docs/contracts.md) | Điểm vào contract `1.0.0-b01`: OpenAPI `/v1`, domain/state, internal interfaces, workload/checkpoint và concurrency/recovery |
 | [Invariants](docs/invariants.md) | Tenant/resource accounting, concurrency, fencing, checkpoint, recovery, security |
 | [Acceptance](docs/acceptance.md) | Gate ID, điều kiện pass, evidence, môi trường; testing/benchmark objectives |
 | [ADR](docs/adr.md) | Khi nào ghi quyết định và nội dung tối thiểu; không thay PLAN |
+| [Traceability](docs/requirements-traceability.md) | PLAN → contract → INV → ACC → backlog → phép kiểm chứng |
+| [Environment inventory](docs/environment-inventory.md) | Công cụ/phần cứng/CI/nhân lực đã quan sát hoặc chưa xác nhận |
 | [Agent setup / Skill Creator handoff](docs/agent-setup.md) | Kiểm kê instructions/skills, candidate skills và giới hạn setup |
 
-Stack và module boundaries được tổng hợp tại tài liệu cấu trúc; quy tắc sản phẩm không nằm trong skill. Tài liệu contract hiện là bản trích xuất PLAN, chưa phải OpenAPI/schema đã triển khai hoặc bằng chứng B01 hoàn tất.
+Stack và module boundaries được tổng hợp tại tài liệu cấu trúc; quy tắc sản phẩm không nằm trong skill. OpenAPI và JSON Schema trong `docs/` là specification, không phải runtime implementation; kết quả review B01 nằm tại [contract review evidence](docs/evidence/B01-contract-review.md).
 
 ## Project skills hiện có
 
@@ -39,9 +41,9 @@ Skill hợp lệ về cấu trúc/hướng dẫn không chứng minh runtime acc
 
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. B01 mở đầu: chốt domain/API/adapter contract, đối chiếu acceptance và ghi inventory phần cứng/nhân lực; B02 mới bootstrap source, dependencies và CI. Các task sau chỉ bắt đầu khi đủ dependency, không coi setup tài liệu là đã hoàn thành B01/B02. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass` và B02 không còn contract-blocked. Các task sau vẫn chỉ bắt đầu khi đủ dependency. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
-Máy phát triển dự kiến cần Git, Python 3.12/`uv`, Docker/Compose, PostgreSQL client, Node.js LTS/`pnpm`. Đó là prerequisite trong PLAN §10, **chưa được kiểm tra/cài đặt bởi task setup**. macOS hỗ trợ phát triển/simulator, không thay evidence Linux/cgroups. Chưa có lệnh install/run/test sản phẩm; chỉ bổ sung khi command có trong repository.
+[Environment inventory](docs/environment-inventory.md) ngày 17/09/2026 xác nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; `uv` và `psql` còn thiếu, Node LTS alignment cần B02 khóa. macOS hỗ trợ tài liệu/development/simulator, không thay evidence Linux/cgroups. Chưa có lệnh install/run/test sản phẩm; chỉ bổ sung khi command có trong repository.
 
 ## Kiểm tra tài liệu hiện tại
 

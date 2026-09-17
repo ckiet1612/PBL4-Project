@@ -1,0 +1,2185 @@
+openapi: 3.1.0
+info:
+  title: Nexa REST API
+  version: 1.0.0-b01
+  summary: Single-node multi-tenant batch AI control plane
+  license:
+    name: License not declared by B01
+    identifier: LicenseRef-Nexa-Unspecified
+  description: |
+    Contract for browser, CLI, administrator, coordinator-facing worker, and
+    local bootstrap operations. Authorization, state transitions, transaction
+    semantics, and failure handling are normative in the linked B01 contract
+    documents. CLI scopes are exact, non-hierarchical permissions: jobs:read
+    covers template/job/session/event/log/result reads; jobs:write covers submit,
+    sweep and job controls; artifacts:read and artifacts:write cover tenant
+    artifact reads and uploads; tokens:write covers only the caller's token
+    metadata lifecycle; admin:read and admin:write cover SYSTEM_ADMIN read and
+    mutation operations respectively. Role, tenant membership, ownership, CSRF
+    and live authority checks remain mandatory in addition to scope. Unknown
+    request fields and duplicate JSON members are rejected.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: https://nexa.example/v1
+    description: Deployment-local TLS endpoint; hostname is configuration.
+tags:
+  - name: Auth
+    description: Browser sessions and scoped CLI tokens.
+  - name: Templates
+    description: Allowlisted managed workload catalog.
+  - name: Artifacts
+    description: Bounded immutable artifact upload and tenant-owned download.
+  - name: Jobs
+    description: Job, logical session, attempts, checkpoints, events, logs, results, and controls.
+  - name: Sweeps
+    description: Finite sweep parent and per-child admission outcomes.
+  - name: Admin
+    description: Audited system-administrator identity, policy, worker, fairness, recovery, and audit operations.
+  - name: Worker
+    description: Worker-scoped dispatch, lease, publish, and cleanup callbacks.
+  - name: Bootstrap
+    description: Maintenance-network bootstrap for the initial system administrator and configured local worker.
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: loginBrowserSession
+      summary: Create an opaque browser session
+      description: In WRITE_FROZEN this remains available only for an existing enabled user with an active SYSTEM_ADMIN grant; the transaction may update the login rate counter and append session/audit metadata but cannot mutate workload, artifact, policy other than guarded recovery, allocation, ledger, membership, or credential state.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { username: an@example.test, password: correct-horse-battery-staple }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Authenticated session; sets `nexa_session` Secure/HttpOnly/SameSite=Lax cookie.
+          headers:
+            Set-Cookie: { schema: { type: string } }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Revoke the current browser session
+      security:
+        - browserCookie: []
+          csrfToken: []
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '204': { description: The authenticated session was revoked. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /auth/session:
+    get:
+      tags: [Auth]
+      operationId: getBrowserSession
+      summary: Read the current browser session and memberships
+      security:
+        - browserCookie: []
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Current non-revoked session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /tokens:
+    get:
+      tags: [Auth]
+      operationId: listCliTokens
+      summary: List metadata for the caller's CLI tokens
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/PageSize' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Token metadata ordered by `created_at DESC, token_id DESC`; opaque values are never returned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Auth]
+      operationId: createCliToken
+      summary: Create an expiring scoped CLI token
+      description: Browser calls require CSRF; bearer callers need `tokens:write` scope. The opaque token is returned once and is never persisted in replay material. Same-key replay after commit returns `409 one_time_secret_unavailable` plus the token metadata Location; use a new key only after revoking the unknown token.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TokenCreateRequest' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '201':
+          description: Token committed.
+          headers:
+            Location: { schema: { type: string, format: uri-reference } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenCreated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /tokens/{token_id}:
+    delete:
+      tags: [Auth]
+      operationId: revokeCliToken
+      summary: Revoke one token owned by the caller
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters:
+        - $ref: '#/components/parameters/TokenId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '204': { description: Revoked or already revoked. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /templates:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Templates]
+      operationId: listTemplates
+      summary: List template versions visible to the principal
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - name: enabled
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Allowlisted templates and typed parameter definitions.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items: { $ref: '#/components/schemas/Template' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /templates/{template_id}:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Templates]
+      operationId: getTemplate
+      summary: Get one allowlisted template version
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TemplateId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Template contract.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Template' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /artifacts:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Artifacts]
+      operationId: listArtifacts
+      summary: List committed input/result artifacts owned by the active tenant
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: kind
+          in: query
+          schema: { $ref: '#/components/schemas/ArtifactKind' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Keyset page ordered by `created_at DESC, id DESC`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      tags: [Artifacts]
+      operationId: uploadArtifact
+      summary: Stream and commit an immutable tenant artifact
+      description: '`application/octet-stream` is the uniform transport. `X-Artifact-Media-Type` carries the original media type and is validated against the artifact-kind allowlist here; submit/template validation rechecks that committed Artifact against the selected immutable template. `X-Artifact-Size` is the exact streamed byte count. Idempotency hashes declared media type, size, checksum and `X-Artifact-Kind`; tenant context is part of the replay scope and authorization is rechecked before lookup. If Content-Length is present it must match; chunked transfer is allowed but remains bounded by the declared size. Early disconnect or size mismatch returns 422 and leaves only expiring staging. Content is checksum-verified, fsynced, atomically renamed, directory-fsynced, then metadata is committed.'
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ArtifactChecksum'
+        - $ref: '#/components/parameters/ArtifactSize'
+        - $ref: '#/components/parameters/UserArtifactKindHeader'
+        - $ref: '#/components/parameters/ArtifactMediaTypeHeader'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '201':
+          description: Durable committed artifact.
+          headers:
+            Location: { schema: { type: string, format: uri-reference } }
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Artifact' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /artifacts/{artifact_id}:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Artifacts]
+      operationId: getArtifactMetadata
+      summary: Read owned artifact metadata without exposing filesystem paths
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/ArtifactId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Owned artifact metadata.
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Artifact' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /artifacts/{artifact_id}/content:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Artifacts]
+      operationId: downloadArtifact
+      summary: Download an owned committed blob
+      description: Ownership and reference authorization are rechecked for every request; redirects to raw filesystem paths are forbidden.
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/ArtifactId'
+        - name: Range
+          in: header
+          required: false
+          schema: { type: string, pattern: '^bytes=[0-9]+-[0-9]*$' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Complete bytes.
+          headers:
+            ETag: { $ref: '#/components/headers/ChecksumETag' }
+            X-Artifact-Media-Type: { schema: { type: string, minLength: 1, maxLength: 127 } }
+            Content-Length: { schema: { type: integer, minimum: 0 } }
+          content:
+            application/octet-stream: { schema: { type: string, format: binary } }
+        '206':
+          description: Single byte range.
+          headers:
+            Content-Range: { schema: { type: string } }
+            ETag: { $ref: '#/components/headers/ChecksumETag' }
+            X-Artifact-Media-Type: { schema: { type: string, minLength: 1, maxLength: 127 } }
+          content:
+            application/octet-stream: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /jobs:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: listJobs
+      summary: List tenant-owned jobs using keyset pagination
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/JobState' }
+        - name: template_id
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 64 }
+        - name: created_after
+          in: query
+          schema: { $ref: '#/components/schemas/Timestamp' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Jobs ordered by `created_at DESC, id DESC`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Jobs]
+      operationId: submitJob
+      summary: Commit one job and logical execution session
+      description: Returns 202 only after input/template/capability/admission checks and the job/session/event/idempotency/counter transaction commit.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobSubmitRequest' }
+            example:
+              spec:
+                template_id: cpu-iterative
+                template_version: 1
+                input_artifact_id: 018f0d60-7b6a-7a21-9d82-1aa39c4f30b7
+                resources: { cpu_millis: 1000, memory_bytes: 536870912, gpu_count: 0 }
+                priority: 1
+                runtime_limit_seconds: 120
+                checkpoint_interval_seconds: 30
+                parameters: { iterations: 100000, seed: 7, modulus: 1000000007 }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '202':
+          description: Job accepted and durable.
+          headers:
+            Location: { schema: { type: string, format: uri-reference } }
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Infeasible' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /jobs/{job_id}:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: getJob
+      summary: Get tenant-owned job state and desired state
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/JobId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Job representation.
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions/{session_id}:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: getLogicalSession
+      summary: Get the logical execution session whose state is derived from its job
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Session identity and derived job state; clients cannot mutate session state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogicalSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /jobs/{job_id}/attempts:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: listJobAttempts
+      summary: List attempts for one owned job
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Attempts newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /jobs/{job_id}/checkpoints:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: listJobCheckpoints
+      summary: List committed checkpoint metadata for one owned job
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Committed checkpoints; staging/orphans are never exposed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckpointPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /jobs/{job_id}/events:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: listJobEvents
+      summary: Read ordered durable events after a sequence
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: after_sequence
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Events ordered by `sequence ASC, id ASC`, maximum 100.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /jobs/{job_id}/logs:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: readJobLogs
+      summary: Read a bounded log byte range
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: attempt_id
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/UuidV7' }
+        - name: after_offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: max_bytes
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1048576, default: 65536 }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: UTF-8-safe log chunks with a next byte offset; secrets/input/checkpoint bytes are prohibited.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /jobs/{job_id}/progress:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: getJobProgress
+      summary: Read the latest accepted progress for an owned job
+      description: Progress is a closed present/absent union. A present snapshot belongs to one attempt and sequence; after recovery a new attempt may explicitly reflect rollback to an earlier committed checkpoint.
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/JobId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Latest accepted progress or explicit absence before an attempt reports progress.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgressRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /jobs/{job_id}/result:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Jobs]
+      operationId: getJobResult
+      summary: Get the single recognized final result
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/JobId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Fenced unique final result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /jobs/{job_id}/cancel:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    post:
+      tags: [Jobs]
+      operationId: cancelJob
+      summary: Set desired state CANCELLED
+      description: Replay is resolved before If-Match. A committed cancel fences later completion; active allocations remain held until cleanup.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ControlRequest' }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '202': { $ref: '#/components/responses/AcceptedJob' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /jobs/{job_id}/pause:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    post:
+      tags: [Jobs]
+      operationId: pauseJob
+      summary: Request checkpointed pause
+      description: PAUSED is reached only after a committed checkpoint and verified container stop.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ControlRequest' } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '202': { $ref: '#/components/responses/AcceptedJob' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/Infeasible' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /jobs/{job_id}/resume:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    post:
+      tags: [Jobs]
+      operationId: resumeJob
+      summary: Requeue a paused job using a new attempt
+      description: Resume keeps job/session identity and does not consume infrastructure retry budget.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ControlRequest' } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '202': { $ref: '#/components/responses/AcceptedJob' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/Infeasible' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /jobs/{job_id}/retry:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    post:
+      tags: [Jobs]
+      operationId: retryFailedJob
+      summary: Create a new job/session from a failed terminal job
+      description: Manual retry never revives the terminal source; the response has `retry_of_job_id` and may reference a compatible committed checkpoint.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RetryRequest' }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '202': { $ref: '#/components/responses/AcceptedJob' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/Infeasible' }, '428': { $ref: '#/components/responses/PreconditionRequired' }, '429': { $ref: '#/components/responses/RateLimited' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /sweeps:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    post:
+      tags: [Sweeps]
+      operationId: submitSweep
+      summary: Create a finite sweep parent and admit each child independently
+      description: Maximum 100 children. The parent consumes no execution slot. Replay returns the same child mapping and cannot create duplicates.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SweepSubmitRequest' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '207':
+          description: Parent committed with per-child accepted/rejected outcomes; all accepted children return durable job IDs.
+          headers: { Location: { schema: { type: string, format: uri-reference } } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sweep' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /sweeps/{sweep_id}:
+    parameters: [ { $ref: '#/components/parameters/TenantContext' } ]
+    get:
+      tags: [Sweeps]
+      operationId: getSweep
+      summary: Read an owned sweep parent and bounded child outcomes
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/SweepId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Parent summary and a keyset page of children by child index.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sweep' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /admin/jobs:
+    get:
+      tags: [Admin]
+      operationId: adminListJobs
+      summary: Query the cross-tenant queue as a system administrator
+      description: Requires an active SYSTEM_ADMIN global grant and admin read scope. Every query is audited; the signed cursor binds the actor and all filters.
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: tenant_id
+          in: query
+          schema: { $ref: '#/components/schemas/UuidV7' }
+        - name: user_id
+          in: query
+          schema: { $ref: '#/components/schemas/UuidV7' }
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/JobState' }
+        - name: waiting_reason
+          in: query
+          schema: { $ref: '#/components/schemas/WaitingReason' }
+        - name: created_after
+          in: query
+          schema: { $ref: '#/components/schemas/Timestamp' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Jobs ordered by `created_at DESC, id DESC` across authorized tenants.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/jobs/{job_id}:
+    get:
+      tags: [Admin]
+      operationId: adminGetJob
+      summary: Read one cross-tenant job as a system administrator
+      description: Requires an active SYSTEM_ADMIN global grant and admin read scope; the access is audited and does not grant tenant mutation authority.
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/JobId' } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Cross-tenant job representation.
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/policy:
+    get:
+      tags: [Admin]
+      operationId: adminGetGlobalPolicy
+      summary: Read the versioned deployment-wide admission policy
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: Current global policy.
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/GlobalPolicy' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateGlobalPolicy
+      summary: Update global admission limits or operational mode using optimistic concurrency
+      description: Operational mode follows NORMAL to ADMISSION_OFF to WRITE_FROZEN and reopens in reverse order. Entering WRITE_FROZEN requires admission off, stopped/reconciled containers and no unreleased allocations. While frozen, workload and configuration mutations are rejected; only idempotent replay, append-only audit for permitted reads, existing-enabled-SYSTEM_ADMIN login/session revocation metadata, and the guarded restore transition to ADMISSION_OFF may write.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GlobalPolicyUpdate' } } } }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '200':
+          description: New global policy version committed.
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/GlobalPolicy' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /admin/tenants:
+    get:
+      tags: [Admin]
+      operationId: adminListTenants
+      summary: List tenants as a system administrator
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/PageSize' } ]
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Bounded tenant page., content: { application/json: { schema: { $ref: '#/components/schemas/TenantPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreateTenant
+      summary: Create a tenant
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TenantCreateRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '201': { description: Tenant committed., content: { application/json: { schema: { $ref: '#/components/schemas/Tenant' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' } }
+  /admin/users:
+    get:
+      tags: [Admin]
+      operationId: adminListUsers
+      summary: List users as a system administrator
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/PageSize' } ]
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Bounded user page., content: { application/json: { schema: { $ref: '#/components/schemas/UserPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreateUser
+      summary: Create a user with no implicit tenant membership
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UserCreateRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '201': { description: User committed., content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' } }
+  /admin/tenants/{tenant_id}/memberships:
+    get:
+      tags: [Admin]
+      operationId: adminListMemberships
+      summary: List tenant memberships
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/PageSize' } ]
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Bounded membership page. ETag is the tenant MembershipSet version and is returned even when the collection is empty., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/MembershipPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' } }
+    post:
+      tags: [Admin]
+      operationId: adminUpsertMembership
+      summary: Add or replace a tenant membership using the MembershipSet ETag
+      description: If-Match targets the tenant MembershipSet aggregate, which starts at version 1 even when empty. A successful create or role replacement increments that collection version exactly once; a stale concurrent administrator receives 412 without mutation.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MembershipWriteRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Membership set changed atomically., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Membership' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/tenants/{tenant_id}:
+    get:
+      tags: [Admin]
+      operationId: adminGetTenant
+      summary: Get one tenant
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TenantId' } ]
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Tenant representation., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Tenant' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' } }
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateTenant
+      summary: Update tenant display name or enabled state
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TenantUpdateRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Tenant update committed., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Tenant' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/tenants/{tenant_id}/memberships/{user_id}:
+    delete:
+      tags: [Admin]
+      operationId: adminDeleteMembership
+      summary: Remove a tenant membership using the MembershipSet ETag
+      description: If-Match targets the tenant MembershipSet aggregate rather than the member row. Successful deletion increments the collection version exactly once.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/UserId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '204': { description: Membership removed., headers: { ETag: { $ref: '#/components/headers/ETag' } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/users/{user_id}:
+    get:
+      tags: [Admin]
+      operationId: adminGetUser
+      summary: Get one user without password or token material
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/UserId' } ]
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: User representation., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' } }
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateUser
+      summary: Update a user display name, password, or enabled state
+      description: Disabling a user revokes browser sessions and CLI tokens in the committed administrative workflow.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/UserId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UserUpdateRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: User update committed., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/tenants/{tenant_id}/policy:
+    get:
+      tags: [Admin]
+      operationId: adminGetTenantPolicy
+      summary: Get versioned quota, weight, concurrency, and rate policy
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TenantId' } ]
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Tenant policy., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/TenantPolicy' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' } }
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateTenantPolicy
+      summary: Replace mutable policy values using optimistic concurrency
+      description: A reduction below held allocations or counters returns 409; drain first. No hard-quota borrowing is allowed.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/TenantId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TenantPolicyUpdate' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: New committed policy version., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/TenantPolicy' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/workers:
+    get:
+      tags: [Admin]
+      operationId: adminListWorkers
+      summary: List the configured local worker and health/capacity
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/PageSize' } ]
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Worker page; v1 has one local worker identity., content: { application/json: { schema: { $ref: '#/components/schemas/WorkerPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /admin/workers/{worker_id}:
+    get:
+      tags: [Admin]
+      operationId: adminGetWorker
+      summary: Read local worker inventory, incarnation, health, and administrative state
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/WorkerId' } ]
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Worker representation., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Worker' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' } }
+  /admin/workers/{worker_id}/drain:
+    post:
+      tags: [Admin]
+      operationId: adminDrainWorker
+      summary: Stop new allocations and wait for current attempts
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/WorkerId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminReasonRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '202': { description: Drain desired state committed., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Worker' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/workers/{worker_id}/disable:
+    post:
+      tags: [Admin]
+      operationId: adminDisableWorker
+      summary: Fence active attempts and request verified cleanup
+      description: Allocations remain QUARANTINED and charged until cleanup proves the correct containers stopped.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/WorkerId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminReasonRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '202': { description: Disable desired state and fencing committed., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Worker' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/workers/{worker_id}/enable:
+    post:
+      tags: [Admin]
+      operationId: adminEnableWorker
+      summary: Enable new allocations after worker reconciliation and readiness checks
+      description: Transitions DRAINING or DISABLED to ENABLED only when the current incarnation is reconciled, health is READY and DB/storage/capability checks pass. It never releases a quarantined allocation or revives fenced authority.
+      security:
+        - browserCookie: []
+          csrfToken: []
+        - cliBearer: []
+      parameters: [ { $ref: '#/components/parameters/WorkerId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminReasonRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Worker enabled after guarded readiness recheck., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Worker' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '404': { $ref: '#/components/responses/NotFound' }, '409': { $ref: '#/components/responses/Conflict' }, '412': { $ref: '#/components/responses/PreconditionFailed' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '428': { $ref: '#/components/responses/PreconditionRequired' } }
+  /admin/allocations:
+    get:
+      tags: [Admin]
+      operationId: adminListAllocations
+      summary: List held, quarantined, and released allocations
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/AllocationState' }
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Bounded allocation page., content: { application/json: { schema: { $ref: '#/components/schemas/AllocationPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /admin/fairness:
+    get:
+      tags: [Admin]
+      operationId: adminQueryFairness
+      summary: Query bounded dominant resource-time aggregates
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/FromTimestamp'
+        - $ref: '#/components/parameters/ToTimestamp'
+        - $ref: '#/components/parameters/BucketSeconds'
+        - name: tenant_id
+          in: query
+          schema: { $ref: '#/components/schemas/UuidV7' }
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: At most 1000 aggregate buckets; never a full queue dump., content: { application/json: { schema: { $ref: '#/components/schemas/FairnessReport' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /admin/recovery-events:
+    get:
+      tags: [Admin]
+      operationId: adminListRecoveryEvents
+      summary: List bounded recovery, stale rejection, quarantine, and reconcile events
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/PageSize' }, { $ref: '#/components/parameters/FromTimestamp' }, { $ref: '#/components/parameters/ToTimestamp' } ]
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Recovery event page., content: { application/json: { schema: { $ref: '#/components/schemas/EventPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /admin/audit:
+    get:
+      tags: [Admin]
+      operationId: adminListAuditRecords
+      summary: List immutable audit records with bounded filters
+      security: [ { browserCookie: [] }, { cliBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/FromTimestamp'
+        - $ref: '#/components/parameters/ToTimestamp'
+        - name: action
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses: { '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' }, '200': { description: Audit page., content: { application/json: { schema: { $ref: '#/components/schemas/AuditPage' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /internal/admin-bootstrap:
+    post:
+      tags: [Bootstrap]
+      operationId: bootstrapInitialAdmin
+      summary: Create the first system administrator from a deployment bootstrap secret
+      description: Maintenance-network, initial-deployment operation. It atomically creates one user and the first SYSTEM_ADMIN global grant only while no enabled system administrator exists and the admin-bootstrap window is open. Success permanently closes new admin bootstrap attempts; a completed same-key replay remains available without storing or returning the password. Later administrator changes use audited `/admin/users` operations.
+      security: [ { bootstrapSecret: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdminBootstrapRequest' } } } }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '201':
+          description: Initial user and global administrator grant committed.
+          headers: { Location: { schema: { type: string, format: uri-reference } }, ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /internal/worker-bootstrap:
+    post:
+      tags: [Bootstrap]
+      operationId: bootstrapLocalWorker
+      summary: Exchange a deployment bootstrap secret for the configured local worker credential
+      description: Maintenance-network, one-time/rotation operation. The raw worker credential is returned once and never persisted in replay material. Same-key replay after commit returns `409 one_time_secret_unavailable`; a new key atomically revokes/rotates the unknown current credential before issuing another. It cannot enroll arbitrary remote workers and is disabled after the configured bootstrap window.
+      security: [ { bootstrapSecret: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WorkerBootstrapRequest' } } } }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '201': { description: Worker identity and one-time opaque credential., headers: { Location: { schema: { type: string, format: uri-reference } } }, content: { application/json: { schema: { $ref: '#/components/schemas/WorkerBootstrapResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /workers/{worker_id}/incarnations:
+    post:
+      tags: [Worker]
+      operationId: workerCreateIncarnation
+      summary: Create and make current a server-generated worker process incarnation
+      description: The authenticated configured worker calls this once after taking the local singleton and before heartbeat/reconciliation. Under the Worker row lock the server generates the incarnation ID, increments the monotonic incarnation sequence, marks the prior incarnation ended, makes the new incarnation current in STARTING, and records the idempotent response. Same key and process-start nonce replay the same response; a new committed incarnation makes callbacks from every older incarnation stale.
+      security: [ { workerBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/WorkerId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WorkerIncarnationCreateRequest' } } } }
+      responses:
+        '201': { description: New current STARTING incarnation committed., content: { application/json: { schema: { $ref: '#/components/schemas/WorkerIncarnation' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /workers/{worker_id}/reconciliation:
+    get:
+      tags: [Worker]
+      operationId: workerGetReconciliation
+      summary: Page through server-known unreleased allocations before worker READY
+      description: The cursor is bound to worker identity and current STARTING incarnation. The worker drains all pages and reconciles exact startup/container identities before reporting `reconcile_complete=true`. A LIVE prior-incarnation item is not permission to continue compute; the new incarnation must complete `workerAdoptAttempt`, and only a timely valid adoption acknowledgment may update the existing runner deadline.
+      security: [ { workerBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/WorkerId'
+        - $ref: '#/components/parameters/WorkerIncarnationIdHeader'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Bounded reconciliation page ordered by allocation ID.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ReconciliationPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /workers/{worker_id}/heartbeat:
+    post:
+      tags: [Worker]
+      operationId: workerHeartbeat
+      summary: Report worker incarnation, observed health, inventory, and held containers
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/WorkerId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/HeartbeatRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Heartbeat committed with server DB time and desired admin state., content: { application/json: { schema: { $ref: '#/components/schemas/HeartbeatResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /workers/{worker_id}/poll:
+    post:
+      tags: [Worker]
+      operationId: workerPollDispatch
+      summary: Poll for at most one dispatch offer
+      description: Poll never authorizes execution; claim/start must commit before the runner starts.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/WorkerId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PollRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Dispatch offer or explicit no-work response., content: { application/json: { schema: { $ref: '#/components/schemas/PollResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/claim:
+    post:
+      tags: [Worker]
+      operationId: workerClaimAttempt
+      summary: Confirm a dispatch offer for the exact worker incarnation
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthorityRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Claim acknowledgment and immutable execution context; replay returns the byte-equivalent context snapshot., content: { application/json: { schema: { $ref: '#/components/schemas/ClaimResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/adopt:
+    post:
+      tags: [Worker]
+      operationId: workerAdoptAttempt
+      summary: Adopt an exact live managed container into the current worker incarnation
+      description: During STARTING reconciliation only, the current incarnation may atomically transfer an exact live Attempt/Lease from the immediately prior incarnation when the prior Authority is still live, desired state permits continuation, and container ID plus runtime identity digest match the server record and local inspection. Under the same Job/Attempt/Lease/reservation locks, the commit appends the immutable prior-to-current Authority grant lineage and rebinds every still-active checkpoint/result reservation without changing reservation IDs, callback IDs, upload keys, Artifact responses or runner bindings; the response explicitly returns transferred reservations. A stable descriptor-key retry may recover a completed upload response from a lineage predecessor only after current-Authority authentication and exact attempt/allocation/lease/fence plus immutable upload-metadata match. Same adoption callback replays the original complete acknowledgment. Failed, expired, mismatched, local-runner-binding-conflicting, or response-too-late adoption never authorizes execution; the worker stops the container, reports failure/cleanup, and cannot report READY until resolved.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdoptRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Adoption acknowledgment with new Authority and lease values., content: { application/json: { schema: { $ref: '#/components/schemas/AdoptResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/start:
+    post:
+      tags: [Worker]
+      operationId: workerStartAttempt
+      summary: Publish verified container identity and transition to RUNNING
+      description: The first committed callback sets DB lease expiry to DB-now plus 45 seconds and stores that acknowledgment. The worker binds the callback's first send-monotonic instant and applies its candidate runner deadline only after a valid acknowledgment arrives before that deadline. Same-callback replay returns the original expiry without extending it; failed or delayed response never starts/rebases compute.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StartRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Start acknowledgment with the initial lease deadline contract., content: { application/json: { schema: { $ref: '#/components/schemas/StartResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/renew:
+    post:
+      tags: [Worker]
+      operationId: workerRenewAttempt
+      summary: Renew a live attempt lease
+      description: Before the first send for a callback ID the worker records that callback's immutable local send-monotonic instant. Before the first runner progress frame it sends the lease-only branch `progress_sequence=0, progress=null`, which leaves progress explicitly absent; afterward it sends sequence >=1 and the complete latest snapshot. It may apply `send_monotonic + lease_duration - safety_margin` to the runner only after receiving this valid acknowledgment before that candidate deadline. Failure, uncertainty, delayed response, and same-callback replay never extend or rebase unconfirmed authority.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RenewRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Lease renewed using DB time., content: { application/json: { schema: { $ref: '#/components/schemas/RenewResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/checkpoint-reservations:
+    post:
+      tags: [Worker]
+      operationId: workerReserveCheckpoint
+      summary: Reserve a server-generated checkpoint identity and job sequence
+      description: Under the Job lock, exact live Authority reserves a server-generated checkpoint ID and the next checkpoint sequence. Same callback replays the same reservation. At most one checkpoint reservation is RESERVED for an Attempt; exact publish commits it, deterministic publish rejection marks it REJECTED, an authority-revoking failure/control/reaper transaction marks it ABANDONED, and successful adoption rebinds it before another can become active. The reservation is immutable input to the manifest and publish callback; abandonment never creates a committed/restorable Checkpoint and never permits a later manifest to reuse the identity for different content.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthorityRequest' } } } }
+      responses: { '201': { description: Checkpoint identity/sequence reserved., content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointReservation' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/checkpoints:
+    post:
+      tags: [Worker]
+      operationId: workerPublishCheckpoint
+      summary: Fence and commit checkpoint metadata after durable blob upload
+      description: |
+        The manifest checkpoint ID and sequence must equal an uncommitted
+        reservation returned by `workerReserveCheckpoint` for this Authority.
+        `manifest_artifact_id` must resolve to a committed same-tenant,
+        same-attempt `CHECKPOINT_MANIFEST` whose canonical checksum and embedded
+        manifest match the request. Every file reference is checked for exact
+        artifact ID, kind `CHECKPOINT_FILE`, checksum and size. A batch-inference
+        checkpoint must also reference a committed same-attempt
+        `CHUNK_OUTPUT_MANIFEST`; its referenced chunks become GC-reachable through
+        the checkpoint. That manifest is published by the current attempt, while
+        individual chunk entries may carry forward committed outputs from prior
+        attempts of the same tenant/job/logical session only when source attempt,
+        source fence and recognized `(job_id, chunk_id)` all match. In the publish
+        transaction, current-Authority chunks atomically insert-or-verify immutable
+        recognized rows; prior-attempt chunks require an existing exact row.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointPublishRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '201': { description: Checkpoint metadata committed., content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointRecord' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/artifacts:
+    post:
+      tags: [Worker]
+      operationId: workerUploadAttemptArtifact
+      summary: Stream an attempt-scoped checkpoint, result, or log artifact
+      description: The worker supplies full live Authority in headers; cleanup-only authority cannot upload. `application/octet-stream` is the uniform transport and required `X-Artifact-Media-Type` carries validated original media metadata. Idempotency hashes declared media type, size/checksum, artifact kind, normalized attempt path and the full Authority tuple, and current credential/incarnation/live authority are rechecked before replay. The only cross-incarnation replay is a completed upload whose stored Authority is a verified predecessor of current Authority for the same Attempt after successful adoption; attempt/allocation/lease/fence and immutable upload metadata must still match exactly. `X-Artifact-Size` is exact and must equal Content-Length when present or the final chunked byte count. Bytes become a committed Artifact only after the durable blob sequence and metadata commit; interruption/mismatch returns 422 and leaves only expiring staging. The successful or replayed `201 Artifact` response is the sole source of the committed artifact ID/kind/media type/size/checksum binding returned to the trusted runner before it creates a final checkpoint/result manifest.
+      security: [ { workerBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ArtifactChecksum'
+        - $ref: '#/components/parameters/ArtifactSize'
+        - $ref: '#/components/parameters/AttemptArtifactKindHeader'
+        - $ref: '#/components/parameters/ArtifactMediaTypeHeader'
+        - $ref: '#/components/parameters/WorkerIdHeader'
+        - $ref: '#/components/parameters/WorkerIncarnationIdHeader'
+        - $ref: '#/components/parameters/AllocationIdHeader'
+        - $ref: '#/components/parameters/LeaseIdHeader'
+        - $ref: '#/components/parameters/JobFenceHeader'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '201':
+          description: Durable attempt-scoped artifact committed; publish still requires a separate fenced callback.
+          headers: { Location: { schema: { type: string, format: uri-reference } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Artifact' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /attempts/{attempt_id}/result-reservations:
+    post:
+      tags: [Worker]
+      operationId: workerReserveResult
+      summary: Reserve the server-generated identity for the unique final result
+      description: Exact live Authority reserves one immutable server-generated result ID for its Attempt. Same callback replays the same reservation; a distinct reservation under the same live Authority conflicts. Successful incarnation adoption of that same Attempt atomically rebinds the active reservation to the new Authority and returns it in the adoption response without changing its ID/callback. After Authority is otherwise revoked and no Result exists, only a later authorized Attempt may supersede the abandoned reservation with a new server ID under the Job lock. Abandonment never creates a recognized Result, and completion must present the currently active reservation ID.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthorityRequest' } } } }
+      responses: { '201': { description: Final result identity reserved., content: { application/json: { schema: { $ref: '#/components/schemas/ResultReservation' } } } }, '400': { $ref: '#/components/responses/BadRequest' }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '500': { $ref: '#/components/responses/InternalError' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/complete:
+    post:
+      tags: [Worker]
+      operationId: workerCompleteAttempt
+      summary: Fence and recognize the unique final result
+      description: |
+        The manifest result ID must equal the live job reservation returned by
+        `workerReserveResult` for this Authority.
+        `result_manifest_artifact_id` must resolve to a committed same-tenant,
+        same-attempt `RESULT_MANIFEST` whose canonical checksum and embedded
+        manifest match the request. Every file reference is checked for exact
+        artifact ID, kind `RESULT_FILE`, checksum and size. Batch inference
+        additionally requires the referenced same-attempt `CHUNK_OUTPUT_MANIFEST`;
+        the API validates sorted non-overlapping ranges and full dataset coverage
+        before recognizing the unique final result. Chunk entries may reference
+        prior attempts only within the same tenant/job/logical session and must
+        bind exact source attempt/fence plus recognized `(job_id, chunk_id)`.
+        Current-Authority chunks atomically insert-or-verify recognized rows,
+        prior-attempt chunks require existing exact rows, and the complete
+        cross-attempt reference graph is retained for GC.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompleteRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Completion/result acknowledgment; callback replay returns the same record., content: { application/json: { schema: { $ref: '#/components/schemas/WorkerAck' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/execution-artifacts/{artifact_id}/content:
+    get:
+      tags: [Worker]
+      operationId: workerDownloadExecutionArtifact
+      summary: Download an artifact from the exact claimed execution graph
+      description: This worker-only data route accepts full live Authority in headers and returns bytes only when the artifact is an immutable input, model, dataset, or committed restore-checkpoint file referenced by the ClaimResponse execution graph for this exact Attempt. It has no tenant-listing semantics, never accepts a filesystem path, and cannot read arbitrary same-tenant artifacts. Authority, graph membership, checksum and current credential/incarnation are rechecked on every request.
+      security: [ { workerBearer: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/ArtifactId'
+        - $ref: '#/components/parameters/WorkerIdHeader'
+        - $ref: '#/components/parameters/WorkerIncarnationIdHeader'
+        - $ref: '#/components/parameters/AllocationIdHeader'
+        - $ref: '#/components/parameters/LeaseIdHeader'
+        - $ref: '#/components/parameters/JobFenceHeader'
+        - name: Range
+          in: header
+          required: false
+          schema: { type: string, pattern: '^bytes=[0-9]+-[0-9]*$' }
+      responses:
+        '200': { description: Complete immutable artifact bytes., headers: { ETag: { $ref: '#/components/headers/ChecksumETag' }, X-Artifact-Media-Type: { schema: { type: string, minLength: 1, maxLength: 127 } }, Content-Length: { schema: { type: integer, minimum: 0 } } }, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        '206': { description: Single byte range., headers: { ETag: { $ref: '#/components/headers/ChecksumETag' }, X-Artifact-Media-Type: { schema: { type: string, minLength: 1, maxLength: 127 } }, Content-Range: { schema: { type: string } } }, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /attempts/{attempt_id}/fail:
+    post:
+      tags: [Worker]
+      operationId: workerFailAttempt
+      summary: Fence and commit a classified attempt failure before cleanup
+      description: The exact live Authority and typed observation are rechecked. A post-create observation binds exact container identity; a pre-create observation carries `NoContainerProof` backed by startup nonce and executor tombstone. The callback atomically stores the failure and safe reason code, revokes the lease, increments the job fence, moves the job to RECOVERING and the allocation to QUARANTINED, and records the replay acknowledgment. No allocation is released until separate proof-based cleanup; same callback ID and payload replays the original acknowledgment, while stale or payload-mismatched callbacks return 409.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FailureRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Failure committed and authority fenced; callback replay returns the same acknowledgment., content: { application/json: { schema: { $ref: '#/components/schemas/WorkerAck' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+  /attempts/{attempt_id}/cleanup:
+    post:
+      tags: [Worker]
+      operationId: workerReportCleanup
+      summary: Prove no container exists or the exact container stopped so allocation may be released
+      description: Cleanup authentication is separate from renew/publish authority and remains valid for the revoked attempt identity; it cannot publish data or revive the lease. `NoContainerProof` must bind a tombstoned startup nonce/sequence with no create in flight; `ContainerStoppedProof` binds the exact runtime identity.
+      security: [ { workerBearer: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CleanupRequest' } } } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: 'Cleanup accepted and allocation released, or replay of that acknowledgment.', content: { application/json: { schema: { $ref: '#/components/schemas/CleanupResponse' } } } }, '202': { description: Proof recorded but reconcile must still verify absence; allocation remains quarantined., content: { application/json: { schema: { $ref: '#/components/schemas/CleanupResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+components:
+  securitySchemes:
+    browserCookie: { type: apiKey, in: cookie, name: nexa_session }
+    csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
+    cliBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-cli-token
+      description: Exact non-hierarchical scopes. `jobs:read` authorizes template/job/session/event/log/result reads; `jobs:write` authorizes submit, sweep and job control; `artifacts:read` authorizes tenant artifact list/download; `artifacts:write` authorizes tenant upload; `tokens:write` authorizes only the caller's token list/create/revoke; `admin:read` and `admin:write` authorize SYSTEM_ADMIN reads and mutations. Current-principal introspection accepts any otherwise-valid token. No scope bypasses membership, ownership, global grant, CSRF, tenant context or object-state checks.
+    workerBearer: { type: http, scheme: bearer, bearerFormat: opaque-worker-token }
+    bootstrapSecret: { type: apiKey, in: header, name: X-Nexa-Bootstrap-Secret }
+  headers:
+    RequestId: { description: Correlation ID., schema: { $ref: '#/components/schemas/UuidV7' } }
+    ETag: { description: Strong version ETag., schema: { type: string, pattern: '^"v[1-9][0-9]*"$' } }
+    ChecksumETag: { description: Strong blob checksum ETag., schema: { type: string, pattern: '^"sha256:[0-9a-f]{64}"$' } }
+    RetryAfter: { description: Minimum whole seconds before retry., schema: { type: integer, minimum: 1 } }
+  parameters:
+    Cursor: { name: cursor, in: query, required: false, schema: { type: string, minLength: 16, maxLength: 2048 } }
+    PageSize: { name: page_size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    TenantContext: { name: X-Nexa-Tenant-Id, in: header, required: true, description: Explicit tenant context; active membership/role/scope is rechecked and cursors/idempotency are bound to this value., schema: { $ref: '#/components/schemas/UuidV7' } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, description: 'Replay scope is operation-specific and closed by the contract to tenant UUID, GLOBAL, BOOTSTRAP, WORKER identity, or an Authority-resolved tenant for worker upload; callback operations use X-Callback-Id instead.', schema: { type: string, pattern: '^[!-~]{16,128}$' } }
+    IfMatch: { name: If-Match, in: header, required: true, schema: { type: string, pattern: '^"v[1-9][0-9]*"$' } }
+    CallbackId: { name: X-Callback-Id, in: header, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    WorkerIdHeader: { name: X-Worker-Id, in: header, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    WorkerIncarnationIdHeader: { name: X-Worker-Incarnation-Id, in: header, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    AllocationIdHeader: { name: X-Allocation-Id, in: header, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    LeaseIdHeader: { name: X-Lease-Id, in: header, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    JobFenceHeader: { name: X-Job-Fence, in: header, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+    ArtifactChecksum: { name: X-Artifact-Checksum, in: header, required: true, schema: { $ref: '#/components/schemas/Checksum' } }
+    ArtifactSize: { name: X-Artifact-Size, in: header, required: true, description: Exact streamed byte count; must equal Content-Length when present and final received bytes for chunked transfer., schema: { type: integer, format: int64, minimum: 0, maximum: 1099511627776 } }
+    ArtifactMediaTypeHeader: { name: X-Artifact-Media-Type, in: header, required: true, description: 'Original artifact media type stored as immutable metadata; transport remains application/octet-stream. It participates in idempotency hashing, must match the artifact-kind allowlist at upload, and is rechecked against template/manifest rules when referenced or published.', schema: { type: string, minLength: 1, maxLength: 127, pattern: '^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+(?:;[A-Za-z0-9!#$&^_.+;= -]+)?$' } }
+    UserArtifactKindHeader: { name: X-Artifact-Kind, in: header, required: true, description: Tenant upload kind; declaration does not bypass template/model allowlist validation., schema: { $ref: '#/components/schemas/UserArtifactKind' } }
+    AttemptArtifactKindHeader: { name: X-Artifact-Kind, in: header, required: true, description: Attempt-scoped output kind; full live Authority is still required., schema: { $ref: '#/components/schemas/AttemptArtifactKind' } }
+    JobId: { name: job_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    SessionId: { name: session_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    AttemptId: { name: attempt_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    ArtifactId: { name: artifact_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    TokenId: { name: token_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    TenantId: { name: tenant_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    UserId: { name: user_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    WorkerId: { name: worker_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    SweepId: { name: sweep_id, in: path, required: true, schema: { $ref: '#/components/schemas/UuidV7' } }
+    TemplateId: { name: template_id, in: path, required: true, schema: { type: string, pattern: '^[a-z][a-z0-9-]{1,63}$' } }
+    FromTimestamp: { name: from, in: query, required: true, schema: { $ref: '#/components/schemas/Timestamp' } }
+    ToTimestamp: { name: to, in: query, required: true, schema: { $ref: '#/components/schemas/Timestamp' } }
+    BucketSeconds: { name: bucket_seconds, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 86400 } }
+  responses:
+    BadRequest: { description: 'Malformed body, duplicate JSON member, unknown field, filter, or cursor.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Unauthorized: { description: 'Missing, invalid, expired, or revoked credential.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Forbidden: { description: 'Authenticated principal lacks role/scope, tenant membership/context, or CSRF proof.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    NotFound: { description: Resource absent or not visible in the authenticated tenant scope., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Conflict: { description: 'Idempotency key mismatch/in-progress, one-time secret already delivered, callback ID replayed with a different payload, committed state conflict, stale execution authority, or unique conflict. The ErrorResponse code identifies the case. Retry-After is present and equals 1 only for idempotency_in_progress; Location is present only for one_time_secret_unavailable.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' }, Retry-After: { $ref: '#/components/headers/RetryAfter' }, Location: { schema: { type: string, format: uri-reference } } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    PreconditionFailed: { description: If-Match does not equal the current version., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    PreconditionRequired: { description: Required If-Match header is absent., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    PayloadTooLarge: { description: Declared or streamed bytes exceed a configured hard limit., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    ValidationFailed: { description: 'Typed request validation, declared-size, or checksum validation failed.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    Infeasible: { description: Request cannot fit total capacity/quota or lacks a configured capability., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    RateLimited: { description: Durable user/tenant rate or outstanding-job quota exceeded., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' }, Retry-After: { $ref: '#/components/headers/RetryAfter' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    DependencyUnavailable: { description: 'Queue full, DB/schema/storage/capability/reconciliation dependency unavailable, or storage pressure.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' }, Retry-After: { $ref: '#/components/headers/RetryAfter' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    InternalError: { description: 'Unexpected server failure after safe rollback or fail-closed handling; no credential, path, input, checkpoint, SQL, or cross-tenant data is exposed.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    AcceptedJob: { description: Control transition committed., headers: { ETag: { $ref: '#/components/headers/ETag' } }, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+  schemas:
+    UuidV7: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+    Timestamp: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' }
+    Checksum: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+    Version: { type: integer, format: int64, minimum: 1 }
+    ErrorCode: { type: string, enum: [authentication_required, invalid_csrf, permission_denied, resource_not_found, validation_failed, invalid_cursor, idempotency_conflict, idempotency_in_progress, one_time_secret_unavailable, precondition_required, version_conflict, state_conflict, infeasible_request, rate_limited, quota_exceeded, queue_full, dependency_unavailable, checksum_mismatch, payload_too_large, storage_pressure, stale_authority, lease_expired, callback_replayed, internal_error] }
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        message: { type: string, minLength: 1, maxLength: 256 }
+        request_id: { $ref: '#/components/schemas/UuidV7' }
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [next_cursor, page_size]
+      properties:
+        next_cursor: { type: [string, 'null'], maxLength: 2048 }
+        page_size: { type: integer, minimum: 0, maximum: 100 }
+    Role: { type: string, enum: [MEMBER, TENANT_ADMIN] }
+    SystemRole: { type: string, enum: [SYSTEM_ADMIN] }
+    Membership:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, user_id, role, created_at, updated_at]
+      properties:
+        tenant_id: { $ref: '#/components/schemas/UuidV7' }
+        user_id: { $ref: '#/components/schemas/UuidV7' }
+        role: { $ref: '#/components/schemas/Role' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true }
+    BrowserSession:
+      type: object
+      additionalProperties: false
+      required: [session_id, user_id, csrf_token, expires_at, memberships, system_roles]
+      properties:
+        session_id: { $ref: '#/components/schemas/UuidV7' }
+        user_id: { $ref: '#/components/schemas/UuidV7' }
+        csrf_token: { type: string, minLength: 32, maxLength: 256, readOnly: true }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        memberships: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Membership' } }
+        system_roles: { type: array, maxItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/SystemRole' } }
+    TokenScope: { type: string, enum: ['jobs:read', 'jobs:write', 'artifacts:read', 'artifacts:write', 'tokens:write', 'admin:read', 'admin:write'] }
+    TokenCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name, scopes, expires_in_seconds]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/TokenScope' } }
+        expires_in_seconds: { type: integer, minimum: 300, maximum: 2592000 }
+    TokenMetadata:
+      type: object
+      additionalProperties: false
+      required: [token_id, name, scopes, created_at, expires_at, revoked_at]
+      properties:
+        token_id: { $ref: '#/components/schemas/UuidV7' }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/TokenScope' } }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        revoked_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+    TokenPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/TokenMetadata' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    TokenCreated:
+      type: object
+      additionalProperties: false
+      required: [token_id, name, scopes, created_at, expires_at, revoked_at, token]
+      properties:
+        token_id: { $ref: '#/components/schemas/UuidV7' }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/TokenScope' } }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        revoked_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        token: { type: string, minLength: 32, maxLength: 512, readOnly: true }
+    ParameterDefinition:
+      type: object
+      additionalProperties: false
+      required: [name, type, required, minimum, maximum, default]
+      properties:
+        name: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }
+        type: { type: string, enum: [INTEGER, NUMBER, BOOLEAN, STRING, ENUM] }
+        required: { type: boolean }
+        minimum: { type: [number, 'null'] }
+        maximum: { type: [number, 'null'] }
+        default: { type: [integer, number, boolean, string, 'null'] }
+        enum_values: { type: [array, 'null'], maxItems: 64, items: { type: string, maxLength: 64 } }
+        unit: { type: [string, 'null'], maxLength: 32 }
+    Template:
+      type: object
+      additionalProperties: false
+      required: [template_id, version, display_name, adapter_id, adapter_version, image_digest, enabled, checkpointable, restart_safe, allowed_devices, capability_requirement, parameter_schema]
+      properties:
+        template_id: { type: string, pattern: '^[a-z][a-z0-9-]{1,63}$' }
+        version: { $ref: '#/components/schemas/Version' }
+        display_name: { type: string, minLength: 1, maxLength: 100 }
+        adapter_id: { type: string, pattern: '^[a-z][a-z0-9_.-]{1,63}$' }
+        adapter_version: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+        image_digest: { $ref: '#/components/schemas/Checksum' }
+        enabled: { type: boolean }
+        checkpointable: { type: boolean }
+        restart_safe: { type: boolean }
+        allowed_devices: { type: array, minItems: 1, uniqueItems: true, items: { type: string, enum: [CPU, CUDA] } }
+        capability_requirement: { $ref: '#/components/schemas/WorkloadCapabilityRequirement' }
+        parameter_schema: { type: array, maxItems: 64, items: { $ref: '#/components/schemas/ParameterDefinition' } }
+    UserArtifactKind: { type: string, enum: [INPUT, DATASET, MODEL] }
+    AttemptArtifactKind: { type: string, enum: [CHECKPOINT_FILE, CHECKPOINT_MANIFEST, RESULT_FILE, RESULT_MANIFEST, CHUNK_OUTPUT_MANIFEST, LOG] }
+    ArtifactKind: { type: string, enum: [INPUT, DATASET, MODEL, CHECKPOINT_FILE, CHECKPOINT_MANIFEST, RESULT_FILE, RESULT_MANIFEST, CHUNK_OUTPUT_MANIFEST, LOG] }
+    Artifact:
+      type: object
+      additionalProperties: false
+      required: [artifact_id, tenant_id, kind, media_type, size_bytes, checksum, state, version, created_at]
+      properties:
+        artifact_id: { $ref: '#/components/schemas/UuidV7' }
+        tenant_id: { $ref: '#/components/schemas/UuidV7' }
+        kind: { $ref: '#/components/schemas/ArtifactKind' }
+        media_type: { type: string, minLength: 1, maxLength: 127 }
+        size_bytes: { type: integer, format: int64, minimum: 0 }
+        checksum: { $ref: '#/components/schemas/Checksum' }
+        state: { type: string, enum: [COMMITTED] }
+        version: { $ref: '#/components/schemas/Version' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    ArtifactPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Artifact' } }, page: { $ref: '#/components/schemas/PageInfo' } }
+    ResourceRequestVector:
+      type: object
+      additionalProperties: false
+      required: [cpu_millis, memory_bytes, gpu_count]
+      properties:
+        cpu_millis: { type: integer, minimum: 100, maximum: 100000000 }
+        memory_bytes: { type: integer, format: int64, minimum: 67108864 }
+        gpu_count: { type: integer, minimum: 0, maximum: 1 }
+    ResourceCapacityVector:
+      type: object
+      additionalProperties: false
+      required: [cpu_millis, memory_bytes, gpu_count]
+      properties:
+        cpu_millis: { type: integer, minimum: 0, maximum: 100000000 }
+        memory_bytes: { type: integer, format: int64, minimum: 0 }
+        gpu_count: { type: integer, minimum: 0, maximum: 64 }
+    CpuParameters:
+      type: object
+      additionalProperties: false
+      required: [iterations, seed, modulus]
+      properties:
+        iterations: { type: integer, minimum: 1, maximum: 1000000000 }
+        seed: { type: integer, minimum: 0, maximum: 2147483647 }
+        modulus: { type: integer, minimum: 2, maximum: 2147483647 }
+    TrainingParameters:
+      type: object
+      additionalProperties: false
+      required: [epochs, batch_size, learning_rate, seed, subset_size]
+      properties:
+        epochs: { type: integer, minimum: 1, maximum: 100 }
+        batch_size: { type: integer, minimum: 1, maximum: 512 }
+        learning_rate: { type: number, exclusiveMinimum: 0, maximum: 1 }
+        seed: { type: integer, minimum: 0, maximum: 2147483647 }
+        subset_size: { type: integer, minimum: 100, maximum: 50000 }
+    InferenceParameters:
+      type: object
+      additionalProperties: false
+      required: [chunk_size, batch_size, output_format]
+      properties:
+        chunk_size: { type: integer, minimum: 1, maximum: 100000 }
+        batch_size: { type: integer, minimum: 1, maximum: 4096 }
+        output_format: { type: string, enum: [JSONL, PARQUET] }
+    JobSpecBase:
+      type: object
+      required: [template_id, template_version, input_artifact_id, resources, priority, runtime_limit_seconds, checkpoint_interval_seconds]
+      properties:
+        template_id: { type: string }
+        template_version: { $ref: '#/components/schemas/Version' }
+        input_artifact_id: { $ref: '#/components/schemas/UuidV7' }
+        resources: { $ref: '#/components/schemas/ResourceRequestVector' }
+        priority: { type: integer, minimum: 0, maximum: 2, default: 1 }
+        runtime_limit_seconds: { type: integer, minimum: 1, maximum: 300, default: 300 }
+        checkpoint_interval_seconds: { type: integer, minimum: 5, maximum: 60, default: 30 }
+    CpuJobSpec:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: '#/components/schemas/JobSpecBase'
+        - type: object
+          required: [template_id, parameters]
+          properties:
+            template_id: { const: cpu-iterative }
+            parameters: { $ref: '#/components/schemas/CpuParameters' }
+    TrainingJobSpec:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: '#/components/schemas/JobSpecBase'
+        - type: object
+          required: [template_id, parameters]
+          properties:
+            template_id: { const: pytorch-cifar10-cnn }
+            parameters: { $ref: '#/components/schemas/TrainingParameters' }
+    InferenceJobSpec:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: '#/components/schemas/JobSpecBase'
+        - type: object
+          required: [template_id, model_artifact_id, parameters]
+          properties:
+            template_id: { const: batch-inference }
+            model_artifact_id: { $ref: '#/components/schemas/UuidV7' }
+            parameters: { $ref: '#/components/schemas/InferenceParameters' }
+    JobSpec:
+      oneOf: [ { $ref: '#/components/schemas/CpuJobSpec' }, { $ref: '#/components/schemas/TrainingJobSpec' }, { $ref: '#/components/schemas/InferenceJobSpec' } ]
+      discriminator:
+        propertyName: template_id
+        mapping:
+          cpu-iterative: '#/components/schemas/CpuJobSpec'
+          pytorch-cifar10-cnn: '#/components/schemas/TrainingJobSpec'
+          batch-inference: '#/components/schemas/InferenceJobSpec'
+    JobSubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [spec]
+      properties: { spec: { $ref: '#/components/schemas/JobSpec' } }
+    JobState: { type: string, enum: [QUEUED, DISPATCHING, RUNNING, PAUSING, PAUSED, RECOVERING, RETRY_WAIT, CANCELLING, SUCCEEDED, FAILED, CANCELLED] }
+    DesiredState: { type: string, enum: [RUNNING, PAUSED, CANCELLED] }
+    WaitingReason: { type: [string, 'null'], enum: [waiting_for_worker, waiting_for_capacity, waiting_for_quota, waiting_for_reservation, waiting_for_retry, waiting_for_compatibility, null] }
+    Job:
+      type: object
+      additionalProperties: false
+      required: [job_id, tenant_id, user_id, session_id, state, desired_state, waiting_reason, spec, spec_checksum, job_fence, retry_count, max_retries, retry_of_job_id, version, event_sequence, created_at, updated_at]
+      properties:
+        job_id: { $ref: '#/components/schemas/UuidV7' }
+        tenant_id: { $ref: '#/components/schemas/UuidV7' }
+        user_id: { $ref: '#/components/schemas/UuidV7' }
+        session_id: { $ref: '#/components/schemas/UuidV7' }
+        state: { $ref: '#/components/schemas/JobState' }
+        desired_state: { $ref: '#/components/schemas/DesiredState' }
+        waiting_reason: { $ref: '#/components/schemas/WaitingReason' }
+        spec: { $ref: '#/components/schemas/JobSpec' }
+        spec_checksum: { $ref: '#/components/schemas/Checksum' }
+        job_fence: { type: integer, format: int64, minimum: 0 }
+        retry_count: { type: integer, minimum: 0, maximum: 2 }
+        max_retries: { const: 2 }
+        retry_of_job_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] }
+        version: { $ref: '#/components/schemas/Version' }
+        event_sequence: { type: integer, format: int64, minimum: 1 }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    JobPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Job' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    LogicalSession:
+      type: object
+      additionalProperties: false
+      required: [session_id, job_id, tenant_id, derived_state, created_at]
+      properties: { session_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, tenant_id: { $ref: '#/components/schemas/UuidV7' }, derived_state: { $ref: '#/components/schemas/JobState' }, created_at: { $ref: '#/components/schemas/Timestamp' } }
+    AttemptState: { type: string, enum: [CREATED, CLAIMED, STARTING, RUNNING, CHECKPOINTING, STOPPING, SUCCEEDED, FAILED, LOST, CANCELLED] }
+    Attempt:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, job_id, attempt_number, state, worker_id, worker_incarnation_id, allocation_id, lease_id, job_fence, started_at, ended_at, failure_class, created_at]
+      properties:
+        attempt_id: { $ref: '#/components/schemas/UuidV7' }
+        job_id: { $ref: '#/components/schemas/UuidV7' }
+        attempt_number: { type: integer, minimum: 1, maximum: 100 }
+        state: { $ref: '#/components/schemas/AttemptState' }
+        worker_id: { $ref: '#/components/schemas/UuidV7' }
+        worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }
+        allocation_id: { $ref: '#/components/schemas/UuidV7' }
+        lease_id: { $ref: '#/components/schemas/UuidV7' }
+        job_fence: { type: integer, format: int64, minimum: 1 }
+        started_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        ended_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        failure_class: { type: [string, 'null'], enum: [INFRASTRUCTURE, TIMEOUT, OOM, INVALID_INPUT, USER_CANCEL, INCOMPATIBLE, INTERNAL, null] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    AttemptPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Attempt' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    CheckpointRecord:
+      type: object
+      additionalProperties: false
+      required: [checkpoint_id, job_id, attempt_id, sequence, manifest_artifact_id, manifest_checksum, state, created_at]
+      properties: { checkpoint_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, sequence: { type: integer, minimum: 1 }, manifest_artifact_id: { $ref: '#/components/schemas/UuidV7' }, manifest_checksum: { $ref: '#/components/schemas/Checksum' }, state: { type: string, enum: [COMMITTED, REJECTED, CORRUPT] }, created_at: { $ref: '#/components/schemas/Timestamp' } }
+    CheckpointPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/CheckpointRecord' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    Event:
+      type: object
+      additionalProperties: false
+      required: [event_id, tenant_id, job_id, sequence, type, reason, actor_type, created_at]
+      properties: { event_id: { $ref: '#/components/schemas/UuidV7' }, tenant_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] }, sequence: { type: integer, format: int64, minimum: 1 }, type: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,63}$' }, reason: { type: string, minLength: 1, maxLength: 256 }, actor_type: { type: string, enum: [USER, ADMIN, WORKER, COORDINATOR, SYSTEM] }, created_at: { $ref: '#/components/schemas/Timestamp' } }
+    EventPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Event' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    LogChunk:
+      type: object
+      additionalProperties: false
+      required: [offset, text]
+      properties: { offset: { type: integer, format: int64, minimum: 0 }, text: { type: string, maxLength: 1048576 } }
+    LogPage:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, chunks, next_offset, truncated, terminal]
+      properties: { attempt_id: { $ref: '#/components/schemas/UuidV7' }, chunks: { type: array, maxItems: 1024, items: { $ref: '#/components/schemas/LogChunk' } }, next_offset: { type: integer, format: int64, minimum: 0 }, truncated: { type: boolean }, terminal: { type: boolean } }
+    ProgressAbsent:
+      type: object
+      additionalProperties: false
+      required: [job_id, available]
+      properties:
+        job_id: { $ref: '#/components/schemas/UuidV7' }
+        available: { type: boolean, const: false }
+    ProgressPresent:
+      type: object
+      additionalProperties: false
+      required: [job_id, available, attempt_id, progress_sequence, snapshot, restore_checkpoint_id, reported_at]
+      properties:
+        job_id: { $ref: '#/components/schemas/UuidV7' }
+        available: { type: boolean, const: true }
+        attempt_id: { $ref: '#/components/schemas/UuidV7' }
+        progress_sequence: { type: integer, format: int64, minimum: 1 }
+        snapshot: { $ref: '#/components/schemas/ProgressSnapshot' }
+        restore_checkpoint_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] }
+        reported_at: { $ref: '#/components/schemas/Timestamp' }
+    ProgressRecord:
+      oneOf: [ { $ref: '#/components/schemas/ProgressAbsent' }, { $ref: '#/components/schemas/ProgressPresent' } ]
+      discriminator:
+        propertyName: available
+        mapping:
+          'false': '#/components/schemas/ProgressAbsent'
+          'true': '#/components/schemas/ProgressPresent'
+    ResultRecord:
+      type: object
+      additionalProperties: false
+      required: [result_id, job_id, attempt_id, manifest_artifact_id, manifest_checksum, created_at]
+      properties: { result_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, manifest_artifact_id: { $ref: '#/components/schemas/UuidV7' }, manifest_checksum: { $ref: '#/components/schemas/Checksum' }, created_at: { $ref: '#/components/schemas/Timestamp' } }
+    ControlRequest: { type: object, additionalProperties: false, required: [reason], properties: { reason: { type: string, minLength: 1, maxLength: 256 } } }
+    RetryRequest: { type: object, additionalProperties: false, required: [reason, checkpoint_id], properties: { reason: { type: string, minLength: 1, maxLength: 256 }, checkpoint_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] } } }
+    SweepDimension:
+      type: object
+      additionalProperties: false
+      required: [name, values]
+      properties: { name: { type: string, pattern: '^[a-z][a-z0-9_]{0,63}$' }, values: { type: array, minItems: 1, maxItems: 100, uniqueItems: true, items: { type: [integer, number, boolean, string] } } }
+    SweepSubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [base_spec, dimensions]
+      properties: { base_spec: { $ref: '#/components/schemas/TrainingJobSpec' }, dimensions: { type: array, minItems: 1, maxItems: 16, items: { $ref: '#/components/schemas/SweepDimension' } } }
+    SweepChildOutcome:
+      type: object
+      additionalProperties: false
+      required: [child_index, parameter_hash, status, job_id, error]
+      properties: { child_index: { type: integer, minimum: 0, maximum: 99 }, parameter_hash: { $ref: '#/components/schemas/Checksum' }, status: { type: string, enum: [ACCEPTED, REJECTED] }, job_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] }, error: { oneOf: [ { $ref: '#/components/schemas/ErrorResponse' }, { type: 'null' } ] } }
+    Sweep:
+      type: object
+      additionalProperties: false
+      required: [sweep_id, tenant_id, child_count, accepted_count, rejected_count, children, page, created_at]
+      properties: { sweep_id: { $ref: '#/components/schemas/UuidV7' }, tenant_id: { $ref: '#/components/schemas/UuidV7' }, child_count: { type: integer, minimum: 1, maximum: 100 }, accepted_count: { type: integer, minimum: 0, maximum: 100 }, rejected_count: { type: integer, minimum: 0, maximum: 100 }, children: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SweepChildOutcome' } }, page: { $ref: '#/components/schemas/PageInfo' }, created_at: { $ref: '#/components/schemas/Timestamp' } }
+    Tenant:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, slug, display_name, enabled, version, created_at, updated_at]
+      properties: { tenant_id: { $ref: '#/components/schemas/UuidV7' }, slug: { type: string, pattern: '^[a-z][a-z0-9-]{1,62}[a-z0-9]$' }, display_name: { type: string, minLength: 1, maxLength: 100 }, enabled: { type: boolean }, version: { $ref: '#/components/schemas/Version' }, created_at: { $ref: '#/components/schemas/Timestamp' }, updated_at: { $ref: '#/components/schemas/Timestamp' } }
+    TenantCreateRequest: { type: object, additionalProperties: false, required: [slug, display_name], properties: { slug: { type: string, pattern: '^[a-z][a-z0-9-]{1,62}[a-z0-9]$' }, display_name: { type: string, minLength: 1, maxLength: 100 } } }
+    TenantUpdateRequest: { type: object, additionalProperties: false, minProperties: 1, properties: { display_name: { type: string, minLength: 1, maxLength: 100 }, enabled: { type: boolean } } }
+    TenantPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Tenant' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    User:
+      type: object
+      additionalProperties: false
+      required: [user_id, username, display_name, enabled, system_roles, version, created_at, updated_at]
+      properties: { user_id: { $ref: '#/components/schemas/UuidV7' }, username: { type: string, minLength: 3, maxLength: 254 }, display_name: { type: string, minLength: 1, maxLength: 100 }, enabled: { type: boolean }, system_roles: { type: array, maxItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/SystemRole' } }, version: { $ref: '#/components/schemas/Version' }, created_at: { $ref: '#/components/schemas/Timestamp' }, updated_at: { $ref: '#/components/schemas/Timestamp' } }
+    UserCreateRequest: { type: object, additionalProperties: false, required: [username, display_name, password, system_roles], properties: { username: { type: string, minLength: 3, maxLength: 254 }, display_name: { type: string, minLength: 1, maxLength: 100 }, password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true }, system_roles: { type: array, maxItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/SystemRole' } } } }
+    UserUpdateRequest: { type: object, additionalProperties: false, minProperties: 1, properties: { display_name: { type: string, minLength: 1, maxLength: 100 }, password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true }, enabled: { type: boolean }, system_roles: { type: array, maxItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/SystemRole' } } } }
+    UserPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/User' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    MembershipWriteRequest: { type: object, additionalProperties: false, required: [user_id, role], properties: { user_id: { $ref: '#/components/schemas/UuidV7' }, role: { $ref: '#/components/schemas/Role' } } }
+    MembershipPage: { type: object, additionalProperties: false, required: [membership_set_version, items, page], properties: { membership_set_version: { $ref: '#/components/schemas/Version' }, items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Membership' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    OperationalMode: { type: string, enum: [NORMAL, ADMISSION_OFF, WRITE_FROZEN] }
+    GlobalPolicy:
+      type: object
+      additionalProperties: false
+      required: [version, global_outstanding_limit, operational_mode, updated_at]
+      properties:
+        version: { $ref: '#/components/schemas/Version' }
+        global_outstanding_limit: { type: integer, minimum: 1, maximum: 1000000, default: 100000 }
+        operational_mode: { $ref: '#/components/schemas/OperationalMode' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    GlobalPolicyUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        global_outstanding_limit: { type: integer, minimum: 1, maximum: 1000000 }
+        operational_mode: { $ref: '#/components/schemas/OperationalMode' }
+    TenantPolicy:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, version, weight, outstanding_limit, user_outstanding_limit, concurrent_attempt_limit, user_concurrent_attempt_limit, resource_limit, submit_rate_per_second, submit_burst, user_submit_rate_per_second, user_submit_burst, updated_at]
+      properties:
+        tenant_id: { $ref: '#/components/schemas/UuidV7' }
+        version: { $ref: '#/components/schemas/Version' }
+        weight: { type: number, exclusiveMinimum: 0, maximum: 1000 }
+        outstanding_limit: { type: integer, minimum: 1, default: 2000 }
+        user_outstanding_limit: { type: integer, minimum: 1, default: 2000 }
+        concurrent_attempt_limit: { type: integer, minimum: 1, default: 2 }
+        user_concurrent_attempt_limit: { type: integer, minimum: 1, default: 1 }
+        resource_limit: { $ref: '#/components/schemas/ResourceCapacityVector' }
+        submit_rate_per_second: { type: number, exclusiveMinimum: 0, default: 5 }
+        submit_burst: { type: integer, minimum: 1, default: 20 }
+        user_submit_rate_per_second: { type: number, exclusiveMinimum: 0, default: 2 }
+        user_submit_burst: { type: integer, minimum: 1, default: 10 }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    TenantPolicyUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        weight: { type: number, exclusiveMinimum: 0, maximum: 1000 }
+        outstanding_limit: { type: integer, minimum: 1 }
+        user_outstanding_limit: { type: integer, minimum: 1 }
+        concurrent_attempt_limit: { type: integer, minimum: 1 }
+        user_concurrent_attempt_limit: { type: integer, minimum: 1 }
+        resource_limit: { $ref: '#/components/schemas/ResourceCapacityVector' }
+        submit_rate_per_second: { type: number, exclusiveMinimum: 0 }
+        submit_burst: { type: integer, minimum: 1 }
+        user_submit_rate_per_second: { type: number, exclusiveMinimum: 0 }
+        user_submit_burst: { type: integer, minimum: 1 }
+    Architecture: { type: string, enum: [linux/amd64, linux/arm64] }
+    DeviceClass: { type: string, enum: [CPU, CUDA] }
+    SemanticVersion: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$' }
+    RuntimeCapability:
+      type: object
+      additionalProperties: false
+      required: [docker_version, oci_runtime, oci_runtime_version, cgroups_version, kernel_release, seccomp_available]
+      properties:
+        docker_version: { type: string, minLength: 1, maxLength: 64 }
+        oci_runtime: { type: string, enum: [runc, crun] }
+        oci_runtime_version: { type: string, minLength: 1, maxLength: 64 }
+        cgroups_version: { const: 2 }
+        kernel_release: { type: string, minLength: 1, maxLength: 128 }
+        seccomp_available: { type: boolean }
+    AdapterCapability:
+      type: object
+      additionalProperties: false
+      required: [adapter_id, adapter_version]
+      properties: { adapter_id: { type: string, pattern: '^[a-z][a-z0-9_.-]{1,63}$' }, adapter_version: { $ref: '#/components/schemas/SemanticVersion' } }
+    ImageCapability:
+      type: object
+      additionalProperties: false
+      required: [image_digest, architecture, verified]
+      properties: { image_digest: { $ref: '#/components/schemas/Checksum' }, architecture: { $ref: '#/components/schemas/Architecture' }, verified: { type: boolean } }
+    FrameworkCapability:
+      type: object
+      additionalProperties: false
+      required: [framework, framework_version, device, cuda_runtime_version]
+      properties:
+        framework: { type: string, enum: [PYTORCH, NEXA_CPU] }
+        framework_version: { $ref: '#/components/schemas/SemanticVersion' }
+        device: { $ref: '#/components/schemas/DeviceClass' }
+        cuda_runtime_version: { oneOf: [ { $ref: '#/components/schemas/SemanticVersion' }, { type: 'null' } ] }
+    GpuDevice:
+      type: object
+      additionalProperties: false
+      required: [uuid, model, memory_bytes, compute_capability, driver_version, cuda_driver_api_version, healthy]
+      properties:
+        uuid: { type: string, minLength: 1, maxLength: 128 }
+        model: { type: string, minLength: 1, maxLength: 128 }
+        memory_bytes: { type: integer, format: int64, minimum: 1 }
+        compute_capability: { type: string, pattern: '^[0-9]+\.[0-9]+$' }
+        driver_version: { type: string, minLength: 1, maxLength: 64 }
+        cuda_driver_api_version: { $ref: '#/components/schemas/SemanticVersion' }
+        healthy: { type: boolean }
+    WorkloadCapabilityRequirement:
+      type: object
+      additionalProperties: false
+      required: [architectures, adapter_id, adapter_version, image_digest, device, framework, framework_version, cuda_runtime_min, driver_min, compute_capability_min]
+      properties:
+        architectures: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/Architecture' } }
+        adapter_id: { type: string, pattern: '^[a-z][a-z0-9_.-]{1,63}$' }
+        adapter_version: { $ref: '#/components/schemas/SemanticVersion' }
+        image_digest: { $ref: '#/components/schemas/Checksum' }
+        device: { $ref: '#/components/schemas/DeviceClass' }
+        framework: { type: string, enum: [PYTORCH, NEXA_CPU] }
+        framework_version: { $ref: '#/components/schemas/SemanticVersion' }
+        cuda_runtime_min: { oneOf: [ { $ref: '#/components/schemas/SemanticVersion' }, { type: 'null' } ] }
+        driver_min: { oneOf: [ { type: string, minLength: 1, maxLength: 64 }, { type: 'null' } ] }
+        compute_capability_min: { oneOf: [ { type: string, pattern: '^[0-9]+\.[0-9]+$' }, { type: 'null' } ] }
+    WorkerInventory:
+      type: object
+      additionalProperties: false
+      description: All capability arrays are authoritative closed declarations. A missing matching adapter, image, framework, runtime, driver, CUDA, device or GPU entry means unsupported; dispatch and restore must reject or remain blocked rather than infer capability.
+      required: [architecture, host_cpu_millis, host_memory_bytes, allocatable, runtime, adapters, images, frameworks, gpu_devices, discovered_at]
+      properties:
+        architecture: { $ref: '#/components/schemas/Architecture' }
+        host_cpu_millis: { type: integer, minimum: 1000 }
+        host_memory_bytes: { type: integer, format: int64, minimum: 2147483648 }
+        allocatable: { $ref: '#/components/schemas/ResourceCapacityVector' }
+        runtime: { $ref: '#/components/schemas/RuntimeCapability' }
+        adapters: { type: array, maxItems: 64, items: { $ref: '#/components/schemas/AdapterCapability' } }
+        images: { type: array, maxItems: 256, items: { $ref: '#/components/schemas/ImageCapability' } }
+        frameworks: { type: array, maxItems: 64, items: { $ref: '#/components/schemas/FrameworkCapability' } }
+        gpu_devices: { type: array, maxItems: 64, items: { $ref: '#/components/schemas/GpuDevice' } }
+        discovered_at: { $ref: '#/components/schemas/Timestamp' }
+    Worker:
+      type: object
+      additionalProperties: false
+      required: [worker_id, current_incarnation_id, health, admin_state, inventory, version, last_heartbeat_at, ready_at]
+      properties: { worker_id: { $ref: '#/components/schemas/UuidV7' }, current_incarnation_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] }, health: { type: string, enum: [STARTING, READY, SUSPECT, UNAVAILABLE] }, admin_state: { type: string, enum: [ENABLED, DRAINING, DISABLED] }, inventory: { oneOf: [ { $ref: '#/components/schemas/WorkerInventory' }, { type: 'null' } ] }, version: { $ref: '#/components/schemas/Version' }, last_heartbeat_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }, ready_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] } }
+    WorkerPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Worker' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    AllocationState: { type: string, enum: [HELD, QUARANTINED, RELEASED] }
+    Allocation:
+      type: object
+      additionalProperties: false
+      required: [allocation_id, tenant_id, job_id, attempt_id, worker_id, resources, gpu_uuids, state, held_at, quarantined_at, released_at]
+      properties: { allocation_id: { $ref: '#/components/schemas/UuidV7' }, tenant_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, worker_id: { $ref: '#/components/schemas/UuidV7' }, resources: { $ref: '#/components/schemas/ResourceRequestVector' }, gpu_uuids: { type: array, maxItems: 1, uniqueItems: true, items: { type: string, minLength: 1, maxLength: 128 } }, state: { $ref: '#/components/schemas/AllocationState' }, held_at: { $ref: '#/components/schemas/Timestamp' }, quarantined_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }, released_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] } }
+    AllocationPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Allocation' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    FairnessBucket:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, start_at, end_at, weight, dominant_resource_time_seconds, normalized_service, allocation_occupancy_seconds]
+      properties: { tenant_id: { $ref: '#/components/schemas/UuidV7' }, start_at: { $ref: '#/components/schemas/Timestamp' }, end_at: { $ref: '#/components/schemas/Timestamp' }, weight: { type: number, exclusiveMinimum: 0 }, dominant_resource_time_seconds: { type: number, minimum: 0 }, normalized_service: { type: number, minimum: 0 }, allocation_occupancy_seconds: { type: number, minimum: 0 } }
+    FairnessReport: { type: object, additionalProperties: false, required: [from, to, bucket_seconds, buckets], properties: { from: { $ref: '#/components/schemas/Timestamp' }, to: { $ref: '#/components/schemas/Timestamp' }, bucket_seconds: { type: integer, minimum: 1 }, buckets: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/FairnessBucket' } } } }
+    AuditRecord:
+      type: object
+      additionalProperties: false
+      required: [audit_id, actor_type, actor_id, tenant_id, action, target_type, target_id, reason, created_at]
+      properties: { audit_id: { $ref: '#/components/schemas/UuidV7' }, actor_type: { type: string, enum: [USER, ADMIN, WORKER, COORDINATOR, SYSTEM] }, actor_id: { type: string, minLength: 1, maxLength: 128 }, tenant_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] }, action: { type: string, minLength: 1, maxLength: 64 }, target_type: { type: string, minLength: 1, maxLength: 64 }, target_id: { type: string, minLength: 1, maxLength: 128 }, reason: { type: string, minLength: 1, maxLength: 256 }, created_at: { $ref: '#/components/schemas/Timestamp' } }
+    AuditPage: { type: object, additionalProperties: false, required: [items, page], properties: { items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/AuditRecord' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    AdminReasonRequest: { type: object, additionalProperties: false, required: [reason], properties: { reason: { type: string, minLength: 1, maxLength: 256 } } }
+    AdminBootstrapRequest: { type: object, additionalProperties: false, required: [username, display_name, password], properties: { username: { type: string, minLength: 3, maxLength: 254 }, display_name: { type: string, minLength: 1, maxLength: 100 }, password: { type: string, minLength: 12, maxLength: 1024, writeOnly: true } } }
+    WorkerBootstrapRequest: { type: object, additionalProperties: false, required: [installation_id, credential_public_fingerprint], properties: { installation_id: { $ref: '#/components/schemas/UuidV7' }, credential_public_fingerprint: { $ref: '#/components/schemas/Checksum' } } }
+    WorkerBootstrapResponse: { type: object, additionalProperties: false, required: [worker_id, credential_id, credential, credential_expires_at], properties: { worker_id: { $ref: '#/components/schemas/UuidV7' }, credential_id: { $ref: '#/components/schemas/UuidV7' }, credential: { type: string, minLength: 32, maxLength: 512, readOnly: true }, credential_expires_at: { $ref: '#/components/schemas/Timestamp' } } }
+    WorkerIncarnationCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [process_start_nonce]
+      properties: { process_start_nonce: { $ref: '#/components/schemas/UuidV7' } }
+    WorkerIncarnation:
+      type: object
+      additionalProperties: false
+      required: [worker_id, worker_incarnation_id, sequence, process_start_nonce, health, created_at]
+      properties:
+        worker_id: { $ref: '#/components/schemas/UuidV7' }
+        worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }
+        sequence: { type: integer, format: int64, minimum: 1 }
+        process_start_nonce: { $ref: '#/components/schemas/UuidV7' }
+        health: { type: string, const: STARTING }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    ContainerIdentity:
+      type: object
+      additionalProperties: false
+      required: [container_id, runtime_identity_digest]
+      properties: { container_id: { type: string, pattern: '^[0-9a-f]{64}$' }, runtime_identity_digest: { $ref: '#/components/schemas/Checksum' } }
+    Authority:
+      type: object
+      additionalProperties: false
+      required: [worker_id, worker_incarnation_id, attempt_id, allocation_id, lease_id, job_fence]
+      properties: { worker_id: { $ref: '#/components/schemas/UuidV7' }, worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, allocation_id: { $ref: '#/components/schemas/UuidV7' }, lease_id: { $ref: '#/components/schemas/UuidV7' }, job_fence: { type: integer, format: int64, minimum: 1 } }
+    AuthorityRequest: { type: object, additionalProperties: false, required: [authority], properties: { authority: { $ref: '#/components/schemas/Authority' } } }
+    HeartbeatRequest:
+      type: object
+      additionalProperties: false
+      required: [worker_incarnation_id, observed_health, reconcile_complete, inventory, observed_containers]
+      properties: { worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }, observed_health: { type: string, enum: [STARTING, READY] }, reconcile_complete: { type: boolean }, inventory: { $ref: '#/components/schemas/WorkerInventory' }, observed_containers: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/ContainerIdentity' } } }
+    HeartbeatResponse: { type: object, additionalProperties: false, required: [server_time, admin_state, accepted_incarnation_id, next_heartbeat_seconds], properties: { server_time: { $ref: '#/components/schemas/Timestamp' }, admin_state: { type: string, enum: [ENABLED, DRAINING, DISABLED] }, accepted_incarnation_id: { $ref: '#/components/schemas/UuidV7' }, next_heartbeat_seconds: { type: integer, const: 5 } } }
+    ReconciliationItem:
+      type: object
+      additionalProperties: false
+      required: [authority, authority_state, lease_expires_at, desired_state, allocation, startup_nonce, claim_state, expected_container]
+      properties:
+        authority: { $ref: '#/components/schemas/Authority' }
+        authority_state: { type: string, enum: [LIVE, REVOKED] }
+        lease_expires_at: { $ref: '#/components/schemas/Timestamp' }
+        desired_state: { $ref: '#/components/schemas/DesiredState' }
+        allocation: { $ref: '#/components/schemas/Allocation' }
+        startup_nonce: { $ref: '#/components/schemas/UuidV7' }
+        claim_state: { type: string, enum: [UNCLAIMED, CLAIMED, STARTED] }
+        expected_container: { oneOf: [ { $ref: '#/components/schemas/ContainerIdentity' }, { type: 'null' } ] }
+    ReconciliationPage: { type: object, additionalProperties: false, required: [server_time, items, page], properties: { server_time: { $ref: '#/components/schemas/Timestamp' }, items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ReconciliationItem' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
+    PollRequest: { type: object, additionalProperties: false, required: [worker_incarnation_id, long_poll_seconds], properties: { worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }, long_poll_seconds: { type: integer, minimum: 0, maximum: 30, default: 20 } } }
+    ExecutionIntent: { type: string, enum: [RUN, CHECKPOINT_FOR_PAUSE] }
+    ExecutionCheckpoint:
+      type: object
+      additionalProperties: false
+      required: [record, manifest, files]
+      properties:
+        record: { $ref: '#/components/schemas/CheckpointRecord' }
+        manifest: { $ref: '#/components/schemas/CheckpointManifest' }
+        files: { type: array, maxItems: 64, items: { $ref: '#/components/schemas/Artifact' } }
+    ExecutionContext:
+      type: object
+      additionalProperties: false
+      required: [job_id, logical_session_id, authority, execution_intent, spec, template_snapshot, adapter_id, adapter_version, image_digest, allocation, input_artifacts, restore_checkpoint, startup_nonce, startup_limit_seconds, lease_duration_seconds]
+      properties:
+        job_id: { $ref: '#/components/schemas/UuidV7' }
+        logical_session_id: { $ref: '#/components/schemas/UuidV7' }
+        authority: { $ref: '#/components/schemas/Authority' }
+        execution_intent: { $ref: '#/components/schemas/ExecutionIntent' }
+        spec: { $ref: '#/components/schemas/JobSpec' }
+        template_snapshot: { $ref: '#/components/schemas/Template' }
+        adapter_id: { type: string, pattern: '^[a-z][a-z0-9_.-]{1,63}$' }
+        adapter_version: { $ref: '#/components/schemas/SemanticVersion' }
+        image_digest: { $ref: '#/components/schemas/Checksum' }
+        allocation: { $ref: '#/components/schemas/Allocation' }
+        input_artifacts: { type: array, minItems: 1, maxItems: 3, items: { $ref: '#/components/schemas/Artifact' } }
+        restore_checkpoint: { oneOf: [ { $ref: '#/components/schemas/ExecutionCheckpoint' }, { type: 'null' } ] }
+        startup_nonce: { $ref: '#/components/schemas/UuidV7' }
+        startup_limit_seconds: { type: integer, const: 30 }
+        lease_duration_seconds: { type: integer, const: 45 }
+    DispatchOffer:
+      type: object
+      additionalProperties: false
+      required: [authority, dispatch_coordinator_epoch, spec, input_artifact, checkpoint, startup_limit_seconds, lease_duration_seconds]
+      properties: { authority: { $ref: '#/components/schemas/Authority' }, dispatch_coordinator_epoch: { type: integer, format: int64, minimum: 1 }, spec: { $ref: '#/components/schemas/JobSpec' }, input_artifact: { $ref: '#/components/schemas/Artifact' }, checkpoint: { oneOf: [ { $ref: '#/components/schemas/CheckpointRecord' }, { type: 'null' } ] }, startup_limit_seconds: { type: integer, const: 30 }, lease_duration_seconds: { type: integer, const: 45 } }
+    PollResponse: { type: object, additionalProperties: false, required: [server_time, offer, retry_after_seconds], properties: { server_time: { $ref: '#/components/schemas/Timestamp' }, offer: { oneOf: [ { $ref: '#/components/schemas/DispatchOffer' }, { type: 'null' } ] }, retry_after_seconds: { type: integer, minimum: 0, maximum: 30 } } }
+    ClaimResponse:
+      type: object
+      additionalProperties: false
+      required: [callback_id, accepted, server_time, job_state, job_version, execution_context]
+      properties:
+        callback_id: { $ref: '#/components/schemas/UuidV7' }
+        accepted: { type: boolean, const: true }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        job_state: { $ref: '#/components/schemas/JobState' }
+        job_version: { $ref: '#/components/schemas/Version' }
+        execution_context: { $ref: '#/components/schemas/ExecutionContext' }
+    AdoptRequest:
+      type: object
+      additionalProperties: false
+      required: [prior_authority, current_worker_incarnation_id, container]
+      properties:
+        prior_authority: { $ref: '#/components/schemas/Authority' }
+        current_worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }
+        container: { $ref: '#/components/schemas/ContainerIdentity' }
+    AdoptResponse:
+      type: object
+      additionalProperties: false
+      required: [callback_id, accepted, server_time, authority, transferred_checkpoint_reservation, transferred_result_reservation, lease_expires_at, lease_duration_seconds, renew_interval_seconds, safety_margin_seconds]
+      properties:
+        callback_id: { $ref: '#/components/schemas/UuidV7' }
+        accepted: { type: boolean, const: true }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        authority: { $ref: '#/components/schemas/Authority' }
+        transferred_checkpoint_reservation: { oneOf: [ { $ref: '#/components/schemas/CheckpointReservation' }, { type: 'null' } ] }
+        transferred_result_reservation: { oneOf: [ { $ref: '#/components/schemas/ResultReservation' }, { type: 'null' } ] }
+        lease_expires_at: { $ref: '#/components/schemas/Timestamp' }
+        lease_duration_seconds: { type: integer, const: 45 }
+        renew_interval_seconds: { type: integer, const: 5 }
+        safety_margin_seconds: { type: integer, const: 5 }
+    StartRequest:
+      type: object
+      additionalProperties: false
+      required: [authority, startup_nonce, executor_operation_sequence, container]
+      properties: { authority: { $ref: '#/components/schemas/Authority' }, startup_nonce: { $ref: '#/components/schemas/UuidV7' }, executor_operation_sequence: { type: integer, format: int64, minimum: 1 }, container: { $ref: '#/components/schemas/ContainerIdentity' } }
+    StartResponse:
+      type: object
+      additionalProperties: false
+      required: [callback_id, accepted, server_time, job_state, job_version, lease_expires_at, lease_duration_seconds, renew_interval_seconds, safety_margin_seconds]
+      properties:
+        callback_id: { $ref: '#/components/schemas/UuidV7' }
+        accepted: { type: boolean }
+        server_time: { $ref: '#/components/schemas/Timestamp' }
+        job_state: { $ref: '#/components/schemas/JobState' }
+        job_version: { $ref: '#/components/schemas/Version' }
+        lease_expires_at: { $ref: '#/components/schemas/Timestamp' }
+        lease_duration_seconds: { type: integer, const: 45 }
+        renew_interval_seconds: { type: integer, const: 5 }
+        safety_margin_seconds: { type: integer, const: 5 }
+    RenewWithoutProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [authority, progress_sequence, progress]
+      properties: { authority: { $ref: '#/components/schemas/Authority' }, progress_sequence: { type: integer, format: int64, const: 0 }, progress: { type: 'null' } }
+    RenewWithProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [authority, progress_sequence, progress]
+      properties: { authority: { $ref: '#/components/schemas/Authority' }, progress_sequence: { type: integer, format: int64, minimum: 1 }, progress: { $ref: '#/components/schemas/ProgressSnapshot' } }
+    RenewRequest:
+      oneOf: [ { $ref: '#/components/schemas/RenewWithoutProgressRequest' }, { $ref: '#/components/schemas/RenewWithProgressRequest' } ]
+    ProgressSnapshot:
+      type: object
+      additionalProperties: false
+      required: [fraction, step, epoch, item_cursor]
+      properties:
+        fraction: { type: number, minimum: 0, maximum: 1 }
+        step: { oneOf: [ { type: integer, format: int64, minimum: 0 }, { type: 'null' } ] }
+        epoch: { oneOf: [ { type: integer, format: int64, minimum: 0 }, { type: 'null' } ] }
+        item_cursor: { oneOf: [ { type: integer, format: int64, minimum: 0 }, { type: 'null' } ] }
+    RenewResponse: { type: object, additionalProperties: false, required: [server_time, lease_expires_at, desired_state, renew_interval_seconds, safety_margin_seconds], properties: { server_time: { $ref: '#/components/schemas/Timestamp' }, lease_expires_at: { $ref: '#/components/schemas/Timestamp' }, desired_state: { $ref: '#/components/schemas/DesiredState' }, renew_interval_seconds: { type: integer, const: 5 }, safety_margin_seconds: { type: integer, const: 5 } } }
+    CheckpointManifest: { $ref: './schemas/workload-manifests.schema.json#/$defs/checkpointManifest' }
+    ResultManifest: { $ref: './schemas/workload-manifests.schema.json#/$defs/resultManifest' }
+    CheckpointReservation:
+      type: object
+      additionalProperties: false
+      required: [callback_id, checkpoint_id, job_id, attempt_id, sequence, reserved_at]
+      properties: { callback_id: { $ref: '#/components/schemas/UuidV7' }, checkpoint_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, sequence: { type: integer, format: int64, minimum: 1 }, reserved_at: { $ref: '#/components/schemas/Timestamp' } }
+    ResultReservation:
+      type: object
+      additionalProperties: false
+      required: [callback_id, result_id, job_id, attempt_id, reserved_at]
+      properties: { callback_id: { $ref: '#/components/schemas/UuidV7' }, result_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, reserved_at: { $ref: '#/components/schemas/Timestamp' } }
+    CheckpointPublishRequest: { type: object, additionalProperties: false, required: [authority, manifest_artifact_id, manifest], properties: { authority: { $ref: '#/components/schemas/Authority' }, manifest_artifact_id: { $ref: '#/components/schemas/UuidV7' }, manifest: { $ref: '#/components/schemas/CheckpointManifest' } } }
+    CompleteRequest: { type: object, additionalProperties: false, required: [authority, result_manifest_artifact_id, manifest], properties: { authority: { $ref: '#/components/schemas/Authority' }, result_manifest_artifact_id: { $ref: '#/components/schemas/UuidV7' }, manifest: { $ref: '#/components/schemas/ResultManifest' } } }
+    FailureClass: { type: string, enum: [INFRASTRUCTURE, TIMEOUT, OOM, INVALID_INPUT, INCOMPATIBLE, INTERNAL] }
+    NoContainerProof:
+      type: object
+      additionalProperties: false
+      required: [proof_type, startup_nonce, executor_operation_sequence, tombstone_sequence, observed_at, inspection_checksum]
+      properties:
+        proof_type: { type: string, const: NO_CONTAINER }
+        startup_nonce: { $ref: '#/components/schemas/UuidV7' }
+        executor_operation_sequence: { type: integer, format: int64, minimum: 1 }
+        tombstone_sequence: { type: integer, format: int64, minimum: 1 }
+        observed_at: { $ref: '#/components/schemas/Timestamp' }
+        inspection_checksum: { $ref: '#/components/schemas/Checksum' }
+    ContainerStoppedProof:
+      type: object
+      additionalProperties: false
+      required: [proof_type, startup_nonce, executor_operation_sequence, container, stopped_at, exit_code, inspection_checksum]
+      properties:
+        proof_type: { type: string, const: CONTAINER_STOPPED }
+        startup_nonce: { $ref: '#/components/schemas/UuidV7' }
+        executor_operation_sequence: { type: integer, format: int64, minimum: 1 }
+        container: { $ref: '#/components/schemas/ContainerIdentity' }
+        stopped_at: { $ref: '#/components/schemas/Timestamp' }
+        exit_code: { type: integer, minimum: -1, maximum: 255 }
+        inspection_checksum: { $ref: '#/components/schemas/Checksum' }
+    CleanupProof:
+      oneOf: [ { $ref: '#/components/schemas/NoContainerProof' }, { $ref: '#/components/schemas/ContainerStoppedProof' } ]
+      discriminator:
+        propertyName: proof_type
+        mapping:
+          NO_CONTAINER: '#/components/schemas/NoContainerProof'
+          CONTAINER_STOPPED: '#/components/schemas/ContainerStoppedProof'
+    NoContainerFailureObservation:
+      type: object
+      additionalProperties: false
+      required: [observation_type, proof]
+      properties: { observation_type: { type: string, const: NO_CONTAINER }, proof: { $ref: '#/components/schemas/NoContainerProof' } }
+    ContainerFailureObservation:
+      type: object
+      additionalProperties: false
+      required: [observation_type, container, observed_at, exit_code, oom_killed, runtime_limit_reached]
+      properties:
+        observation_type: { type: string, const: CONTAINER }
+        container: { $ref: '#/components/schemas/ContainerIdentity' }
+        observed_at: { $ref: '#/components/schemas/Timestamp' }
+        exit_code: { oneOf: [ { type: integer, minimum: -1, maximum: 255 }, { type: 'null' } ] }
+        oom_killed: { type: boolean }
+        runtime_limit_reached: { type: boolean }
+    FailureObservation:
+      oneOf: [ { $ref: '#/components/schemas/NoContainerFailureObservation' }, { $ref: '#/components/schemas/ContainerFailureObservation' } ]
+      discriminator:
+        propertyName: observation_type
+        mapping:
+          NO_CONTAINER: '#/components/schemas/NoContainerFailureObservation'
+          CONTAINER: '#/components/schemas/ContainerFailureObservation'
+    FailureRequest:
+      type: object
+      additionalProperties: false
+      required: [authority, failure_class, reason_code, observation]
+      properties:
+        authority: { $ref: '#/components/schemas/Authority' }
+        failure_class: { $ref: '#/components/schemas/FailureClass' }
+        reason_code: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,63}$', description: 'Allowlisted safe code only; never raw stderr, input, path, credential, SQL or checkpoint content.' }
+        observation: { $ref: '#/components/schemas/FailureObservation' }
+    WorkerAck: { type: object, additionalProperties: false, required: [callback_id, accepted, server_time, job_state, job_version], properties: { callback_id: { $ref: '#/components/schemas/UuidV7' }, accepted: { type: boolean }, server_time: { $ref: '#/components/schemas/Timestamp' }, job_state: { $ref: '#/components/schemas/JobState' }, job_version: { $ref: '#/components/schemas/Version' } } }
+    CleanupRequest:
+      type: object
+      additionalProperties: false
+      required: [worker_id, worker_incarnation_id, attempt_id, allocation_id, job_fence, proof]
+      properties: { worker_id: { $ref: '#/components/schemas/UuidV7' }, worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, allocation_id: { $ref: '#/components/schemas/UuidV7' }, job_fence: { type: integer, format: int64, minimum: 1 }, proof: { $ref: '#/components/schemas/CleanupProof' } }
+    CleanupResponse: { type: object, additionalProperties: false, required: [callback_id, verified, allocation_state, server_time], properties: { callback_id: { $ref: '#/components/schemas/UuidV7' }, verified: { type: boolean }, allocation_state: { $ref: '#/components/schemas/AllocationState' }, server_time: { $ref: '#/components/schemas/Timestamp' } } }

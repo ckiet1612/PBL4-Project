@@ -28,13 +28,31 @@ Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffo
 ├── docs/
 │   ├── acceptance.md
 │   ├── adr/
-│   │   └── .gitkeep
+│   │   ├── 0001-process-boundaries-and-trust.md
+│   │   ├── 0002-authoritative-state-and-durable-blob-commit.md
+│   │   ├── 0003-worker-authority-fencing-and-cleanup.md
+│   │   └── 0004-checkpoint-manifest-and-compatibility.md
 │   ├── adr.md
 │   ├── agent-setup.md
 │   ├── contracts.md
+│   ├── contracts/
+│   │   ├── concurrency-recovery.md
+│   │   ├── domain-model.md
+│   │   ├── examples/
+│   │   │   ├── checkpoint-manifest.json
+│   │   │   ├── chunk-output-manifest.json
+│   │   │   └── result-manifest.json
+│   │   ├── internal-interfaces.md
+│   │   ├── openapi.yaml
+│   │   ├── schemas/
+│   │   │   └── workload-manifests.schema.json
+│   │   ├── state-machines.md
+│   │   └── workloads-checkpoints.md
+│   ├── environment-inventory.md
 │   ├── evidence/
-│   │   └── .gitkeep
+│   │   └── B01-contract-review.md
 │   ├── invariants.md
+│   ├── requirements-traceability.md
 │   └── project-structure.md
 ├── migrations/
 │   └── .gitkeep
@@ -67,11 +85,11 @@ Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffo
         └── .gitkeep
 ```
 
-Hiện có tài liệu, hai project skills và scaffold; chưa có module executable. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm người làm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công. File mới của setup/scaffold chưa được stage hoặc commit tự động.
+Hiện có bộ contract B01, tài liệu setup, hai project skills và scaffold; chưa có module executable. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
 
-Mỗi leaf directory mới trong cây trên chỉ chứa một `.gitkeep` rỗng (0 byte), tổng cộng 18 marker. Marker giúp Git lưu lại vị trí boundary khi được thêm vào version control; không chứa source, test, migration, workflow hay runtime config. Không tạo thêm thư mục con giả định cho implementation. Khi task triển khai thêm file thực vào leaf directory, marker không còn cần thiết.
+Các leaf directory sản phẩm chưa có file thực vẫn giữ một `.gitkeep` rỗng (0 byte), tổng cộng 16 marker sau B01. `docs/adr/` và `docs/evidence/` đã có tài liệu thực nên marker tương ứng được bỏ. Marker còn lại chỉ giữ directory boundary; không chứa source, test, migration, workflow hay runtime config.
 
-**Scaffold không phải implementation, không hoàn tất B01/B02 và không phải acceptance evidence.** `docs/evidence/.gitkeep` không chứng minh gate nào đạt; `docs/adr/.gitkeep` không phải bản ghi quyết định hoặc template ADR. Các gate sản phẩm vẫn là `specified`; chưa chạy product test/build vì chưa có implementation hoặc test runner.
+**Scaffold không phải implementation hay runtime acceptance evidence.** Remediation và focused rereview đã đóng R-03, R-05 và R-09 nên ACC-01 là `pass`, nhưng mọi gate runtime/product khác vẫn `specified`; B02 không còn contract-blocked. Chưa chạy product test/build vì chưa có implementation hoặc test runner.
 
 `.agents/skills/` đã tồn tại và chứa hai skill instruction-only, thuộc công cụ hỗ trợ agent, không phải module runtime:
 
@@ -135,8 +153,9 @@ Chỉ các file và directory trong cây current structure đã tồn tại. M�
 | Loại | Vị trí / ví dụ theo quy ước | Quy tắc |
 |---|---|---|
 | Tài liệu/hướng dẫn hiện có | `PLAN.md`, `README.md`, `AGENTS.md`, `.gitignore`, các file Markdown trong `docs/` và hai `.agents/skills/*/SKILL.md` | Nội dung thực đã tồn tại; hướng dẫn/specification không thay bằng chứng runtime |
-| Scaffold cần Git lưu lại | 18 `.gitkeep` trong cây current structure | Marker rỗng, chỉ giữ directory boundary; không phải implementation hoặc evidence |
-| Source-controlled khi triển khai | Source/tests/fixtures, lockfiles, migrations, bản ghi ADR, `.env.example`, benchmark/plot scripts và evidence thực trong `docs/evidence/` | Chưa có các file này; tạo theo task có scope phù hợp, review cùng contract/gate; không chứa credential hoặc dữ liệu private của workload |
+| Scaffold cần Git lưu lại | 16 `.gitkeep` trong cây current structure | Marker rỗng, chỉ giữ directory boundary chưa có file thực; không phải implementation hoặc evidence |
+| Tài liệu B01 đã source-control-ready | `docs/adr/0001`–`0004`, `docs/evidence/B01-contract-review.md`, OpenAPI/schema/traceability/inventory | Đã tồn tại trong working tree B01; là specification/evidence tài liệu, không phải runtime implementation |
+| Source-controlled khi triển khai | Source/tests/fixtures, lockfiles, migrations, `.env.example`, benchmark/plot scripts và evidence runtime bổ sung trong `docs/evidence/` | Chưa có các artifact triển khai này; tạo theo task có scope phù hợp, review cùng contract/gate; không chứa credential hoặc dữ liệu private của workload |
 | Generated files | `build/`, `dist/`, `*.egg-info/`, `*.tsbuildinfo`, coverage/test reports tạm | Tái tạo từ source, ignore; báo cáo chọn để nghiệm thu chuyển vào `docs/evidence/` kèm provenance |
 | Runtime data | Volume DB/artifact thật đặt ngoài checkout; mapping local tại `runtime/`, `data/postgres/`, `data/artifacts/`, `data/checkpoints/`, `data/logs/` hoặc `pgdata/`, `artifacts/`, `checkpoints/`, `logs/` ở root | Ignore không phải backup; giữ durability/permission/consistent backup theo PLAN |
 | Temporary/cache | `.venv/`, `node_modules/`, Python/Node/tool cache, `tmp/`, `temp/`, `benchmarks/tmp/`, `benchmarks/output/` | Có thể tái tạo; output chưa chọn không phải evidence acceptance |

@@ -1,0 +1,35 @@
+{
+  "kind": "RESULT",
+  "schema_version": 1,
+  "result_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30bc",
+  "created_at": "2026-09-17T02:17:01.000Z",
+  "provenance": {
+    "tenant_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30b8",
+    "job_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30b9",
+    "session_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30ba",
+    "attempt_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30bb",
+    "job_fence": 3,
+    "input_checksum": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "spec_checksum": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "template_id": "cpu-iterative",
+    "template_version": 1,
+    "adapter_id": "cpu.iterative",
+    "adapter_version": "1.0.0",
+    "image_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "status": "SUCCEEDED",
+  "files": [
+    {
+      "artifact_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30be",
+      "logical_name": "result.json",
+      "media_type": "application/vnd.nexa.cpu-iterative-result+json",
+      "size_bytes": 384,
+      "checksum": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "metrics": {
+    "iterations": 100000,
+    "resumed": true
+  },
+  "manifest_checksum": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+}

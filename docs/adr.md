@@ -1,6 +1,13 @@
 # ADR: ghi nhận quyết định kiến trúc
 
-Dẫn xuất từ [PLAN.md](../PLAN.md) phần mở đầu, §11 và §13; **PLAN được ưu tiên nếu có mâu thuẫn**. ADR giải thích quyết định và hệ quả, không tự mở rộng scope hay thay thế approval. Hiện chưa có ADR riêng; tài liệu này là quy ước viết ADR, không phải một quyết định kiến trúc đã được thông qua.
+Dẫn xuất từ [PLAN.md](../PLAN.md) phần mở đầu, §11 và §13; **PLAN được ưu tiên nếu có mâu thuẫn**. ADR giải thích quyết định và hệ quả, không tự mở rộng scope hay thay thế approval. B01 đã tạo các ADR dưới đây để diễn giải quyết định PLAN và chi tiết contract được ủy quyền; không ADR nào thay PLAN.
+
+| ADR | Trạng thái | Phạm vi |
+|---|---|---|
+| [ADR-0001](adr/0001-process-boundaries-and-trust.md) | accepted | Process boundary và trust zones đã khóa trong PLAN |
+| [ADR-0002](adr/0002-authoritative-state-and-durable-blob-commit.md) | accepted | PostgreSQL authority, transaction và durable blob commit |
+| [ADR-0003](adr/0003-worker-authority-fencing-and-cleanup.md) | accepted | Worker authority, fencing, deadline và cleanup |
+| [ADR-0004](adr/0004-checkpoint-manifest-and-compatibility.md) | accepted | Manifest, safe restore và compatibility |
 
 ## Khi cần ADR
 

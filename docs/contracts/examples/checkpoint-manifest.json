@@ -1,0 +1,50 @@
+{
+  "kind": "CHECKPOINT",
+  "schema_version": 1,
+  "checkpoint_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30b7",
+  "checkpoint_sequence": 4,
+  "created_at": "2026-09-17T02:15:54.123Z",
+  "provenance": {
+    "tenant_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30b8",
+    "job_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30b9",
+    "session_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30ba",
+    "attempt_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30bb",
+    "job_fence": 3,
+    "input_checksum": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "spec_checksum": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "template_id": "cpu-iterative",
+    "template_version": 1,
+    "adapter_id": "cpu.iterative",
+    "adapter_version": "1.0.0",
+    "image_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "compatibility": {
+    "architecture": "linux/arm64",
+    "device_type": "CPU",
+    "framework": "PYTHON",
+    "framework_version": "3.12.13",
+    "cuda_version": null,
+    "minimum_driver_version": null,
+    "gpu_compute_capability": null,
+    "checkpointable": true,
+    "restart_safe": true
+  },
+  "cursor": {
+    "step": 50000,
+    "epoch": 0,
+    "item_cursor": 50000,
+    "accumulator": 947206,
+    "sampler_state_checksum": null
+  },
+  "state_components": ["ACCUMULATOR"],
+  "files": [
+    {
+      "artifact_id": "018f0d60-7b6a-7a21-9d82-1aa39c4f30bd",
+      "logical_name": "state.json",
+      "media_type": "application/json",
+      "size_bytes": 256,
+      "checksum": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "manifest_checksum": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+}
