@@ -6,7 +6,7 @@ Nexa là nền tảng single-node, self-hosted, hardware-portable cho batch AI n
 
 Thứ tự ưu tiên: **yêu cầu trực tiếp mới nhất của user → [PLAN.md](PLAN.md) đã duyệt → contract/tài liệu đã duyệt → code/tests → ghi chú cũ**. Tài liệu này dẫn xuất từ PLAN; PLAN ưu tiên nếu mâu thuẫn. Không sửa PLAN để hợp thức hóa quyết định tự chọn. Thay quyết định đã khóa cần user duyệt, cập nhật PLAN trước rồi đồng bộ contract, ADR, gates và task phụ thuộc.
 
-Repo đang ở bước tài liệu setup; chưa có implementation, dependency manifest, test runner hay runtime config. Đọc [README](README.md), [cấu trúc](docs/project-structure.md), [contract](docs/contracts.md), [invariant](docs/invariants.md) và [acceptance](docs/acceptance.md) theo phạm vi task. Không coi target placement hoặc gate `specified` là đã triển khai/đạt.
+Repo đã có contract B01 và bootstrap B02 hoàn chỉnh: Python/UI manifests và lockfiles, package/config/tests, React/TypeScript/Vite shell và CI read-only đã tồn tại. Chưa có product implementation, runtime, migration hoặc runtime acceptance evidence. Đọc [README](README.md), [cấu trúc](docs/project-structure.md), [contract](docs/contracts.md), [invariant](docs/invariants.md) và [acceptance](docs/acceptance.md) theo phạm vi task. Không coi bootstrap/CI xanh, target placement hoặc gate `specified` là product acceptance đã đạt.
 
 ## Kiến trúc và boundary đã khóa
 
@@ -38,4 +38,4 @@ Chỉ template/image digest/adapter admin cho phép; không code/shell/image/mou
 
 Hoàn thành task cần tất cả gate áp dụng trực tiếp pass **với evidence**, không phá invariant/gate hiện có, review diff và kiểm chứng thực tế. Release gate chưa đến giai đoạn chạy ghi không áp dụng cho task, không gán pass. Không tuyên bố Linux/GPU/benchmark đạt bằng simulator hoặc tài liệu. Test/lint/build/migration/Playwright khi có implementation theo PLAN §10/§13; cập nhật command sau khi manifest/script thực sự tồn tại.
 
-Command hiện có cho setup: `git status --short`, `git diff`, `git diff --check`, `git ls-files`, `git ls-files --others --exclude-standard`, `git check-ignore -v --no-index .env`. `git diff` không gồm file untracked: phải đọc chúng riêng. Hiện chưa có command build/test sản phẩm để chạy.
+Command bootstrap Python: `uv sync --frozen --all-groups --no-editable`, `uv run --no-sync ruff check .`, `uv run --no-sync ruff format --check .`, `uv run --no-sync pytest -q`. Command bootstrap UI: `pnpm --dir web install --frozen-lockfile`, `pnpm --dir web run typecheck`, `pnpm --dir web run build`. Command hygiene: `git status --short --untracked-files=all`, `git diff`, `git diff --check`, `git ls-files`, `git ls-files --others --exclude-standard`, `git check-ignore -v --no-index .env`. `git diff` không gồm file untracked: phải đọc chúng riêng. Các command bootstrap không phải test/build sản phẩm.

@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01 contract `1.0.0-b01` đang remediation sau review, chưa triển khai sản phẩm.** Repository chứa kế hoạch, OpenAPI/domain/state/internal/recovery/workload contract, ADR, traceability, inventory môi trường và hai project skills dạng instruction-only; chưa có source, product tests, dependency manifests/lockfiles, migrations, Compose hay CI. Các thông số hiệu năng vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01 contract `1.0.0-b01` đã được review và ACC-01 là `pass`; B02 bootstrap đã hoàn tất.** Python/UI dependencies có lockfile, Python 3.12 và Node 24 LTS quality commands đều pass, CI read-only đã được parse và actionlint validate. Repository vẫn chưa có product behavior, migration, Compose runtime hay runtime acceptance evidence. Các thông số hiệu năng vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -39,16 +39,55 @@ Stack và module boundaries được tổng hợp tại tài liệu cấu trúc;
 
 Skill hợp lệ về cấu trúc/hướng dẫn không chứng minh runtime acceptance. Status và evidence sản phẩm vẫn theo [acceptance](docs/acceptance.md); PLAN tiếp tục là nguồn sự thật chính.
 
-## Thứ tự triển khai
+## B02 bootstrap workspace
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass` và B02 không còn contract-blocked. Các task sau vẫn chỉ bắt đầu khi đủ dependency. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Prerequisite đã chọn cho bootstrap là Python 3.12, `uv` 0.12.15, Node.js 24 LTS và `pnpm` 11.9.0. Evidence B02 dùng Python 3.12.13, isolated `uv` 0.12.15 và isolated Node 24.21.0; không cài tool global hoặc sửa cấu hình máy. Node 26.4.0 vẫn là system runtime quan sát được, không phải support target.
 
-[Environment inventory](docs/environment-inventory.md) ngày 17/09/2026 xác nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; `uv` và `psql` còn thiếu, Node LTS alignment cần B02 khóa. macOS hỗ trợ tài liệu/development/simulator, không thay evidence Linux/cgroups. Chưa có lệnh install/run/test sản phẩm; chỉ bổ sung khi command có trong repository.
-
-## Kiểm tra tài liệu hiện tại
+Python workspace dùng các command reproducible sau:
 
 ```sh
-git status --short
+uv sync --frozen --all-groups --no-editable
+uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
+uv run --no-sync pytest -q
+```
+
+`uv.lock` được tạo bằng `uv` 0.12.15; lock check, frozen non-editable sync, Ruff và pytest đều pass trên Python 3.12.13. `--no-sync` giữ các quality command trên đúng môi trường vừa cài, không để `uv run` tự đổi lại project sang editable install.
+
+UI workspace đã được kiểm tra bằng lockfile hiện có:
+
+```sh
+pnpm --dir web install --frozen-lockfile
+pnpm --dir web run typecheck
+pnpm --dir web run build
+```
+
+Các command UI trên pass bằng selected target Node 24.21.0 LTS với checksum lockfile không đổi. Shell web chỉ hiển thị trạng thái bootstrap; nó không gọi API, không mô phỏng authorization và không triển khai user/admin flow. [CI workflow](.github/workflows/ci.yml) dùng quyền `contents: read` và gọi đúng các command Python/UI này.
+
+### Cấu hình bootstrap
+
+Runtime lấy cấu hình trực tiếp từ process environment. [`.env.example`](.env.example) chỉ là mẫu an toàn cho local/deployment tooling và không được Nexa tự động load. Không có `.env`, credential hoặc path máy phát triển mặc định; bootstrap CI/test dùng fixture an toàn và không cần biến `NEXA_*` thật.
+
+| Biến | Kiểu và trạng thái | Ví dụ an toàn / mặc định |
+|---|---|---|
+| `NEXA_DATABASE_URL` | PostgreSQL URL, bắt buộc | `postgresql+psycopg://nexa@localhost/nexa`; credential thật phải được secret injection cung cấp |
+| `NEXA_ARTIFACT_ROOT` | Absolute path, bắt buộc | `/srv/nexa/artifacts`; không có default |
+| `NEXA_ENVIRONMENT` | `development\|test\|production`, tùy chọn | `development` |
+| `NEXA_API_JSON_MAX_BYTES` | Integer 65,536–16,777,216, tùy chọn | `1048576` theo contract |
+| `NEXA_LOG_LEVEL` | `DEBUG\|INFO\|WARNING\|ERROR\|CRITICAL`, tùy chọn | `INFO` |
+
+Biến `NEXA_*` chưa khai báo làm config validation fail; biến process không thuộc namespace này được bỏ qua. Lỗi chỉ nêu tên biến và rule an toàn, không phản chiếu giá trị. Log/error không được chứa token, password, credential, input hay checkpoint content.
+
+## Thứ tự triển khai
+
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B02 đã hoàn tất nên B03, B05 và B09 đủ dependency trực tiếp để bắt đầu. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+
+[Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02 đã dùng isolated `uv`/Node 24 có checksum để hoàn tất local evidence. GitHub-hosted run chưa được quan sát. macOS hỗ trợ tài liệu/development/bootstrap/simulator, không thay evidence Linux/cgroups. Các command trên chỉ kiểm tra bootstrap workspace, không phải product runtime.
+
+## Kiểm tra repository hiện tại
+
+```sh
+git status --short --untracked-files=all
 git diff
 git diff --check
 git ls-files --others --exclude-standard

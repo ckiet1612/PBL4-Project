@@ -1,0 +1,56 @@
+name: CI
+
+'on':
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.12.15'
+      - name: Install locked Python dependencies
+        run: uv sync --frozen --all-groups --no-editable
+      - name: Lint Python
+        run: uv run --no-sync ruff check .
+      - name: Check Python formatting
+        run: uv run --no-sync ruff format --check .
+      - name: Test Python
+        run: uv run --no-sync pytest -q
+
+  web:
+    name: Web quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.9.0'
+          run_install: false
+      - name: Install locked web dependencies
+        run: pnpm --dir web install --frozen-lockfile
+      - name: Type-check web workspace
+        run: pnpm --dir web run typecheck
+      - name: Build web workspace
+        run: pnpm --dir web run build

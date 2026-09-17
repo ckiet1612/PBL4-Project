@@ -1,10 +1,10 @@
 # Project structure và architecture
 
-Dẫn xuất từ [PLAN.md](../PLAN.md) §3–§5, §7–§11, §13–§14; **PLAN được ưu tiên nếu có mâu thuẫn**. Trách nhiệm module đã được khóa; cây thư mục cấp boundary đã được dựng bằng marker theo yêu cầu scaffold được duyệt. Các vị trí implementation dưới đây vẫn là quy ước placement cho triển khai, không phải source đã tồn tại hay một kiến trúc mới.
+Dẫn xuất từ [PLAN.md](../PLAN.md) §3–§5, §7–§11, §13–§14; **PLAN được ưu tiên nếu có mâu thuẫn**. Trách nhiệm module đã được khóa; cây thư mục cấp boundary đã được dựng bằng marker theo yêu cầu scaffold được duyệt. B02 đã thêm bootstrap source/config/tests và web toolchain tối thiểu; các vị trí product implementation dưới đây vẫn là quy ước placement, không phải sản phẩm đã tồn tại hay một kiến trúc mới.
 
 ## Current repository structure
 
-Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffold (không liệt kê metadata `.git/`):
+Cây file làm việc hiện tại sau B02 bootstrap hoàn tất (không liệt kê metadata `.git/` và generated/cache đã ignore):
 
 ```text
 .
@@ -16,11 +16,13 @@ Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffo
 │           └── SKILL.md
 ├── .github/
 │   └── workflows/
-│       └── .gitkeep
+│       └── ci.yml
+├── .env.example
 ├── .gitignore
 ├── AGENTS.md
 ├── PLAN.md
 ├── README.md
+├── ROADMAP.md
 ├── benchmarks/
 │   └── .gitkeep
 ├── deploy/
@@ -50,16 +52,23 @@ Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffo
 │   │   └── workloads-checkpoints.md
 │   ├── environment-inventory.md
 │   ├── evidence/
-│   │   └── B01-contract-review.md
+│   │   ├── B01-contract-review.md
+│   │   └── B02-bootstrap.md
 │   ├── invariants.md
 │   ├── requirements-traceability.md
+│   ├── superpowers/
+│   │   └── plans/
+│   │       └── 2026-09-18-b02-bootstrap.md
 │   └── project-structure.md
 ├── migrations/
 │   └── .gitkeep
 ├── scripts/
 │   └── .gitkeep
+├── pyproject.toml
+├── uv.lock
 ├── src/
 │   └── nexa/
+│       ├── __init__.py
 │       ├── api/
 │       │   └── .gitkeep
 │       ├── application/
@@ -68,6 +77,7 @@ Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffo
 │       │   └── .gitkeep
 │       ├── coordinator/
 │       │   └── .gitkeep
+│       ├── config.py
 │       ├── domain/
 │       │   └── .gitkeep
 │       ├── infrastructure/
@@ -79,17 +89,32 @@ Cây file làm việc hiện tại sau setup, Skill Creator và directory scaffo
 │       └── workloads/
 │           └── .gitkeep
 ├── tests/
-│   └── .gitkeep
+│   ├── test_config.py
+│   └── test_package.py
 └── web/
-    └── tests/
-        └── .gitkeep
+    ├── index.html
+    ├── package.json
+    ├── pnpm-lock.yaml
+    ├── src/
+    │   ├── App.tsx
+    │   ├── main.tsx
+    │   ├── styles.css
+    │   └── vite-env.d.ts
+    ├── tests/
+    │   └── .gitkeep
+    ├── tsconfig.app.json
+    ├── tsconfig.json
+    ├── tsconfig.node.json
+    └── vite.config.ts
 ```
 
-Hiện có bộ contract B01, tài liệu setup, hai project skills và scaffold; chưa có module executable. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
+Hiện có bộ contract B01, tài liệu setup, hai project skills, Python package/config validation, bootstrap tests, Python/UI lockfiles, web shell build được và CI quality-only. B02 đã hoàn tất bằng Python 3.12/uv frozen matrix, Node 24 LTS frozen UI matrix và workflow validation. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
 
-Các leaf directory sản phẩm chưa có file thực vẫn giữ một `.gitkeep` rỗng (0 byte), tổng cộng 16 marker sau B01. `docs/adr/` và `docs/evidence/` đã có tài liệu thực nên marker tương ứng được bỏ. Marker còn lại chỉ giữ directory boundary; không chứa source, test, migration, workflow hay runtime config.
+`ROADMAP.md` xuất hiện như một file untracked đồng thời trong lúc verification cuối; B02 chỉ đọc để xác nhận không xung đột và không tạo, sửa hoặc nhận ownership file này.
 
-**Scaffold không phải implementation hay runtime acceptance evidence.** Remediation và focused rereview đã đóng R-03, R-05 và R-09 nên ACC-01 là `pass`, nhưng mọi gate runtime/product khác vẫn `specified`; B02 không còn contract-blocked. Chưa chạy product test/build vì chưa có implementation hoặc test runner.
+Các leaf directory chưa có file thực vẫn giữ một `.gitkeep` rỗng (0 byte), tổng cộng 14 marker sau khi `tests/.gitkeep` và `.github/workflows/.gitkeep` được thay bằng file thật. `web/tests/.gitkeep` vẫn còn vì B02 không thêm Playwright/product UI tests. Marker còn lại chỉ giữ directory boundary; không chứa source, migration hay runtime config.
+
+**Bootstrap không phải product implementation hay runtime acceptance evidence.** Remediation và focused rereview đã đóng R-03, R-05 và R-09 nên ACC-01 là `pass`, nhưng mọi gate runtime/product khác vẫn theo status đã ghi. Test config và web build chỉ chứng minh bootstrap tương ứng; chúng không chứng minh API, scheduler, recovery, Linux, PostgreSQL, Docker hoặc GPU.
 
 `.agents/skills/` đã tồn tại và chứa hai skill instruction-only, thuộc công cụ hỗ trợ agent, không phải module runtime:
 
@@ -102,7 +127,7 @@ Hai skill đọc PLAN/invariants/acceptance, không thay đổi boundary hoặc 
 
 ## Approved target placement
 
-**Các directory boundary dưới đây đã có scaffold; implementation bên trong chưa tồn tại.** `web/` hiện chỉ chứa `tests/.gitkeep`; `.github/`, `src/` và `src/nexa/` là các thư mục cha. `docs/` tiếp tục giữ vai trò tài liệu; hai project skills được liệt kê ở phần current structure phía trên. Manifest, lockfile và config chỉ là target, chưa được tạo. PLAN quy định module/đầu ra, không quy định tên từng Python package. Mapping này phân bổ đầu ra đã duyệt vào repository để B01/B02 cụ thể hóa; thay tên đường dẫn được cập nhật tại đây, thay boundary/stack cần duyệt theo [ADR](adr.md).
+**Các directory product boundary dưới đây đã có scaffold; implementation sản phẩm bên trong chưa tồn tại.** B02 chỉ đặt bootstrap package/config ở `src/nexa/` root và static shell trong `web/`; các module boundary con vẫn giữ marker. `docs/` tiếp tục giữ vai trò tài liệu; hai project skills được liệt kê ở phần current structure phía trên. PLAN quy định module/đầu ra, không quy định tên từng Python package. Mapping này phân bổ đầu ra đã duyệt vào repository để B01/B02 cụ thể hóa; thay tên đường dẫn được cập nhật tại đây, thay boundary/stack cần duyệt theo [ADR](adr.md).
 
 | Vị trí đã duyệt | Trách nhiệm và ownership logic | Interface / dependency được phép | Backlog |
 |---|---|---|---|
@@ -122,11 +147,11 @@ Hai skill đọc PLAN/invariants/acceptance, không thay đổi boundary hoặc 
 | `benchmarks/` | Simulator, baseline, seed/trace fixtures, load/chaos và plot scripts | Policy dùng chung; worker simulator dùng protocol chuẩn và chỉ bật trong test | B03–B04, B13, B22–B24 |
 | `scripts/` | Công cụ bootstrap, demo và vận hành tái lập | Gọi các interface/command đã có; không chứa secret | B02, B21, B24–B25 |
 | `docs/` | Contract, invariant, acceptance, runbook và ADR | Dẫn về PLAN; không phải nguồn quyết định cạnh tranh | B01 và mọi task đổi contract |
-| `docs/adr/` | Bản ghi quyết định khi có trigger theo `docs/adr.md`; hiện chỉ có marker | Dẫn về PLAN và contract liên quan; không dùng ADR để thay quyết định đã khóa | Task phát sinh quyết định |
+| `docs/adr/` | Bản ghi quyết định khi có trigger theo `docs/adr.md`; hiện có ADR-0001–0004 của B01 | Dẫn về PLAN và contract liên quan; không dùng ADR để thay quyết định đã khóa | Task phát sinh quyết định |
 | `docs/evidence/` | Báo cáo, raw evidence được chọn, manifest cấu hình/commit/seed/digest | Source-controlled, được gate liên kết; bảo toàn raw data cần tái tạo kết quả và loại secret | B03–B25 |
-| `pyproject.toml`, `uv.lock`; `web/package.json`, `web/pnpm-lock.yaml` | Python/UI manifests và lockfiles | Chỉ tạo khi bootstrap; lockfile không bị ignore | B02 |
-| `deploy/`, `.github/workflows/` | Vị trí cho Caddy/Compose/image assets và CI/release; hiện mỗi thư mục chỉ có marker | Chưa có config hoặc workflow logic; khi triển khai không hardcode host, secret local riêng | B02, B09, B21, B25 |
-| `.env.example`, `compose.yaml` | Config mẫu và Compose chưa được tạo | Chỉ tạo trong task triển khai phù hợp; không hardcode host, secret local riêng | B02, B09, B21, B25 |
+| `pyproject.toml`, `uv.lock`; `web/package.json`, `web/pnpm-lock.yaml` | Python/UI manifests và lockfiles | Đã tồn tại, frozen install được kiểm chứng và không bị ignore | B02 |
+| `deploy/`, `.github/workflows/` | Vị trí cho Caddy/Compose/image assets và CI/release | CI B02 quality-only đã có; `deploy/` vẫn chỉ có marker và chưa có deployment/release logic | B02, B09, B21, B25 |
+| `.env.example`, `compose.yaml` | Config mẫu và Compose | `.env.example` an toàn đã có; `compose.yaml` chưa tạo; không hardcode host, credential hoặc path máy phát triển | B02, B09, B21, B25 |
 
 Sweep parent là nhóm theo dõi, không phải execution service mới hay slot; child dùng submit API/idempotency/quota bình thường. Một repository/modular monolith vẫn có API và coordinator process riêng, worker local và workload container riêng.
 
@@ -148,14 +173,15 @@ PostgreSQL giữ tenant/user/membership/token, job/session/attempt, queue/alloca
 
 ## Phân loại file và dữ liệu
 
-Chỉ các file và directory trong cây current structure đã tồn tại. Mọi generated/runtime/temporary/cache path và secret/local config nêu dưới đây đều chưa được tạo; chúng là quy ước cho task triển khai sau này.
+Chỉ source-controlled file và directory được liệt kê trong cây current structure. Generated/temporary/cache như `web/node_modules/`, `web/dist/`, Python bytecode và pytest/Ruff cache có thể tồn tại local sau verification nhưng đã ignore và không phải source/evidence; runtime data và secret/local config thật chưa được tạo.
 
 | Loại | Vị trí / ví dụ theo quy ước | Quy tắc |
 |---|---|---|
 | Tài liệu/hướng dẫn hiện có | `PLAN.md`, `README.md`, `AGENTS.md`, `.gitignore`, các file Markdown trong `docs/` và hai `.agents/skills/*/SKILL.md` | Nội dung thực đã tồn tại; hướng dẫn/specification không thay bằng chứng runtime |
-| Scaffold cần Git lưu lại | 16 `.gitkeep` trong cây current structure | Marker rỗng, chỉ giữ directory boundary chưa có file thực; không phải implementation hoặc evidence |
+| Scaffold cần Git lưu lại | 14 `.gitkeep` trong cây current structure | Marker rỗng, chỉ giữ directory boundary chưa có file thực; không phải implementation hoặc evidence |
 | Tài liệu B01 đã source-control-ready | `docs/adr/0001`–`0004`, `docs/evidence/B01-contract-review.md`, OpenAPI/schema/traceability/inventory | Đã tồn tại trong working tree B01; là specification/evidence tài liệu, không phải runtime implementation |
-| Source-controlled khi triển khai | Source/tests/fixtures, lockfiles, migrations, `.env.example`, benchmark/plot scripts và evidence runtime bổ sung trong `docs/evidence/` | Chưa có các artifact triển khai này; tạo theo task có scope phù hợp, review cùng contract/gate; không chứa credential hoặc dữ liệu private của workload |
+| Bootstrap source-controlled hiện có | `pyproject.toml`, `uv.lock`, `src/nexa/__init__.py`, `src/nexa/config.py`, `tests/test_*.py`, `.env.example`, `web/package.json`, `web/pnpm-lock.yaml`, TypeScript/Vite source/config, `.github/workflows/ci.yml`, `docs/evidence/B02-bootstrap.md` | Chứng minh package/config/UI toolchain và CI tối thiểu; không chứa product behavior hoặc credential |
+| Source-controlled khi task sau triển khai | Product source/tests/fixtures, migrations, benchmark/plot scripts và evidence runtime bổ sung trong `docs/evidence/` | Tạo theo task có scope phù hợp, review cùng contract/gate; không chứa credential hoặc dữ liệu private của workload |
 | Generated files | `build/`, `dist/`, `*.egg-info/`, `*.tsbuildinfo`, coverage/test reports tạm | Tái tạo từ source, ignore; báo cáo chọn để nghiệm thu chuyển vào `docs/evidence/` kèm provenance |
 | Runtime data | Volume DB/artifact thật đặt ngoài checkout; mapping local tại `runtime/`, `data/postgres/`, `data/artifacts/`, `data/checkpoints/`, `data/logs/` hoặc `pgdata/`, `artifacts/`, `checkpoints/`, `logs/` ở root | Ignore không phải backup; giữ durability/permission/consistent backup theo PLAN |
 | Temporary/cache | `.venv/`, `node_modules/`, Python/Node/tool cache, `tmp/`, `temp/`, `benchmarks/tmp/`, `benchmarks/output/` | Có thể tái tạo; output chưa chọn không phải evidence acceptance |
