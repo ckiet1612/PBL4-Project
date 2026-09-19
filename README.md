@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01 contract `1.0.0-b01` đã được review và ACC-01 là `pass`; B02 bootstrap đã hoàn tất.** Python/UI dependencies có lockfile, Python 3.12 và Node 24 LTS quality commands đều pass, CI read-only đã được parse và actionlint validate. Repository vẫn chưa có product behavior, migration, Compose runtime hay runtime acceptance evidence. Các thông số hiệu năng vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01 contract `1.0.0-b01` đã được review và ACC-01 là `pass`; B02 bootstrap và B03 simulator/baseline đã hoàn tất, B03 được focused Task Review duyệt ngày 19/09/2026.** Python/UI dependencies có lockfile, Python 3.12 và Node 24 LTS quality commands đều pass, CI read-only đã được parse và actionlint validate. Repository vẫn chưa có product scheduler, API behavior, migration, Compose runtime hay runtime acceptance evidence. Các thông số hiệu năng vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -78,9 +78,39 @@ Runtime lấy cấu hình trực tiếp từ process environment. [`.env.example
 
 Biến `NEXA_*` chưa khai báo làm config validation fail; biến process không thuộc namespace này được bỏ qua. Lỗi chỉ nêu tên biến và rule an toàn, không phản chiếu giá trị. Log/error không được chứa token, password, credential, input hay checkpoint content.
 
+## B03 simulator và baseline
+
+B03 hiện cung cấp virtual clock deterministic, resource/job model bất biến, trace có version/checksum, simulator engine, shared `SchedulerPolicy` snapshot và năm baseline `fifo`, `rr`, `wrr`, `drr`, `drf`. Code nằm hoàn toàn dưới `benchmarks/`; đây là evidence lớp D, không phải scheduler sản phẩm và không chứng minh PostgreSQL/API/Docker/Linux/GPU.
+
+Chạy một baseline:
+
+```sh
+uv run --no-sync python -m benchmarks.simulator.cli run \
+  --trace benchmarks/fixtures/small-trace.json \
+  --seed 7 \
+  --baseline fifo \
+  --output benchmarks/tmp/fifo-seed-7.json
+```
+
+Tái tạo bundle, bảng và biểu đồ B03 đã chọn:
+
+```sh
+uv run --no-sync python -m benchmarks.simulator.cli compare \
+  --trace benchmarks/fixtures/standard-trace.json \
+  --seeds 7,11,19,23,29 \
+  --output benchmarks/results/b03-baselines.json
+
+uv run --no-sync python -m benchmarks.simulator.cli report \
+  --input benchmarks/results/b03-baselines.json \
+  --csv benchmarks/plots/b03-comparison.csv \
+  --svg benchmarks/plots/b03-comparison.svg
+```
+
+Để kiểm tra byte-equivalent replay, chạy lại hai command vào `benchmarks/tmp/` rồi dùng `cmp` cho JSON/CSV/SVG. Báo cáo cấu hình, checksum, remediation, focused review và giới hạn nằm tại [B03 simulator evidence](docs/evidence/B03-simulator.md). B03 đã được focused Task Review trả lời `Duyệt`; ACC-09/10/11 cùng mọi gate runtime vẫn chưa được tuyên bố pass.
+
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B02 đã hoàn tất nên B03, B05 và B09 đủ dependency trực tiếp để bắt đầu. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B02 và B03 đã hoàn tất nên B04, B05 và B09 đủ dependency trực tiếp để bắt đầu. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02 đã dùng isolated `uv`/Node 24 có checksum để hoàn tất local evidence. GitHub-hosted run chưa được quan sát. macOS hỗ trợ tài liệu/development/bootstrap/simulator, không thay evidence Linux/cgroups. Các command trên chỉ kiểm tra bootstrap workspace, không phải product runtime.
 

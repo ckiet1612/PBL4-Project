@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "trace_id": "b03-small-v1",
+  "capacity": {
+    "cpu_millis": 2000,
+    "memory_bytes": 4294967296,
+    "gpu_uuids": ["GPU-SIM-0001"]
+  },
+  "tenants": [
+    {
+      "tenant_id": "tenant-a",
+      "weight": 1,
+      "quota": {"cpu_millis": 2000, "memory_bytes": 4294967296, "gpu_count": 1},
+      "max_running_jobs": 2,
+      "order": 0
+    },
+    {
+      "tenant_id": "tenant-b",
+      "weight": 2,
+      "quota": {"cpu_millis": 2000, "memory_bytes": 4294967296, "gpu_count": 1},
+      "max_running_jobs": 2,
+      "order": 1
+    }
+  ],
+  "fairness_window": {"start_ms": 0, "end_ms": 10000, "tenant_ids": ["tenant-a", "tenant-b"]},
+  "jobs": [
+    {
+      "job_id": "large-a",
+      "tenant_id": "tenant-a",
+      "ready_sequence": 1,
+      "arrival_ms": 0,
+      "resources": {"cpu_millis": 2000, "memory_bytes": 2147483648, "gpu_count": 0},
+      "duration_ms": 5000,
+      "priority": 1
+    },
+    {
+      "job_id": "infeasible-b",
+      "tenant_id": "tenant-b",
+      "ready_sequence": 2,
+      "arrival_ms": 0,
+      "resources": {"cpu_millis": 3000, "memory_bytes": 1024, "gpu_count": 0},
+      "duration_ms": 1000,
+      "priority": 1
+    }
+  ],
+  "generator_groups": [
+    {
+      "group_id": "small-b",
+      "tenant_id": "tenant-b",
+      "count": 6,
+      "ready_sequence_start": 10,
+      "arrival_start_ms": 0,
+      "arrival_step_ms": 500,
+      "arrival_jitter_ms": 100,
+      "duration_choices_ms": [1000, 5000],
+      "resource_choices": [
+        {"cpu_millis": 500, "memory_bytes": 536870912, "gpu_count": 0},
+        {"cpu_millis": 500, "memory_bytes": 536870912, "gpu_count": 1}
+      ],
+      "priority": 1
+    }
+  ]
+}

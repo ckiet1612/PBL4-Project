@@ -10,13 +10,14 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 18/09/2026
+## Trạng thái ghi nhận ngày 19/09/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
-- Các chặng B03–B25 chưa được coi là hoàn thành.
+- **B03 đã hoàn thành và được focused Task Review duyệt.** B03 hiện có simulator virtual-time deterministic, năm baseline FIFO/RR/WRR/DRR/DRF, raw evidence và report tái lập. Đây chỉ là evidence lớp D, không phải scheduler sản phẩm hoặc runtime acceptance evidence.
+- Các chặng B04–B25 chưa được coi là hoàn thành.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review**, phản hồi hoàn tất của Task **B2 - Bootstrap** và [báo cáo B02](docs/evidence/B02-bootstrap.md). B03, B05 và B09 nay đủ điều kiện bắt đầu trực tiếp vì đã nhận đủ dependency B02; mỗi task vẫn phải đạt gate riêng của mình.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review**, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), focused Task Review B03 và [báo cáo B03](docs/evidence/B03-simulator.md). B04, B05 và B09 nay đủ điều kiện bắt đầu trực tiếp vì đã nhận đủ dependency; mỗi task vẫn phải đạt gate riêng của mình.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
