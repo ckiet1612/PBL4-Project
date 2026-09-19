@@ -1,10 +1,10 @@
 # Project structure và architecture
 
-Dẫn xuất từ [PLAN.md](../PLAN.md) §3–§5, §7–§11, §13–§14; **PLAN được ưu tiên nếu có mâu thuẫn**. Trách nhiệm module đã được khóa; cây thư mục cấp boundary đã được dựng bằng marker theo yêu cầu scaffold được duyệt. B02 đã thêm bootstrap source/config/tests và web toolchain tối thiểu; B03 đã thêm simulator/baseline thuần dưới `benchmarks/` và được focused Task Review duyệt ngày 19/09/2026. Các vị trí product implementation dưới đây vẫn là quy ước placement, không phải sản phẩm đã tồn tại hay một kiến trúc mới.
+Dẫn xuất từ [PLAN.md](../PLAN.md) §3–§5, §7–§11, §13–§14; **PLAN được ưu tiên nếu có mâu thuẫn**. Trách nhiệm module đã được khóa; cây thư mục cấp boundary đã được dựng bằng marker theo yêu cầu scaffold được duyệt. B02 đã thêm bootstrap source/config/tests, B03 đã thêm simulator/baseline được duyệt, và B04 hiện đã thêm policy thuần cùng harness/evidence lớp D nhưng vẫn chờ Task Review. Các boundary runtime chưa được triển khai vẫn chỉ là target placement.
 
 ## Current repository structure
 
-Cây file làm việc hiện tại sau khi B03 hoàn tất (không liệt kê metadata `.git/` và generated/cache đã ignore):
+Cây file làm việc hiện tại sau khi B04 được implement (không liệt kê metadata `.git/` và generated/cache đã ignore):
 
 ```text
 .
@@ -25,14 +25,32 @@ Cây file làm việc hiện tại sau khi B03 hoàn tất (không liệt kê me
 ├── ROADMAP.md
 ├── benchmarks/
 │   ├── __init__.py
+│   ├── b04/
+│   │   ├── __init__.py
+│   │   ├── adapter.py
+│   │   ├── checks.py
+│   │   ├── cli.py
+│   │   ├── engine.py
+│   │   ├── report.py
+│   │   └── suite.py
 │   ├── fixtures/
+│   │   ├── b04-constrained-diagnostic.json
+│   │   ├── b04-gpu-slots.json
+│   │   ├── b04-large-reservation.json
+│   │   ├── b04-mixed-equal.json
+│   │   ├── b04-suite.json
+│   │   ├── b04-uniform-equal.json
+│   │   ├── b04-weighted-124.json
 │   │   ├── small-trace.json
 │   │   └── standard-trace.json
 │   ├── plots/
 │   │   ├── b03-comparison.csv
-│   │   └── b03-comparison.svg
+│   │   ├── b03-comparison.svg
+│   │   ├── b04-fairness.csv
+│   │   └── b04-fairness.svg
 │   ├── results/
-│   │   └── b03-baselines.json
+│   │   ├── b03-baselines.json
+│   │   └── b04-fairness.json
 │   └── simulator/
 │       ├── __init__.py
 │       ├── baselines.py
@@ -73,13 +91,15 @@ Cây file làm việc hiện tại sau khi B03 hoàn tất (không liệt kê me
 │   ├── evidence/
 │   │   ├── B01-contract-review.md
 │   │   ├── B02-bootstrap.md
-│   │   └── B03-simulator.md
+│   │   ├── B03-simulator.md
+│   │   └── B04-fairness.md
 │   ├── invariants.md
 │   ├── requirements-traceability.md
 │   ├── superpowers/
 │   │   └── plans/
 │   │       ├── 2026-09-18-b02-bootstrap.md
-│   │       └── 2026-09-18-b03-simulator.md
+│   │       ├── 2026-09-18-b03-simulator.md
+│   │       └── 2026-09-19-b04-fairness-policy.md
 │   └── project-structure.md
 ├── migrations/
 │   └── .gitkeep
@@ -100,17 +120,29 @@ Cây file làm việc hiện tại sau khi B03 hoàn tất (không liệt kê me
 │       │   └── .gitkeep
 │       ├── config.py
 │       ├── domain/
-│       │   └── .gitkeep
+│       │   ├── .gitkeep
+│       │   ├── __init__.py
+│       │   └── scheduling.py
 │       ├── infrastructure/
 │       │   └── .gitkeep
 │       ├── scheduler/
-│       │   └── .gitkeep
+│       │   ├── .gitkeep
+│       │   ├── __init__.py
+│       │   ├── accounting.py
+│       │   └── policy.py
 │       ├── worker/
 │       │   └── .gitkeep
 │       └── workloads/
 │           └── .gitkeep
 ├── tests/
 │   ├── benchmarks/
+│   │   ├── b04/
+│   │   │   ├── __init__.py
+│   │   │   ├── test_adapter.py
+│   │   │   ├── test_cli.py
+│   │   │   ├── test_engine.py
+│   │   │   ├── test_properties.py
+│   │   │   └── test_report.py
 │   │   ├── conftest.py
 │   │   ├── test_cli.py
 │   │   ├── test_clock.py
@@ -124,6 +156,13 @@ Cây file làm việc hiện tại sau khi B03 hoàn tất (không liệt kê me
 │   │   ├── test_reproducibility.py
 │   │   ├── test_round_robin.py
 │   │   └── test_trace.py
+│   ├── scheduler/
+│   │   ├── __init__.py
+│   │   ├── test_accounting.py
+│   │   ├── test_contract.py
+│   │   ├── test_policy.py
+│   │   ├── test_properties.py
+│   │   └── test_reservation.py
 │   ├── test_config.py
 │   └── test_package.py
 └── web/
@@ -143,7 +182,7 @@ Cây file làm việc hiện tại sau khi B03 hoàn tất (không liệt kê me
     └── vite.config.ts
 ```
 
-Hiện có bộ contract B01, bootstrap B02, hai project skills, Python/UI lockfiles, web shell build được, CI quality-only và B03 simulator/baseline đã được focused Task Review duyệt. B03 gồm virtual clock, immutable model, canonical trace/materialization, simulator engine, five baselines, metrics, CLI/report, fixtures, selected raw/CSV/SVG evidence và unit/property tests. Remediation cuối kiểm tra quota feasibility theo fixed point sau mỗi exclusion và giữ Jain không xác định dưới dạng `N/A` trong SVG. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
+Hiện có bộ contract B01, bootstrap B02, hai project skills, Python/UI lockfiles, web shell build được, CI quality-only và B03 simulator/baseline đã được focused Task Review duyệt. B04 bổ sung value type bất biến, accounting/policy thuần, adapter + event engine riêng, fixed suite 180 matched runs, selected raw/CSV/SVG và unit/property/integration tests; trạng thái vẫn là đã implement, chờ Review. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
 
 `ROADMAP.md` xuất hiện như một file untracked đồng thời trong lúc verification cuối; B02 chỉ đọc để xác nhận không xung đột và không tạo, sửa hoặc nhận ownership file này.
 
@@ -166,14 +205,20 @@ Hai skill đọc PLAN/invariants/acceptance, không thay đổi boundary hoặc 
 
 `benchmarks/fixtures/` chứa trace source-controlled. `benchmarks/results/b03-baselines.json` là raw evidence đã chọn; CSV/SVG dưới `benchmarks/plots/` được tạo lại chỉ từ raw bundle. `benchmarks/tmp/` và output chưa chọn vẫn là temporary/ignored. B03 không import `src/nexa`, không triển khai B04 policy và không tạo API, database, Docker, worker, coordinator, CLI sản phẩm hay Web UI.
 
+## B04 policy và benchmark boundary
+
+`src/nexa/domain/scheduling.py` định nghĩa snapshot/value/result bất biến; `src/nexa/scheduler/accounting.py` và `policy.py` hiện thực weighted dominant resource-time, virtual floor, deterministic ordering, eligible aging và một reservation local. Product code chỉ phụ thuộc domain + standard library, nhận thời gian tường minh và không import `benchmarks`, ORM, Docker hay PyTorch.
+
+`benchmarks/b04/` là adapter/harness lớp D: nó dùng trace/model/baseline B03, dựng candidate window có bound, sở hữu simulated allocation/ledger/floor/reservation state và áp logical decision của product policy. `benchmarks/results/b04-fairness.json` cùng CSV/SVG là evidence B04 riêng; không ghi đè artifact B03. Harness có thể duyệt state mô phỏng để dựng snapshot nên không phải bằng chứng DB/index/query scalability, và simulated GPU UUID không phải bằng chứng GPU thật.
+
 ## Approved target placement
 
-**Các directory product boundary dưới đây đã có scaffold; implementation sản phẩm bên trong chưa tồn tại.** B02 chỉ đặt bootstrap package/config ở `src/nexa/` root và static shell trong `web/`; các module boundary con vẫn giữ marker. `docs/` tiếp tục giữ vai trò tài liệu; hai project skills được liệt kê ở phần current structure phía trên. PLAN quy định module/đầu ra, không quy định tên từng Python package. Mapping này phân bổ đầu ra đã duyệt vào repository để B01/B02 cụ thể hóa; thay tên đường dẫn được cập nhật tại đây, thay boundary/stack cần duyệt theo [ADR](adr.md).
+**Các directory product boundary dưới đây bắt đầu từ scaffold; hiện chỉ `domain`/`scheduler` có implementation thuần trong phạm vi B04.** B02 đặt bootstrap package/config ở `src/nexa/` root và static shell trong `web/`; API, application, coordinator, infrastructure, worker, workloads và CLI runtime vẫn chỉ giữ marker. `docs/` tiếp tục giữ vai trò tài liệu; hai project skills được liệt kê ở phần current structure phía trên. PLAN quy định module/đầu ra, không quy định tên từng Python package. Thay tên đường dẫn được cập nhật tại đây; thay boundary/stack cần duyệt theo [ADR](adr.md).
 
 | Vị trí đã duyệt | Trách nhiệm và ownership logic | Interface / dependency được phép | Backlog |
 |---|---|---|---|
 | `src/nexa/domain/` | Domain types, resource vector, state/invariant, contract nội bộ | Không import API, ORM, Docker, UI hay framework ML; contract dùng chung không mở quyền truy cập DB cho worker | B01, B05 |
-| `src/nexa/scheduler/` | Policy thuần, candidate ordering, aging/reservation | Implements `SchedulerPolicy`, nhận snapshot/clock/trace; chỉ phụ thuộc domain, không gọi Docker/DB/PyTorch | B04, B13 |
+| `src/nexa/scheduler/` | Policy thuần, candidate ordering, aging/reservation | B04 đã hiện thực interface thuần nhận snapshot/time; chỉ phụ thuộc domain, không gọi Docker/DB/PyTorch. B13 bổ sung durable retrieval/state, không thay policy đã khóa. | B04, B13 |
 | `src/nexa/application/` | Use cases, authorization/ownership, transaction orchestration | Domain/policy và các interface; dùng adapter persistence/artifact qua composition của process | B06–B08, B11, B14–B15 |
 | `src/nexa/api/` | REST `/v1`, browser/CLI/worker transport, error mapping | Application/domain, persistence/artifact adapter được wire tại process; không Docker socket | B06–B08, B11, B15 |
 | `src/nexa/coordinator/` | Leadership, scheduling tick, allocation, reaper/recovery | Scheduler/application + persistence; recheck dưới transaction; không điều khiển Docker trực tiếp | B11, B13, B15 |
@@ -182,10 +227,10 @@ Hai skill đọc PLAN/invariants/acceptance, không thay đổi boundary hoặc 
 | `src/nexa/workloads/` | Trusted runner, `WorkloadAdapter`, CPU/PyTorch/sweep/chunk contracts | Adapter gọi framework ML trong workload image; runner bảo vệ lease channel; workload không có credential worker | B09, B14, B16, B23 |
 | `src/nexa/cli/` | Typer CLI và bootstrap/admin commands theo scope | User/admin flows qua REST API; bootstrap identity là đường vận hành đặc quyền theo PLAN §10, không cho workload dùng | B02, B06, B12, B15 |
 | `web/` | React/TypeScript/Vite UI user/admin | Chỉ REST API; không truy cập DB/filesystem/Docker hoặc tự quyết định quyền/state | B17–B18 |
-| `tests/` | Unit/property, PostgreSQL integration, race/fault/security, contract/adapter fixtures | B03 tests dùng simulator thuần; test task sau dùng code sản phẩm và không bypass auth/counter trong tải nghiệm thu | B03–B23 |
+| `tests/` | Unit/property, PostgreSQL integration, race/fault/security, contract/adapter fixtures | B03/B04 hiện có simulator + policy unit/property/integration tests; task sau bổ sung DB/runtime tests và không bypass auth/counter trong tải nghiệm thu | B03–B23 |
 | `web/tests/` | Playwright flows và kiểm tra UI | Backend thật cho acceptance UI; cursor, ownership và control theo API | B17–B18, B20 |
 | `migrations/` | Alembic schema/version/index/constraint | Persistence schema và contract migration; luôn source-controlled | B05, B21, B25 |
-| `benchmarks/` | B03 hiện có simulator/baseline/seeded trace/metrics/report; task sau bổ sung policy, load/chaos | B03 policy contract chỉ thuộc simulator; worker simulator sau này phải dùng protocol chuẩn và chỉ bật trong test | B03–B04, B13, B22–B24 |
+| `benchmarks/` | B03 simulator/baseline và B04 policy adapter/fixed fairness suite/report; task sau bổ sung DB/load/chaos | B04 harness dùng product policy nhưng chỉ là evidence lớp D; worker simulator sau này phải dùng protocol chuẩn và chỉ bật trong test | B03–B04, B13, B22–B24 |
 | `scripts/` | Công cụ bootstrap, demo và vận hành tái lập | Gọi các interface/command đã có; không chứa secret | B02, B21, B24–B25 |
 | `docs/` | Contract, invariant, acceptance, runbook và ADR | Dẫn về PLAN; không phải nguồn quyết định cạnh tranh | B01 và mọi task đổi contract |
 | `docs/adr/` | Bản ghi quyết định khi có trigger theo `docs/adr.md`; hiện có ADR-0001–0004 của B01 | Dẫn về PLAN và contract liên quan; không dùng ADR để thay quyết định đã khóa | Task phát sinh quyết định |
@@ -223,6 +268,7 @@ Chỉ source-controlled file và directory được liệt kê trong cây curren
 | Tài liệu B01 đã source-control-ready | `docs/adr/0001`–`0004`, `docs/evidence/B01-contract-review.md`, OpenAPI/schema/traceability/inventory | Đã tồn tại trong working tree B01; là specification/evidence tài liệu, không phải runtime implementation |
 | Bootstrap source-controlled hiện có | `pyproject.toml`, `uv.lock`, `src/nexa/__init__.py`, `src/nexa/config.py`, `tests/test_*.py`, `.env.example`, `web/package.json`, `web/pnpm-lock.yaml`, TypeScript/Vite source/config, `.github/workflows/ci.yml`, `docs/evidence/B02-bootstrap.md` | Chứng minh package/config/UI toolchain và CI tối thiểu; không chứa product behavior hoặc credential |
 | B03 simulator source/evidence | `benchmarks/simulator/`, `benchmarks/fixtures/`, selected `benchmarks/results/` and `benchmarks/plots/`, `tests/benchmarks/`, `docs/evidence/B03-simulator.md` | Lớp D deterministic; không phải production scheduler, runtime benchmark, Linux/Docker/GPU evidence hoặc acceptance pass |
+| B04 policy source/evidence | `src/nexa/domain/scheduling.py`, `src/nexa/scheduler/`, `benchmarks/b04/`, B04 fixtures/results/plots, `tests/scheduler/`, `tests/benchmarks/b04/`, `docs/evidence/B04-fairness.md` | Policy product thuần và evidence lớp D; chưa có persistence/coordinator/runtime/DB query plan hay GPU thật |
 | Source-controlled khi task sau triển khai | Product source/tests/fixtures, migrations, benchmark/plot scripts và evidence runtime bổ sung trong `docs/evidence/` | Tạo theo task có scope phù hợp, review cùng contract/gate; không chứa credential hoặc dữ liệu private của workload |
 | Generated files | `build/`, `dist/`, `*.egg-info/`, `*.tsbuildinfo`, coverage/test reports tạm | Tái tạo từ source, ignore; báo cáo chọn để nghiệm thu chuyển vào `docs/evidence/` kèm provenance |
 | Runtime data | Volume DB/artifact thật đặt ngoài checkout; mapping local tại `runtime/`, `data/postgres/`, `data/artifacts/`, `data/checkpoints/`, `data/logs/` hoặc `pgdata/`, `artifacts/`, `checkpoints/`, `logs/` ở root | Ignore không phải backup; giữ durability/permission/consistent backup theo PLAN |

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "trace_id": "b04-mixed-equal-v1",
+  "capacity": {"cpu_millis": 4000, "memory_bytes": 8589934592, "gpu_uuids": []},
+  "tenants": [
+    {"tenant_id": "tenant-a", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 8589934592, "gpu_count": 0}, "max_running_jobs": 4, "order": 0},
+    {"tenant_id": "tenant-b", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 8589934592, "gpu_count": 0}, "max_running_jobs": 4, "order": 1},
+    {"tenant_id": "tenant-c", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 8589934592, "gpu_count": 0}, "max_running_jobs": 4, "order": 2}
+  ],
+  "fairness_window": {"start_ms": 1000, "end_ms": 600000, "tenant_ids": ["tenant-a", "tenant-b", "tenant-c"]},
+  "jobs": [],
+  "generator_groups": [
+    {"group_id": "mixed-a", "tenant_id": "tenant-a", "count": 50, "ready_sequence_start": 0, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [1000, 5000, 30000, 120000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1},
+    {"group_id": "mixed-b", "tenant_id": "tenant-b", "count": 50, "ready_sequence_start": 1000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [1000, 5000, 30000, 120000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1},
+    {"group_id": "mixed-c", "tenant_id": "tenant-c", "count": 50, "ready_sequence_start": 2000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [1000, 5000, 30000, 120000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1}
+  ]
+}

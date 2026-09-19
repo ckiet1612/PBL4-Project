@@ -15,9 +15,10 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
 - **B03 đã hoàn thành và được focused Task Review duyệt.** B03 hiện có simulator virtual-time deterministic, năm baseline FIFO/RR/WRR/DRR/DRF, raw evidence và report tái lập. Đây chỉ là evidence lớp D, không phải scheduler sản phẩm hoặc runtime acceptance evidence.
-- Các chặng B04–B25 chưa được coi là hoàn thành.
+- **B04 đã hoàn thành và được Task Review duyệt ngày 19/09/2026.** Đã có thuật toán chia tài nguyên theo quyền lợi từng nhóm và thời gian giữ tài nguyên, tăng ưu tiên cho việc chờ lâu và dành chỗ cho việc lớn. Thuật toán đã được kiểm tra trong mô phỏng với năm bộ dữ liệu sinh từ seed cố định; phần kết nối cơ sở dữ liệu và vận hành thật thuộc các chặng sau.
+- Các chặng B05–B25 chưa được coi là hoàn thành.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review**, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), focused Task Review B03 và [báo cáo B03](docs/evidence/B03-simulator.md). B04, B05 và B09 nay đủ điều kiện bắt đầu trực tiếp vì đã nhận đủ dependency; mỗi task vẫn phải đạt gate riêng của mình.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md) và [báo cáo triển khai B04](docs/evidence/B04-fairness.md). Báo cáo B04 được lập trước lần duyệt cuối nên còn ghi chờ duyệt; trạng thái ở đây đã cập nhật theo phản hồi mới nhất của Task Review. B05 và B09 đủ điều kiện bắt đầu trực tiếp; B11 đã đủ phần B04 nhưng vẫn phải chờ B08 và B10 hoàn thành.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 

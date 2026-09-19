@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "policy_version": "1",
+  "seeds": [7, 11, 19, 23, 29],
+  "profiles": [
+    {
+      "profile_id": "uniform-equal",
+      "trace": "b04-uniform-equal.json",
+      "profile_kind": "fairness",
+      "valid_fairness": true,
+      "jain_threshold": "19/20"
+    },
+    {
+      "profile_id": "mixed-equal",
+      "trace": "b04-mixed-equal.json",
+      "profile_kind": "fairness",
+      "valid_fairness": true,
+      "jain_threshold": "19/20"
+    },
+    {
+      "profile_id": "weighted-124",
+      "trace": "b04-weighted-124.json",
+      "profile_kind": "fairness",
+      "valid_fairness": true,
+      "jain_threshold": "19/20"
+    },
+    {
+      "profile_id": "gpu-slots",
+      "trace": "b04-gpu-slots.json",
+      "profile_kind": "fairness",
+      "valid_fairness": true,
+      "jain_threshold": "19/20"
+    },
+    {
+      "profile_id": "large-reservation",
+      "trace": "b04-large-reservation.json",
+      "profile_kind": "reservation",
+      "valid_fairness": false,
+      "jain_threshold": null
+    },
+    {
+      "profile_id": "constrained-diagnostic",
+      "trace": "b04-constrained-diagnostic.json",
+      "profile_kind": "diagnostic",
+      "valid_fairness": false,
+      "jain_threshold": null
+    }
+  ]
+}

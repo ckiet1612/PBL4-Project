@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "trace_id": "b04-weighted-124-v1",
+  "capacity": {"cpu_millis": 7000, "memory_bytes": 7516192768, "gpu_uuids": []},
+  "tenants": [
+    {"tenant_id": "tenant-a", "weight": 1, "quota": {"cpu_millis": 7000, "memory_bytes": 7516192768, "gpu_count": 0}, "max_running_jobs": 7, "order": 0},
+    {"tenant_id": "tenant-b", "weight": 2, "quota": {"cpu_millis": 7000, "memory_bytes": 7516192768, "gpu_count": 0}, "max_running_jobs": 7, "order": 1},
+    {"tenant_id": "tenant-c", "weight": 4, "quota": {"cpu_millis": 7000, "memory_bytes": 7516192768, "gpu_count": 0}, "max_running_jobs": 7, "order": 2}
+  ],
+  "fairness_window": {"start_ms": 1000, "end_ms": 300000, "tenant_ids": ["tenant-a", "tenant-b", "tenant-c"]},
+  "jobs": [],
+  "generator_groups": [
+    {"group_id": "weighted-a", "tenant_id": "tenant-a", "count": 80, "ready_sequence_start": 0, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1},
+    {"group_id": "weighted-b", "tenant_id": "tenant-b", "count": 160, "ready_sequence_start": 1000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1},
+    {"group_id": "weighted-c", "tenant_id": "tenant-c", "count": 320, "ready_sequence_start": 2000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "trace_id": "b04-large-reservation-v2",
+  "capacity": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_uuids": []},
+  "tenants": [
+    {"tenant_id": "large-tenant", "weight": 1, "quota": {"cpu_millis": 8000, "memory_bytes": 8589934592, "gpu_count": 0}, "max_running_jobs": 1, "order": 0},
+    {"tenant_id": "small-tenant", "weight": 1, "quota": {"cpu_millis": 8000, "memory_bytes": 8589934592, "gpu_count": 0}, "max_running_jobs": 8, "order": 1}
+  ],
+  "fairness_window": {"start_ms": 0, "end_ms": 400000, "tenant_ids": ["large-tenant", "small-tenant"]},
+  "jobs": [
+    {"job_id": "small-0", "tenant_id": "small-tenant", "ready_sequence": 0, "arrival_ms": 0, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 130000, "priority": 1},
+    {"job_id": "small-1", "tenant_id": "small-tenant", "ready_sequence": 1, "arrival_ms": 0, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 150000, "priority": 1},
+    {"job_id": "small-2", "tenant_id": "small-tenant", "ready_sequence": 2, "arrival_ms": 0, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 170000, "priority": 1},
+    {"job_id": "small-3", "tenant_id": "small-tenant", "ready_sequence": 3, "arrival_ms": 0, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 190000, "priority": 1},
+    {"job_id": "large", "tenant_id": "large-tenant", "ready_sequence": 10, "arrival_ms": 1000, "resources": {"cpu_millis": 4000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 10000, "priority": 1},
+    {"job_id": "small-late-1", "tenant_id": "small-tenant", "ready_sequence": 11, "arrival_ms": 125000, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 60000, "priority": 1},
+    {"job_id": "small-late-2", "tenant_id": "small-tenant", "ready_sequence": 12, "arrival_ms": 140000, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 60000, "priority": 1},
+    {"job_id": "small-late-3", "tenant_id": "small-tenant", "ready_sequence": 13, "arrival_ms": 160000, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 60000, "priority": 1},
+    {"job_id": "small-late-4", "tenant_id": "small-tenant", "ready_sequence": 14, "arrival_ms": 180000, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 60000, "priority": 1},
+    {"job_id": "small-after-1", "tenant_id": "small-tenant", "ready_sequence": 15, "arrival_ms": 195000, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 60000, "priority": 1},
+    {"job_id": "small-after-2", "tenant_id": "small-tenant", "ready_sequence": 16, "arrival_ms": 205000, "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}, "duration_ms": 60000, "priority": 1}
+  ],
+  "generator_groups": []
+}

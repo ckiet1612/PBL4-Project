@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "trace_id": "b04-gpu-slots-v1",
+  "capacity": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_uuids": ["GPU-a", "GPU-b", "GPU-c", "GPU-d"]},
+  "tenants": [
+    {"tenant_id": "tenant-a", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_count": 4}, "max_running_jobs": 4, "order": 0},
+    {"tenant_id": "tenant-b", "weight": 2, "quota": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_count": 4}, "max_running_jobs": 4, "order": 1},
+    {"tenant_id": "tenant-c", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_count": 4}, "max_running_jobs": 4, "order": 2}
+  ],
+  "fairness_window": {"start_ms": 1000, "end_ms": 400000, "tenant_ids": ["tenant-a", "tenant-b", "tenant-c"]},
+  "jobs": [],
+  "generator_groups": [
+    {"group_id": "gpu-a", "tenant_id": "tenant-a", "count": 80, "ready_sequence_start": 0, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000, 30000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 1}], "priority": 1},
+    {"group_id": "gpu-b", "tenant_id": "tenant-b", "count": 160, "ready_sequence_start": 1000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000, 30000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 1}], "priority": 1},
+    {"group_id": "gpu-c", "tenant_id": "tenant-c", "count": 80, "ready_sequence_start": 2000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000, 30000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 1}], "priority": 1}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "trace_id": "b04-uniform-equal-v1",
+  "capacity": {
+    "cpu_millis": 4000,
+    "memory_bytes": 4294967296,
+    "gpu_uuids": []
+  },
+  "tenants": [
+    {"tenant_id": "tenant-a", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_count": 0}, "max_running_jobs": 4, "order": 0},
+    {"tenant_id": "tenant-b", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_count": 0}, "max_running_jobs": 4, "order": 1},
+    {"tenant_id": "tenant-c", "weight": 1, "quota": {"cpu_millis": 4000, "memory_bytes": 4294967296, "gpu_count": 0}, "max_running_jobs": 4, "order": 2}
+  ],
+  "fairness_window": {"start_ms": 1000, "end_ms": 200000, "tenant_ids": ["tenant-a", "tenant-b", "tenant-c"]},
+  "jobs": [],
+  "generator_groups": [
+    {"group_id": "uniform-a", "tenant_id": "tenant-a", "count": 80, "ready_sequence_start": 0, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1},
+    {"group_id": "uniform-b", "tenant_id": "tenant-b", "count": 80, "ready_sequence_start": 1000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1},
+    {"group_id": "uniform-c", "tenant_id": "tenant-c", "count": 80, "ready_sequence_start": 2000, "arrival_start_ms": 0, "arrival_step_ms": 0, "arrival_jitter_ms": 100, "duration_choices_ms": [5000], "resource_choices": [{"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0}], "priority": 1}
+  ]
+}

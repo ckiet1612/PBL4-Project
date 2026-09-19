@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01 contract `1.0.0-b01` đã được review và ACC-01 là `pass`; B02 bootstrap và B03 simulator/baseline đã hoàn tất, B03 được focused Task Review duyệt ngày 19/09/2026.** Python/UI dependencies có lockfile, Python 3.12 và Node 24 LTS quality commands đều pass, CI read-only đã được parse và actionlint validate. Repository vẫn chưa có product scheduler, API behavior, migration, Compose runtime hay runtime acceptance evidence. Các thông số hiệu năng vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01 contract `1.0.0-b01`, B02 bootstrap và B03 simulator/baseline đã được Task Review duyệt; B04 đã implement và đang chờ Review.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D; repository vẫn chưa có scheduler runtime, API behavior, migration, Compose runtime hay runtime acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -108,9 +108,28 @@ uv run --no-sync python -m benchmarks.simulator.cli report \
 
 Để kiểm tra byte-equivalent replay, chạy lại hai command vào `benchmarks/tmp/` rồi dùng `cmp` cho JSON/CSV/SVG. Báo cáo cấu hình, checksum, remediation, focused review và giới hạn nằm tại [B03 simulator evidence](docs/evidence/B03-simulator.md). B03 đã được focused Task Review trả lời `Duyệt`; ACC-09/10/11 cùng mọi gate runtime vẫn chưa được tuyên bố pass.
 
+## B04 fairness, aging và reservation
+
+B04 triển khai policy sản phẩm thuần dưới `src/nexa/domain/` và `src/nexa/scheduler/`. Harness riêng dưới `benchmarks/b04/` nối policy này với trace/simulator B03, giữ năm baseline làm mốc so sánh và tạo artifact B04 riêng. Policy không gọi DB/Docker, không đọc đồng hồ hệ thống, không giữ global state và chỉ trả proposal có version; coordinator/runtime vẫn thuộc task sau.
+
+Chạy fixed suite gồm sáu profile, năm seed và sáu policy:
+
+```sh
+uv run --no-sync python -m benchmarks.b04.cli compare \
+  --suite benchmarks/fixtures/b04-suite.json \
+  --output benchmarks/results/b04-fairness.json
+
+uv run --no-sync python -m benchmarks.b04.cli report \
+  --input benchmarks/results/b04-fairness.json \
+  --csv benchmarks/plots/b04-fairness.csv \
+  --svg benchmarks/plots/b04-fairness.svg
+```
+
+Để replay, đổi ba output sang `benchmarks/tmp/` rồi dùng `cmp` với artifact đã chọn. Cả 20 run fairness hợp lệ của policy Nexa đạt ngưỡng cố định `J >= 0,95`; profile giới hạn giữ Jain ở `null/N/A`. Năm trace reservation dùng release lệch mốc, ghi trực tiếp các job nhỏ đang fit nhưng bị drain giữ lại, dispatch job lớn ở 190 giây trước năm baseline ở 270 giây, và tiếp tục có arrival sau dispatch. Chi tiết seed, hash, arithmetic, gate lớp D và giới hạn nằm tại [B04 fairness evidence](docs/evidence/B04-fairness.md). Trạng thái hiện tại là **đã implement, chờ Review lại sau remediation B04-R01/B04-R02**, không phải Task Review đã duyệt.
+
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B02 và B03 đã hoàn tất nên B04, B05 và B09 đủ dependency trực tiếp để bắt đầu. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04 đã implement và chờ Review; B05 và B09 đủ dependency trực tiếp để bắt đầu. B11 vẫn cần B04 được duyệt cùng B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02 đã dùng isolated `uv`/Node 24 có checksum để hoàn tất local evidence. GitHub-hosted run chưa được quan sát. macOS hỗ trợ tài liệu/development/bootstrap/simulator, không thay evidence Linux/cgroups. Các command trên chỉ kiểm tra bootstrap workspace, không phải product runtime.
 
