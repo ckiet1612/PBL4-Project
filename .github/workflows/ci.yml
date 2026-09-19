@@ -12,6 +12,22 @@ jobs:
     name: Python quality
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      NEXA_TEST_DATABASE_URL: postgresql+psycopg://nexa_ci:nexa_ci_test@127.0.0.1:5432/nexa_b05_test_ci
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nexa_ci
+          POSTGRES_PASSWORD: nexa_ci_test
+          POSTGRES_DB: nexa_b05_test_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexa_ci -d nexa_b05_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,7 +46,7 @@ jobs:
       - name: Check Python formatting
         run: uv run --no-sync ruff format --check .
       - name: Test Python
-        run: uv run --no-sync pytest -q
+        run: uv run --no-sync pytest -q --run-postgres
 
   web:
     name: Web quality

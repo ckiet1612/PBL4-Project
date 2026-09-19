@@ -5,6 +5,7 @@ description = "Single-node multi-tenant batch AI platform"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+  "alembic>=1.18.4,<1.19",
   "fastapi>=0.141.1,<0.142",
   "psycopg[binary]>=3.3.5,<3.4",
   "sqlalchemy>=2.0.54,<2.1",

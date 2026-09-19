@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01 contract `1.0.0-b01`, B02 bootstrap và B03 simulator/baseline đã được Task Review duyệt; B04 đã implement và đang chờ Review.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D; repository vẫn chưa có scheduler runtime, API behavior, migration, Compose runtime hay runtime acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01–B04 đã được Task Review duyệt; lần review B05 mới nhất đã đóng R02/R04 và chỉ còn R06, hiện đã remediation local và đang chờ duyệt lại.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 bổ sung schema/migration/constraint và transaction helpers, nhưng chưa được duyệt và repository vẫn chưa có API behavior, scheduler/recovery runtime, Compose runtime hay release acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -125,13 +125,30 @@ uv run --no-sync python -m benchmarks.b04.cli report \
   --svg benchmarks/plots/b04-fairness.svg
 ```
 
-Để replay, đổi ba output sang `benchmarks/tmp/` rồi dùng `cmp` với artifact đã chọn. Cả 20 run fairness hợp lệ của policy Nexa đạt ngưỡng cố định `J >= 0,95`; profile giới hạn giữ Jain ở `null/N/A`. Năm trace reservation dùng release lệch mốc, ghi trực tiếp các job nhỏ đang fit nhưng bị drain giữ lại, dispatch job lớn ở 190 giây trước năm baseline ở 270 giây, và tiếp tục có arrival sau dispatch. Chi tiết seed, hash, arithmetic, gate lớp D và giới hạn nằm tại [B04 fairness evidence](docs/evidence/B04-fairness.md). Trạng thái hiện tại là **đã implement, chờ Review lại sau remediation B04-R01/B04-R02**, không phải Task Review đã duyệt.
+Để replay, đổi ba output sang `benchmarks/tmp/` rồi dùng `cmp` với artifact đã chọn. Cả 20 run fairness hợp lệ của policy Nexa đạt ngưỡng cố định `J >= 0,95`; profile giới hạn giữ Jain ở `null/N/A`. Năm trace reservation dùng release lệch mốc, ghi trực tiếp các job nhỏ đang fit nhưng bị drain giữ lại, dispatch job lớn ở 190 giây trước năm baseline ở 270 giây, và tiếp tục có arrival sau dispatch. Chi tiết seed, hash, arithmetic, gate lớp D và giới hạn nằm tại [B04 fairness evidence](docs/evidence/B04-fairness.md). `ROADMAP.md` ghi nhận B04 đã được Task Review duyệt ngày 19/09/2026; báo cáo B04 cũ vẫn giữ nguyên bối cảnh remediation trước lần duyệt cuối.
+
+## B05 PostgreSQL schema và migration
+
+B05 triển khai physical schema generation `1` bằng SQLAlchemy 2/Alembic cho 52 bảng, gồm identity, job/session/attempt, worker/inventory/allocation, policy/fairness, event/idempotency, catalog artifact/checkpoint/result và guard nội bộ cho reference artifact. Initial revision `20260919_0001` dùng snapshot `schema_v1` bất biến, serialize migration runner bằng PostgreSQL advisory lock và có schema guard fail-closed. Domain/scheduler không import ORM; worker vẫn không truy cập DB.
+
+Transaction layer cung cấp engine/session lifecycle, row lock theo ID ổn định, optimistic CAS, DB timestamps và retry toàn transaction có giới hạn cho deadlock/serialization conflict. Remediation hiện dùng generated composite FK để tuần tự hóa UploadSession owner/reference, committed-artifact guard + FK cho mọi đường JobSpec/checkpoint/result/chunk/log/reference, Decimal text canonical với cùng miền giải mã Python gồm giới hạn raw/adjusted exponent, và score index chỉ giữ prefix hữu hạn để không làm hẹp significand hợp lệ. PostgreSQL 17 integration tests dùng database riêng có tên bắt đầu bằng `nexa_b05_test_`; fixture từ chối production URL, host không an toàn và sai major version trước khi cleanup.
+
+Chạy đầy đủ Python unit/property/PostgreSQL integration:
+
+```sh
+uv sync --frozen --all-groups --no-editable --reinstall-package nexa
+
+NEXA_TEST_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@127.0.0.1:PORT/nexa_b05_test_NAME' \
+  uv run --no-sync pytest -q --run-postgres
+```
+
+Mapping physical, cách dùng helpers, migration command và nghĩa vụ B06+ nằm tại [database mapping](docs/database.md). Kết quả local và giới hạn gate nằm tại [B05 evidence](docs/evidence/B05-postgresql.md). Task Review độc lập chưa duyệt B05 sau remediation; hosted CI chưa được quan sát.
 
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04 đã implement và chờ Review; B05 và B09 đủ dependency trực tiếp để bắt đầu. B11 vẫn cần B04 được duyệt cùng B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04 đã được duyệt. Review B05 mới nhất đã đóng R02/R04, còn R06 đã remediation local và chờ Task Review độc lập duyệt lại; B06 chỉ mở dependency sau khi B05 được duyệt. B09 có thể triển khai từ B02. B11 vẫn cần B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
-[Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02 đã dùng isolated `uv`/Node 24 có checksum để hoàn tất local evidence. GitHub-hosted run chưa được quan sát. macOS hỗ trợ tài liệu/development/bootstrap/simulator, không thay evidence Linux/cgroups. Các command trên chỉ kiểm tra bootstrap workspace, không phải product runtime.
+[Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run chưa được quan sát. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 
 ## Kiểm tra repository hiện tại
 
