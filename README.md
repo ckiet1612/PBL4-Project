@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01–B05 đã được Task Review duyệt; B06 đã có implementation và kiểm chứng local, hiện chờ Task Review độc lập.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. Repository vẫn chưa có workload/coordinator/recovery runtime, Web UI nghiệp vụ, Compose runtime hay release acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01–B07 đã được Task Review duyệt.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. B07 bổ sung filesystem artifact store, bounded upload, durable commit order, tenant counter/reservation và artifact REST API. Repository vẫn chưa có workload/coordinator/recovery runtime, Web UI nghiệp vụ, Compose runtime hay release acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -23,6 +23,7 @@ Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho 
 | [AGENTS.md](AGENTS.md) | Quy tắc ngắn cho agent, invariant và điều kiện hoàn tất task |
 | [Project structure](docs/project-structure.md) | Cây hiện tại, target placement, kiến trúc, ownership và chiều dependency |
 | [Authentication and administration](docs/authentication.md) | Cấu hình, bootstrap, session/CSRF, token scopes, RBAC, policy và handoff B06 |
+| [Artifact storage](docs/artifacts.md) | Storage layout, upload headers, checksum, durable commit, quota, replay và download |
 | [Contracts](docs/contracts.md) | Điểm vào contract `1.0.0-b01`: OpenAPI `/v1`, domain/state, internal interfaces, workload/checkpoint và concurrency/recovery |
 | [Invariants](docs/invariants.md) | Tenant/resource accounting, concurrency, fencing, checkpoint, recovery, security |
 | [Acceptance](docs/acceptance.md) | Gate ID, điều kiện pass, evidence, môi trường; testing/benchmark objectives |
@@ -165,9 +166,17 @@ uv run --no-sync nexa-maintenance reopen-worker-bootstrap
 
 Luồng và boundary chi tiết nằm tại [authentication and administration](docs/authentication.md); evidence B06 nằm tại [B06 identity/token/RBAC](docs/evidence/B06-identity-token-rbac.md). `/v1/auth/session` vẫn browser-cookie-only theo OpenAPI hiện hành; mâu thuẫn mô tả CLI introspection chưa được tự ý sửa contract.
 
+## B07 artifact store và upload bền vững
+
+B07 cung cấp filesystem ArtifactStore một máy, upload bounded qua `application/octet-stream`, kiểm tra checksum/kích thước/media type, tenant storage reservation và artifact REST API. Bytes được ghi vào staging, kiểm tra rồi `fsync` file, atomic rename cùng filesystem và `fsync` thư mục trước khi PostgreSQL commit metadata, UploadSession, counter, audit và idempotency. Blob staging/orphan không được download hoặc reference; client không bao giờ nhận filesystem path hay blob key nội bộ.
+
+API public hỗ trợ upload các kind `INPUT`, `DATASET` và `MODEL` theo allowlist media type; các kind checkpoint/result/log dành cho worker flow ở các task sau. Upload cùng idempotency key và metadata đã commit sẽ replay cùng Artifact, còn request khác payload trả conflict. List/metadata/download chỉ trả artifact `COMMITTED` đúng tenant, dùng cursor ký và hỗ trợ một byte range với checksum ETag.
+
+Mỗi tenant có counter committed/reserved bytes; upload bị giới hạn theo file, quota tenant và disk watermark. B07 có primitive staging expiry và cleanup an toàn, nhưng metrics/alert, reachability claim, full GC, worker authority/fencing, checkpoint/restore, Linux portability và load/release evidence vẫn thuộc các task sau. Chi tiết nằm tại [artifact storage](docs/artifacts.md) và [B07 evidence](docs/evidence/B07-artifact-store.md). B07 đã được Task Review duyệt theo xác nhận mới nhất của user ngày 20/09/2026.
+
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04 và B05 đã được duyệt. B06 hiện có implementation local đang chờ Task Review; chỉ quyết định duyệt B06 độc lập mới mở B07. B09 có thể triển khai từ B02. B11 vẫn cần B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04, B05, B06 và B07 đã được duyệt. B08 đủ điều kiện bắt đầu từ B07; B09 có thể triển khai từ B02. B11 vẫn cần B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run chưa được quan sát. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 

@@ -21,6 +21,7 @@ class ApiServices:
     identity: IdentityService
     admin: AdminService
     policy: PolicyService
+    artifact: object | None = None
 
 
 def services(request: Request) -> ApiServices:

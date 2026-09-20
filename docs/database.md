@@ -1,7 +1,10 @@
 # PostgreSQL physical database mapping
 
-Tài liệu này mô tả schema generation `2`: generation `1` bất biến do B05 triển khai và
-phần durable identity runtime do B06 bổ sung từ contract `1.0.0-b01`.
+Tài liệu này mô tả schema generation `2` cộng lớp metadata phụ gia B07: generation `1`
+bất biến do B05 triển khai, durable identity runtime do B06 bổ sung, và migration
+`20260920_0003` thêm counter tenant artifact. B07 giữ generation compatibility cũ để
+B06 schema guard vẫn phân biệt được migration head; Alembic revision mới là nguồn nhận
+diện physical extension.
 [PLAN.md](../PLAN.md), [domain model](contracts/domain-model.md),
 [concurrency/recovery](contracts/concurrency-recovery.md) và
 [invariants](invariants.md) vẫn là nguồn sự thật về hành vi. Schema cung cấp storage,
@@ -52,7 +55,7 @@ expression index.
 |---|---|---|---|---|
 | `Template` | P `templates(template_id)` | Current-version composite FK | INV-18; migration parity | Admin allowlist and capability policy in B06/B09 |
 | `TemplateVersion` | P `template_versions(template_id,version)` | Immutable once referenced; image digest format and positive version | INV-18; trigger/migration tests | B06 admin lifecycle and B09 image/capability verification |
-| `Artifact` | F+P `artifacts(artifact_id)` plus internal `artifact_reference_guards(tenant_id,artifact_id)` | Composite tenant/state identity; unique blob key and tenant digest tuple; checksum/state/size checks; only `COMMITTED` artifacts receive a guard; every authoritative consumer FK targets that guard | INV-01/14/16; cross-tenant, staging-guard and two-connection recognition/cleanup races | B07 implements bounded staging, checksum, fsync/rename/fsync-dir, watermark and GC |
+| `Artifact` | F+P `artifacts(artifact_id)` plus internal `artifact_reference_guards(tenant_id,artifact_id)` | Composite tenant/state identity; unique blob key and tenant digest tuple; checksum/state/size checks; only `COMMITTED` artifacts receive a guard; every authoritative consumer FK targets that guard | INV-01/14/16; cross-tenant, staging-guard and two-connection recognition/cleanup races | B07 implements bounded staging, checksum, fsync/rename/fsync-dir and watermark primitives; B19 owns operational GC/reconciliation |
 | `JobSpec` | P `job_specs(job_id)` | Immutable row; composite job/artifact FKs; template version FK; resource and checksum bounds | INV-01/08; cross-tenant insert and immutability tests | B08 canonicalizes request and atomically accepts job/spec/session |
 | `Job` | P `jobs(job_id)` | Composite tenant identity; same-tenant retry FK; closed states; version/sequence checks; monotone fence and terminal update trigger; queue/retry/keyset indexes | INV-01/08/10; incomplete job, retry ownership, fence-decrease and terminal tests | B08/B11/B15 state machine, If-Match and fence orchestration |
 | `LogicalSession` | P `logical_sessions(session_id)` | Unique one per tenant/job; composite `(tenant,job,session)` provenance | INV-08/17; deferred completeness and delete test | B08 creates it with accepted job; B15 preserves it across recovery |
@@ -131,7 +134,8 @@ checks reject negative, non-finite or undecodable values where forbidden.
 | `RecognizedChunk` | F+P `recognized_chunks(recognized_chunk_id)` | Immutable; unique `(job,chunk)`; exact session/source attempt/fence/artifact FKs; artifact must be `COMMITTED` with exact checksum | INV-01/11/15; wrong-session/source, staging-artifact and checksum-mismatch tests | B16 chunk carry-forward and output assembly |
 | `LogSegment` | F+P `log_segments(log_segment_id)` | Immutable; unique attempt/start offset; exact attempt/artifact FKs; range checks; artifact must be `COMMITTED` with exact checksum | INV-01/16/21; staging-artifact and checksum-mismatch tests | B09/B19 bounded/truncated log streaming and retention |
 | `ArtifactReference` | P `artifact_references(...)` | Closed owner type; artifact FK targets the committed guard; generated UploadSession owner key has a composite FK; reference-side trigger validates other polymorphic owners; owner index | INV-01/16; committed artifact, two-connection owner delete/tenant-transfer races, INSERT/UPDATE and unreferenced cleanup tests | B07/B14/B19 reference creation and GC lock/recheck |
-| `UploadSession` | P `upload_sessions(upload_id)` | Composite tenant/upload key for conditional reference FK; optional attempt provenance; unique staging key; active expiry index; size/checksum/state checks | INV-14/16; concurrent owner/reference and cleanup tests | B07 bounded stream, expiry/orphan cleanup and atomic publish |
+| `UploadSession` | P `upload_sessions(upload_id)` | Composite tenant/upload key for conditional reference FK; optional attempt provenance; unique staging key and optional unique `idempotency_id`; active expiry index; size/checksum/state checks | INV-14/16; concurrent owner/reference and cleanup tests | B07 bounded stream, expiry/orphan cleanup and atomic publish |
+| `ArtifactStorageCounter` | P `artifact_storage_counters(tenant_id)` | One canonical tenant row; non-negative committed/reserved bytes and positive version; FK to tenant | INV-01/14/16; B07 quota reservation/release and migration parity tests | B07 locks this row for admission/commit; B19 adds metrics, watermark alerts and full reconciliation |
 
 Broad cascade delete is not used. Historical, audit, result and provenance FKs use
 `RESTRICT`; immutable triggers protect accepted specifications and recognized records.

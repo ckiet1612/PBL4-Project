@@ -10,13 +10,16 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from nexa.api.dependencies import ApiServices
 from nexa.api.routes_admin import router as admin_router
+from nexa.api.routes_artifacts import router as artifacts_router
 from nexa.api.routes_auth import router as auth_router
 from nexa.api.routes_bootstrap import router as bootstrap_router
 from nexa.application.admin_service import AdminService
+from nexa.application.artifact_service import ArtifactService
 from nexa.application.errors import ApplicationError
 from nexa.application.identity_service import IdentityService
 from nexa.application.policy_service import PolicyService
 from nexa.config import Settings
+from nexa.infrastructure.artifacts.store import FilesystemArtifactStore
 from nexa.infrastructure.persistence.database import (
     create_database_engine,
     create_session_factory,
@@ -58,11 +61,16 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
             session_factory = create_session_factory(active_engine)
             identity = IdentityService(session_factory, settings)
             identity.initialize()
+            artifact_store = FilesystemArtifactStore(
+                settings.artifact_root,
+                max_file_bytes=settings.artifact_max_file_bytes,
+            )
             app.state.services = ApiServices(
                 settings=settings,
                 identity=identity,
                 admin=AdminService(session_factory, settings, identity),
                 policy=PolicyService(session_factory, settings, identity),
+                artifact=ArtifactService(session_factory, settings, identity, artifact_store),
             )
             yield
         finally:
@@ -148,4 +156,5 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(admin_router)
     app.include_router(bootstrap_router)
+    app.include_router(artifacts_router)
     return app

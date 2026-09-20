@@ -43,6 +43,12 @@ class Settings:
     login_rate_per_minute: int
     cursor_ttl_seconds: int
     idempotency_pending_wait_milliseconds: int
+    artifact_max_file_bytes: int
+    tenant_artifact_quota_bytes: int
+    staging_ttl_seconds: int
+    orphan_ttl_seconds: int
+    storage_high_watermark_percent: int
+    storage_critical_watermark_percent: int
 
     def __repr__(self) -> str:
         return (
@@ -83,6 +89,12 @@ _ALLOWED_KEYS = frozenset(
         "NEXA_LOGIN_RATE_PER_MINUTE",
         "NEXA_CURSOR_TTL_SECONDS",
         "NEXA_IDEMPOTENCY_PENDING_WAIT_MILLISECONDS",
+        "NEXA_ARTIFACT_MAX_FILE_BYTES",
+        "NEXA_TENANT_ARTIFACT_QUOTA_BYTES",
+        "NEXA_STAGING_TTL_SECONDS",
+        "NEXA_ORPHAN_TTL_SECONDS",
+        "NEXA_STORAGE_HIGH_WATERMARK_PERCENT",
+        "NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT",
     }
 )
 _ENVIRONMENTS = frozenset({"development", "test", "production"})
@@ -268,6 +280,36 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         minimum=0,
         maximum=30_000,
     )
+    artifact_max_file_bytes = _integer_setting(
+        environ,
+        "NEXA_ARTIFACT_MAX_FILE_BYTES",
+        10 * 1024**3,
+        minimum=1 * 1024**2,
+        maximum=1 * 1024**4,
+    )
+    tenant_artifact_quota_bytes = _integer_setting(
+        environ,
+        "NEXA_TENANT_ARTIFACT_QUOTA_BYTES",
+        100 * 1024**3,
+        minimum=artifact_max_file_bytes,
+        maximum=1 * 1024**4,
+    )
+    staging_ttl_seconds = _integer_setting(
+        environ, "NEXA_STAGING_TTL_SECONDS", 86_400, minimum=3_600, maximum=604_800
+    )
+    orphan_ttl_seconds = _integer_setting(
+        environ, "NEXA_ORPHAN_TTL_SECONDS", 86_400, minimum=3_600, maximum=604_800
+    )
+    storage_high_watermark_percent = _integer_setting(
+        environ, "NEXA_STORAGE_HIGH_WATERMARK_PERCENT", 85, minimum=50, maximum=95
+    )
+    storage_critical_watermark_percent = _integer_setting(
+        environ, "NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT", 95, minimum=51, maximum=99
+    )
+    if orphan_ttl_seconds < staging_ttl_seconds:
+        raise ConfigError("NEXA_ORPHAN_TTL_SECONDS must be at least the staging TTL")
+    if storage_critical_watermark_percent <= storage_high_watermark_percent:
+        raise ConfigError("NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT must exceed the high watermark")
 
     return Settings(
         environment=environment,
@@ -298,4 +340,10 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         login_rate_per_minute=login_rate_per_minute,
         cursor_ttl_seconds=cursor_ttl_seconds,
         idempotency_pending_wait_milliseconds=idempotency_pending_wait_milliseconds,
+        artifact_max_file_bytes=artifact_max_file_bytes,
+        tenant_artifact_quota_bytes=tenant_artifact_quota_bytes,
+        staging_ttl_seconds=staging_ttl_seconds,
+        orphan_ttl_seconds=orphan_ttl_seconds,
+        storage_high_watermark_percent=storage_high_watermark_percent,
+        storage_critical_watermark_percent=storage_critical_watermark_percent,
     )

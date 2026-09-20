@@ -36,6 +36,12 @@ def test_load_settings_accepts_safe_mapping() -> None:
     assert settings.browser_session_absolute_ttl_seconds == 43_200
     assert settings.browser_session_idle_ttl_seconds == 7_200
     assert settings.login_rate_per_minute == 10
+    assert settings.artifact_max_file_bytes == 10 * 1024**3
+    assert settings.tenant_artifact_quota_bytes == 100 * 1024**3
+    assert settings.staging_ttl_seconds == 86_400
+    assert settings.orphan_ttl_seconds == 86_400
+    assert settings.storage_high_watermark_percent == 85
+    assert settings.storage_critical_watermark_percent == 95
 
 
 def test_optional_values_have_non_sensitive_defaults() -> None:
@@ -193,6 +199,40 @@ def test_non_integer_api_json_limit_is_rejected_without_value_or_cause() -> None
     assert exc_info.value.__cause__ is None
 
 
+def test_artifact_storage_limits_require_quota_and_watermark_order() -> None:
+    with pytest.raises(ConfigError, match="NEXA_TENANT_ARTIFACT_QUOTA_BYTES"):
+        load_settings(
+            {
+                **SAFE_ENV,
+                "NEXA_ARTIFACT_MAX_FILE_BYTES": str(2 * 1024**3),
+                "NEXA_TENANT_ARTIFACT_QUOTA_BYTES": str(1024**2),
+            }
+        )
+    with pytest.raises(ConfigError, match="NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT"):
+        load_settings(
+            {
+                **SAFE_ENV,
+                "NEXA_STORAGE_HIGH_WATERMARK_PERCENT": "90",
+                "NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT": "90",
+            }
+        )
+
+
+def test_artifact_storage_contract_boundaries_are_accepted() -> None:
+    settings = load_settings(
+        {
+            **SAFE_ENV,
+            "NEXA_ARTIFACT_MAX_FILE_BYTES": str(1024**2),
+            "NEXA_TENANT_ARTIFACT_QUOTA_BYTES": str(1024**2),
+            "NEXA_STAGING_TTL_SECONDS": "3600",
+            "NEXA_ORPHAN_TTL_SECONDS": "604800",
+            "NEXA_STORAGE_HIGH_WATERMARK_PERCENT": "50",
+            "NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT": "99",
+        }
+    )
+    assert settings.artifact_max_file_bytes == 1024**2
+
+
 def test_log_level_is_normalized_to_uppercase() -> None:
     settings = load_settings({**SAFE_ENV, "NEXA_LOG_LEVEL": "warning"})
 
@@ -256,6 +296,7 @@ def test_env_example_is_loadable_without_real_credentials() -> None:
         "NEXA_ARGON2_PARALLELISM",
         "NEXA_ARGON2_TIME_COST",
         "NEXA_ARTIFACT_ROOT",
+        "NEXA_ARTIFACT_MAX_FILE_BYTES",
         "NEXA_BOOTSTRAP_SECRET_FILE",
         "NEXA_BROWSER_SESSION_ABSOLUTE_TTL_SECONDS",
         "NEXA_BROWSER_SESSION_IDLE_TTL_SECONDS",
@@ -264,6 +305,7 @@ def test_env_example_is_loadable_without_real_credentials() -> None:
         "NEXA_DATABASE_URL",
         "NEXA_ENVIRONMENT",
         "NEXA_IDEMPOTENCY_PENDING_WAIT_MILLISECONDS",
+        "NEXA_ORPHAN_TTL_SECONDS",
         "NEXA_INSTALLATION_ID",
         "NEXA_LOGIN_RATE_PER_MINUTE",
         "NEXA_LOCAL_WORKER_FINGERPRINT",
@@ -273,6 +315,10 @@ def test_env_example_is_loadable_without_real_credentials() -> None:
         "NEXA_PASSWORD_HASH_CONCURRENCY",
         "NEXA_PUBLIC_ORIGIN",
         "NEXA_SERVER_SECRET_FILE",
+        "NEXA_STAGING_TTL_SECONDS",
+        "NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT",
+        "NEXA_STORAGE_HIGH_WATERMARK_PERCENT",
+        "NEXA_TENANT_ARTIFACT_QUOTA_BYTES",
         "NEXA_TRUSTED_PROXY_CIDRS",
         "NEXA_WORKER_BOOTSTRAP_WINDOW_SECONDS",
         "NEXA_WORKER_CREDENTIAL_TTL_SECONDS",

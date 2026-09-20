@@ -1,10 +1,33 @@
+from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from enum import StrEnum
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import UUID7, BaseModel, ConfigDict, Field, field_validator
 
 from nexa.domain.identity import TokenScope
+
+_UUID7_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+UuidV7 = Annotated[UUID7, Field(json_schema_extra={"pattern": _UUID7_PATTERN})]
+
+
+class UserArtifactKind(StrEnum):
+    INPUT = "INPUT"
+    DATASET = "DATASET"
+    MODEL = "MODEL"
+
+
+class ArtifactKind(StrEnum):
+    INPUT = "INPUT"
+    DATASET = "DATASET"
+    MODEL = "MODEL"
+    CHECKPOINT_FILE = "CHECKPOINT_FILE"
+    CHECKPOINT_MANIFEST = "CHECKPOINT_MANIFEST"
+    RESULT_FILE = "RESULT_FILE"
+    RESULT_MANIFEST = "RESULT_MANIFEST"
+    CHUNK_OUTPUT_MANIFEST = "CHUNK_OUTPUT_MANIFEST"
+    LOG = "LOG"
 
 
 class StrictRequest(BaseModel):
@@ -105,3 +128,45 @@ class TenantPolicyUpdate(StrictRequest):
     submit_burst: int | None = Field(default=None, ge=1)
     user_submit_rate_per_second: Decimal | None = Field(default=None, gt=0)
     user_submit_burst: int | None = Field(default=None, ge=1)
+
+
+class Artifact(BaseModel):
+    model_config = ConfigDict(title="Artifact", extra="forbid")
+
+    artifact_id: UuidV7
+    tenant_id: UuidV7
+    kind: ArtifactKind
+    media_type: str = Field(min_length=1, max_length=127)
+    size_bytes: int = Field(ge=0)
+    checksum: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    state: Literal["COMMITTED"]
+    version: int = Field(ge=1)
+    created_at: datetime
+
+
+ArtifactResponse = Artifact
+
+
+class PageInfo(BaseModel):
+    model_config = ConfigDict(title="PageInfo", extra="forbid")
+
+    next_cursor: str | None = Field(max_length=2048)
+    page_size: int = Field(ge=0, le=100)
+
+
+class ArtifactPage(BaseModel):
+    model_config = ConfigDict(title="ArtifactPage", extra="forbid")
+
+    items: list[Artifact] = Field(max_length=100)
+    page: PageInfo
+
+
+ArtifactPageResponse = ArtifactPage
+
+
+class ErrorResponse(BaseModel):
+    model_config = ConfigDict(title="ErrorResponse", extra="forbid")
+
+    code: str
+    message: str
+    request_id: str

@@ -33,6 +33,13 @@ EXPECTED_B06_OPERATIONS = {
     "adminListAuditRecords",
 }
 
+EXPECTED_B07_OPERATIONS = {
+    "listArtifacts",
+    "uploadArtifact",
+    "getArtifactMetadata",
+    "downloadArtifact",
+}
+
 _DUMMY_ID = "018f05c4-a922-7d0d-9f55-f9084a72d0f9"
 ADMIN_OPERATION_CASES = (
     ("GET", "/v1/admin/tenants", None, 200, 403),
@@ -89,7 +96,7 @@ ADMIN_OPERATION_CASES = (
 )
 
 
-def test_all_b06_operation_ids_are_registered(migrated_postgres_engine, tmp_path) -> None:
+def test_b06_and_b07_operation_ids_are_registered(migrated_postgres_engine, tmp_path) -> None:
     client = _client(migrated_postgres_engine, tmp_path)
     operation_ids = {
         operation["operationId"]
@@ -97,7 +104,7 @@ def test_all_b06_operation_ids_are_registered(migrated_postgres_engine, tmp_path
         for operation in path.values()
         if isinstance(operation, dict) and "operationId" in operation
     }
-    assert operation_ids == EXPECTED_B06_OPERATIONS
+    assert operation_ids == EXPECTED_B06_OPERATIONS | EXPECTED_B07_OPERATIONS
 
 
 def test_every_admin_operation_rejects_anonymous_member_worker_and_bootstrap_credentials(

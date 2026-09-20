@@ -109,7 +109,9 @@ Cây file làm việc hiện tại sau khi B04 được implement (không liệt
 │   ├── env.py
 │   ├── script.py.mako
 │   └── versions/
-│       └── 20260919_0001_b05_initial.py
+│       ├── 20260919_0001_b05_initial.py
+│       ├── 20260920_0002_b06_identity_runtime.py
+│       └── 20260920_0003_b07_artifact_storage.py
 ├── scripts/
 │   └── .gitkeep
 ├── pyproject.toml
@@ -212,7 +214,7 @@ Cây file làm việc hiện tại sau khi B04 được implement (không liệt
     └── vite.config.ts
 ```
 
-Hiện có contract B01, bootstrap B02, simulator B03, fairness policy B04 và PostgreSQL schema B05 đã được duyệt. B05 bổ sung 52-table schema generation `1`, immutable schema snapshot, Alembic lifecycle, PostgreSQL constraints/indexes, transaction helpers, schema guard, PostgreSQL 17 tests và CI service; bảng thứ 52 là committed-artifact reference guard dùng để tuần tự hóa reference với cleanup. B06 bổ sung schema generation `2` cùng identity/admin API và vẫn chờ Task Review độc lập. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
+Hiện có contract B01, bootstrap B02, simulator B03, fairness policy B04, PostgreSQL schema B05, identity/admin B06 và artifact slice B07. B05 bổ sung 52-table schema generation `1`, immutable schema snapshot, Alembic lifecycle, PostgreSQL constraints/indexes, transaction helpers, schema guard, PostgreSQL 17 tests và CI service; bảng thứ 52 là committed-artifact reference guard dùng để tuần tự hóa reference với cleanup. B06 bổ sung schema generation `2` cùng identity/admin API. B07 thêm `schema_v3.py` như lớp metadata phụ gia và migration `20260920_0003` cho tenant storage counters, cùng filesystem/application/API implementation; migration B05/B06 vẫn bất biến. B07 đang chờ Task Review độc lập. `PLAN.md` thuộc quyết định thiết kế được user duyệt; `AGENTS.md` thuộc hướng dẫn agent; `README.md` điều hướng và mô tả trạng thái; `.gitignore` quản lý hygiene. `docs/` thuộc trách nhiệm task tương ứng với contract/gate được thay đổi, không phải một owner cá nhân đã được phân công.
 
 `ROADMAP.md` xuất hiện như một file untracked đồng thời trong lúc verification cuối; B02 chỉ đọc để xác nhận không xung đột và không tạo, sửa hoặc nhận ownership file này.
 
@@ -249,17 +251,17 @@ Hai skill đọc PLAN/invariants/acceptance, không thay đổi boundary hoặc 
 |---|---|---|---|
 | `src/nexa/domain/` | Domain types, resource vector, state/invariant, identity principal/exact scope và operational-mode rule | Không import API, ORM, Docker, UI hay framework ML; contract dùng chung không mở quyền truy cập DB cho worker | B01, B04–B06 |
 | `src/nexa/scheduler/` | Policy thuần, candidate ordering, aging/reservation | B04 đã hiện thực interface thuần nhận snapshot/time; chỉ phụ thuộc domain, không gọi Docker/DB/PyTorch. B13 bổ sung durable retrieval/state, không thay policy đã khóa. | B04, B13 |
-| `src/nexa/application/` | B06 identity/admin/policy services, authorization, idempotency/JCS, version precondition và transaction orchestration; use case task sau bổ sung tại đây | Domain/policy và các interface; dùng adapter persistence/artifact qua composition của process | B06–B08, B11, B14–B15 |
-| `src/nexa/api/` | B06 FastAPI app factory, 24 REST operation `/v1`, strict JSON/credential/CSRF handling và safe error mapping | Application/domain, persistence adapter được wire trong lifespan; không auto-migrate, seed principal hay truy cập Docker socket | B06–B08, B11, B15 |
+| `src/nexa/application/` | B06 identity/admin/policy services và B07 artifact upload/list/download orchestration, authorization, idempotency/JCS, version precondition và transaction orchestration | Domain/policy và các interface; dùng adapter persistence/artifact qua composition của process | B06–B08, B11, B14–B15 |
+| `src/nexa/api/` | B06 FastAPI app factory và B07 artifact REST operations, strict JSON/credential/CSRF handling và safe error mapping | Application/domain, persistence/artifact adapter được wire trong lifespan; không auto-migrate, seed principal hay truy cập Docker socket | B06–B08, B11, B15 |
 | `src/nexa/coordinator/` | Leadership, scheduling tick, allocation, reaper/recovery | Scheduler/application + persistence; recheck dưới transaction; không điều khiển Docker trực tiếp | B11, B13, B15 |
-| `src/nexa/infrastructure/` | B05/B06 PostgreSQL metadata generations, engine/session, lock/CAS/time/retry/schema guard; B06 Argon2/opaque-secret/CSRF/cursor primitives; filesystem artifact/metrics/log adapters vẫn là target | Implements contract domain/application/`ArtifactStore`; không import UI/CLI hay quyết định scheduler. Worker không dùng package DB này. | B05–B07, B19 |
+| `src/nexa/infrastructure/` | B05/B06 PostgreSQL metadata generations, engine/session, lock/CAS/time/retry/schema guard; B06 Argon2/opaque-secret/CSRF/cursor primitives; B07 filesystem `ArtifactStore`, media policy và tenant counter migration | Implements contract domain/application/`ArtifactStore`; không import UI/CLI hay quyết định scheduler. Worker không dùng package DB này. | B05–B07, B19 |
 | `src/nexa/worker/` | Local identity/incarnation, heartbeat/poll, inventory, singleton/reconcile, executor | API client cho control plane; `ResourceProvider` và `Executor`; Docker socket chỉ tại worker; không query DB trực tiếp | B09–B10, B23 |
 | `src/nexa/workloads/` | Trusted runner, `WorkloadAdapter`, CPU/PyTorch/sweep/chunk contracts | Adapter gọi framework ML trong workload image; runner bảo vệ lease channel; workload không có credential worker | B09, B14, B16, B23 |
 | `src/nexa/cli/` | B06 có maintenance command local chỉ để reopen worker-bootstrap window; product Typer CLI user/admin vẫn thuộc B12 | Maintenance path dùng cùng application transaction/audit; user/admin flows task sau phải qua REST API; workload không được dùng | B06, B12, B15 |
 | `web/` | React/TypeScript/Vite UI user/admin | Chỉ REST API; không truy cập DB/filesystem/Docker hoặc tự quyết định quyền/state | B17–B18 |
 | `tests/` | Unit/property, PostgreSQL integration, race/fault/security, contract/adapter fixtures | B06 bổ sung real FastAPI/PostgreSQL auth, RBAC, idempotency, bootstrap, policy/mode, error và independent-transaction race tests. UI/runtime/load tests vẫn thuộc task sau. | B03–B23 |
 | `web/tests/` | Playwright flows và kiểm tra UI | Backend thật cho acceptance UI; cursor, ownership và control theo API | B17–B18, B20 |
-| `migrations/` | Alembic schema/version/index/constraint | Một head `20260920_0002`: B05 generation 1 bất biến, B06 generation 2 thêm durable auth-control/rate state; không auto-run lúc import/request | B05–B06, B21, B25 |
+| `migrations/` | Alembic schema/version/index/constraint | Một head `20260920_0003`: B05/B06 revisions bất biến, B07 thêm tenant artifact-storage counters; không auto-run lúc import/request | B05–B07, B21, B25 |
 | `benchmarks/` | B03 simulator/baseline và B04 policy adapter/fixed fairness suite/report; task sau bổ sung DB/load/chaos | B04 harness dùng product policy nhưng chỉ là evidence lớp D; worker simulator sau này phải dùng protocol chuẩn và chỉ bật trong test | B03–B04, B13, B22–B24 |
 | `scripts/` | Công cụ bootstrap, demo và vận hành tái lập | Gọi các interface/command đã có; không chứa secret | B02, B21, B24–B25 |
 | `docs/` | Contract, invariant, acceptance, runbook và ADR | Dẫn về PLAN; không phải nguồn quyết định cạnh tranh | B01 và mọi task đổi contract |
