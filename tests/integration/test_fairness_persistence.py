@@ -20,7 +20,6 @@ from nexa.domain.scheduling import (
 from nexa.infrastructure.persistence.schema import (
     fairness_ledgers,
     fairness_state,
-    policy_versions,
     rate_buckets,
     tenant_policies,
 )
@@ -213,15 +212,6 @@ def test_decimal_scores_weights_and_virtual_floor_round_trip_exactly(
 ) -> None:
     with migrated_postgres_engine.begin() as connection:
         graphs = [seed_tenant_graph(connection, label=f"decimal-{index}") for index in range(4)]
-        connection.execute(
-            policy_versions.insert(),
-            {
-                "policy_version": 1,
-                "global_outstanding_limit": 100_000,
-                "operational_mode": "NORMAL",
-                "is_current": True,
-            },
-        )
         connection.execute(
             fairness_state.insert(),
             {"singleton_key": "local", "virtual_floor": ONE_THIRD_50, "version": 1},

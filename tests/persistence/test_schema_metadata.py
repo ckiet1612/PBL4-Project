@@ -55,6 +55,8 @@ REQUIRED_TABLES = {
     "log_segments",
     "artifact_references",
     "upload_sessions",
+    "auth_control",
+    "login_rate_limits",
 }
 
 
@@ -82,6 +84,34 @@ def test_credentials_store_hashes_without_raw_secret_columns() -> None:
         columns = set(metadata.tables[table_name].columns.keys())
         assert hashes <= columns
         assert not (forbidden & columns)
+
+
+def test_b06_auth_control_persists_windows_latch_and_local_identity_without_secrets() -> None:
+    columns = set(metadata.tables["auth_control"].columns.keys())
+
+    assert {
+        "admin_window_opened_at",
+        "admin_window_expires_at",
+        "admin_bootstrap_completed_at",
+        "worker_window_opened_at",
+        "worker_window_expires_at",
+        "installation_id",
+        "local_worker_id",
+        "worker_credential_fingerprint",
+        "version",
+    } <= columns
+    assert not {"secret", "password", "credential"} & columns
+
+
+def test_worker_has_at_most_one_unrevoked_credential() -> None:
+    indexes = {index.name: index for index in metadata.tables["worker_credentials"].indexes}
+
+    current = indexes["uq_worker_credentials_current"]
+    assert current.unique is True
+    assert (
+        str(current.dialect_options["postgresql"]["where"])
+        == "worker_credentials.revoked_at IS NULL"
+    )
 
 
 def test_fairness_values_use_exact_decimal_text_columns() -> None:

@@ -12,25 +12,12 @@ from nexa.infrastructure.persistence.schema import (
     allocation_ledger_segments,
     artifact_references,
     events,
-    policy_versions,
     upload_sessions,
 )
 
 from ._factories import CHECKSUM, seed_authority, seed_job, seed_tenant_graph, seed_worker
 
 pytestmark = pytest.mark.postgres
-
-
-def _insert_policy_version(connection) -> None:
-    connection.execute(
-        policy_versions.insert(),
-        {
-            "policy_version": 1,
-            "global_outstanding_limit": 100_000,
-            "operational_mode": "NORMAL",
-            "is_current": True,
-        },
-    )
 
 
 def _segment_values(*, allocation_id, tenant_id) -> dict[str, object]:
@@ -55,8 +42,6 @@ def test_allocation_ledger_tenant_must_match_allocation_on_insert_and_update(
         job = seed_job(connection, tenant_a)
         worker = seed_worker(connection, label="ledger-owner")
         authority = seed_authority(connection, tenant_a, job, worker)
-        _insert_policy_version(connection)
-
     with pytest.raises(IntegrityError), migrated_postgres_engine.begin() as connection:
         connection.execute(
             allocation_ledger_segments.insert(),

@@ -10,6 +10,12 @@ SAFE_ENV = {
     "NEXA_ARTIFACT_ROOT": "/srv/nexa/artifacts",
     "NEXA_API_JSON_MAX_BYTES": "1048576",
     "NEXA_LOG_LEVEL": "INFO",
+    "NEXA_PUBLIC_ORIGIN": "https://nexa.test",
+    "NEXA_SERVER_SECRET_FILE": "/run/secrets/nexa_server_secret",
+    "NEXA_BOOTSTRAP_SECRET_FILE": "/run/secrets/nexa_bootstrap_secret",
+    "NEXA_INSTALLATION_ID": "018f05c4-a922-7d0d-9f55-f9084a72d0f1",
+    "NEXA_LOCAL_WORKER_ID": "018f05c4-a922-7d0d-9f55-f9084a72d0f2",
+    "NEXA_LOCAL_WORKER_FINGERPRINT": "sha256:" + "a" * 64,
 }
 
 
@@ -21,6 +27,15 @@ def test_load_settings_accepts_safe_mapping() -> None:
     assert settings.artifact_root == Path("/srv/nexa/artifacts")
     assert settings.api_json_max_bytes == 1_048_576
     assert settings.log_level == "INFO"
+    assert settings.public_origin == "https://nexa.test"
+    assert settings.server_secret_file == Path("/run/secrets/nexa_server_secret")
+    assert settings.bootstrap_secret_file == Path("/run/secrets/nexa_bootstrap_secret")
+    assert settings.argon2_memory_kib == 19_456
+    assert settings.argon2_time_cost == 2
+    assert settings.argon2_parallelism == 1
+    assert settings.browser_session_absolute_ttl_seconds == 43_200
+    assert settings.browser_session_idle_ttl_seconds == 7_200
+    assert settings.login_rate_per_minute == 10
 
 
 def test_optional_values_have_non_sensitive_defaults() -> None:
@@ -34,6 +49,42 @@ def test_optional_values_have_non_sensitive_defaults() -> None:
     assert settings.environment == "development"
     assert settings.api_json_max_bytes == 1_048_576
     assert settings.log_level == "INFO"
+    assert settings.public_origin == "https://localhost"
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("NEXA_ARGON2_MEMORY_KIB", "19455"),
+        ("NEXA_ARGON2_TIME_COST", "1"),
+        ("NEXA_ARGON2_PARALLELISM", "0"),
+    ],
+)
+def test_argon2_configuration_below_owasp_floor_is_rejected(key: str, value: str) -> None:
+    with pytest.raises(ConfigError, match=key):
+        load_settings({**SAFE_ENV, key: value})
+
+
+def test_production_requires_https_public_origin() -> None:
+    with pytest.raises(ConfigError, match="NEXA_PUBLIC_ORIGIN"):
+        load_settings(
+            {
+                **SAFE_ENV,
+                "NEXA_ENVIRONMENT": "production",
+                "NEXA_PUBLIC_ORIGIN": "http://nexa.example",
+            }
+        )
+
+
+def test_session_idle_ttl_must_be_shorter_than_absolute_ttl() -> None:
+    with pytest.raises(ConfigError, match="NEXA_BROWSER_SESSION_IDLE_TTL_SECONDS"):
+        load_settings(
+            {
+                **SAFE_ENV,
+                "NEXA_BROWSER_SESSION_ABSOLUTE_TTL_SECONDS": "7200",
+                "NEXA_BROWSER_SESSION_IDLE_TTL_SECONDS": "7200",
+            }
+        )
 
 
 def test_missing_database_url_names_variable_without_a_value() -> None:
@@ -179,6 +230,8 @@ def test_sensitive_values_are_redacted_from_repr() -> None:
     assert SAFE_ENV["NEXA_ARTIFACT_ROOT"] not in rendered
     assert "database_url=<redacted>" in rendered
     assert "artifact_root=<redacted>" in rendered
+    assert SAFE_ENV["NEXA_SERVER_SECRET_FILE"] not in rendered
+    assert SAFE_ENV["NEXA_BOOTSTRAP_SECRET_FILE"] not in rendered
 
 
 def test_env_example_is_loadable_without_real_credentials() -> None:
@@ -197,15 +250,37 @@ def test_env_example_is_loadable_without_real_credentials() -> None:
     settings = load_settings(values)
 
     assert set(values) == {
+        "NEXA_ADMIN_BOOTSTRAP_WINDOW_SECONDS",
         "NEXA_API_JSON_MAX_BYTES",
+        "NEXA_ARGON2_MEMORY_KIB",
+        "NEXA_ARGON2_PARALLELISM",
+        "NEXA_ARGON2_TIME_COST",
         "NEXA_ARTIFACT_ROOT",
+        "NEXA_BOOTSTRAP_SECRET_FILE",
+        "NEXA_BROWSER_SESSION_ABSOLUTE_TTL_SECONDS",
+        "NEXA_BROWSER_SESSION_IDLE_TTL_SECONDS",
+        "NEXA_CLI_TOKEN_DEFAULT_TTL_SECONDS",
+        "NEXA_CURSOR_TTL_SECONDS",
         "NEXA_DATABASE_URL",
         "NEXA_ENVIRONMENT",
+        "NEXA_IDEMPOTENCY_PENDING_WAIT_MILLISECONDS",
+        "NEXA_INSTALLATION_ID",
+        "NEXA_LOGIN_RATE_PER_MINUTE",
+        "NEXA_LOCAL_WORKER_FINGERPRINT",
+        "NEXA_LOCAL_WORKER_ID",
         "NEXA_LOG_LEVEL",
+        "NEXA_MAINTENANCE_CIDRS",
+        "NEXA_PASSWORD_HASH_CONCURRENCY",
+        "NEXA_PUBLIC_ORIGIN",
+        "NEXA_SERVER_SECRET_FILE",
+        "NEXA_TRUSTED_PROXY_CIDRS",
+        "NEXA_WORKER_BOOTSTRAP_WINDOW_SECONDS",
+        "NEXA_WORKER_CREDENTIAL_TTL_SECONDS",
     }
     assert settings.environment == "development"
     assert settings.database_url == "postgresql+psycopg://nexa@localhost/nexa"
     assert settings.artifact_root == Path("/srv/nexa/artifacts")
     assert settings.api_json_max_bytes == 1_048_576
     assert settings.log_level == "INFO"
+    assert settings.public_origin == "https://localhost"
     assert "password" not in settings.database_url

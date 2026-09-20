@@ -3,8 +3,9 @@ import subprocess
 import sys
 import time
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
@@ -61,12 +62,14 @@ def test_clean_repeat_downgrade_and_reupgrade(clean_postgres_database: str) -> N
                 connection.execute(text("SELECT count(*) FROM alembic_version")).scalar_one() == 1
             )
             assert "jobs" in inspect(connection).get_table_names()
+            assert "auth_control" in inspect(connection).get_table_names()
         command.downgrade(config, "base")
         with engine.connect() as connection:
             assert "jobs" not in inspect(connection).get_table_names()
         command.upgrade(config, "head")
         with engine.connect() as connection:
             assert "jobs" in inspect(connection).get_table_names()
+            assert "auth_control" in inspect(connection).get_table_names()
     finally:
         engine.dispose()
 
@@ -98,6 +101,223 @@ def test_migration_matches_sqlalchemy_table_and_column_map(clean_postgres_databa
         for table_name, table in metadata.tables.items():
             reflected_columns = {column["name"] for column in database.get_columns(table_name)}
             assert reflected_columns == set(table.columns.keys())
+    finally:
+        engine.dispose()
+
+
+def test_b05_to_b06_upgrade_preserves_existing_identity_rows(
+    clean_postgres_database: str,
+) -> None:
+    config = _config(clean_postgres_database)
+    command.upgrade(config, "20260919_0001")
+    engine = create_engine(clean_postgres_database)
+    tenant_id = UUID("018f05c4-a922-7d0d-9f55-f9084a72d0f1")
+    existing_policy_tenant_id = UUID("018f05c4-a922-7d0d-9f55-f9084a72d0f8")
+    user_id = UUID("018f05c4-a922-7d0d-9f55-f9084a72d0f2")
+    worker_id = UUID("018f05c4-a922-7d0d-9f55-f9084a72d0f3")
+    old_credential_id = UUID("018f05c4-a922-7d0d-9f55-f9084a72d0f4")
+    current_credential_id = UUID("018f05c4-a922-7d0d-9f55-f9084a72d0f5")
+    created_at = datetime(2026, 9, 20, tzinfo=UTC)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO tenants (tenant_id, slug, display_name) "
+                    "VALUES (:tenant_id, 'existing', 'Existing')"
+                ),
+                {"tenant_id": tenant_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO tenants (tenant_id, slug, display_name) "
+                    "VALUES (:tenant_id, 'existing-policy', 'Existing Policy')"
+                ),
+                {"tenant_id": existing_policy_tenant_id},
+            )
+            connection.execute(
+                text("INSERT INTO membership_sets (tenant_id) VALUES (:tenant_id)"),
+                {"tenant_id": existing_policy_tenant_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO tenant_policies ("
+                    "tenant_id, version, weight, cpu_limit_millis, memory_limit_bytes, gpu_limit, "
+                    "outstanding_limit, user_outstanding_limit, tenant_active_limit, "
+                    "user_active_limit, tenant_rate_per_second, tenant_rate_burst, "
+                    "user_rate_per_second, user_rate_burst, "
+                    "is_current"
+                    ") VALUES ("
+                    ":tenant_id, 2, '0:7:0', 123, 456, 1, 99, 11, 3, 2, "
+                    "'0:3:0', '0:8:0', '0:2:0', '0:4:0', true"
+                    ")"
+                ),
+                {"tenant_id": existing_policy_tenant_id},
+            )
+            connection.execute(
+                text("INSERT INTO membership_sets (tenant_id) VALUES (:tenant_id)"),
+                {"tenant_id": tenant_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO users (user_id, username, display_name, password_hash) "
+                    "VALUES (:user_id, 'existing@example.test', 'Existing', :password_hash)"
+                ),
+                {"user_id": user_id, "password_hash": "x" * 32},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO workers (worker_id, admin_state, health) "
+                    "VALUES (:worker_id, 'ENABLED', 'STARTING')"
+                ),
+                {"worker_id": worker_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO worker_credentials "
+                    "(credential_id, worker_id, credential_hash, scopes, "
+                    "expires_at, created_at, updated_at) "
+                    "VALUES "
+                    "(:old_id, :worker_id, :old_hash, ARRAY['worker:local'], "
+                    ":expires_at, :old_at, :old_at), "
+                    "(:current_id, :worker_id, :current_hash, ARRAY['worker:local'], "
+                    ":expires_at, :current_at, :current_at)"
+                ),
+                {
+                    "old_id": old_credential_id,
+                    "current_id": current_credential_id,
+                    "worker_id": worker_id,
+                    "old_hash": b"o" * 32,
+                    "current_hash": b"c" * 32,
+                    "expires_at": created_at + timedelta(days=1),
+                    "old_at": created_at,
+                    "current_at": created_at + timedelta(seconds=1),
+                },
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            assert (
+                connection.execute(
+                    text("SELECT slug FROM tenants WHERE tenant_id = :tenant_id"),
+                    {"tenant_id": tenant_id},
+                ).scalar_one()
+                == "existing"
+            )
+            assert (
+                connection.execute(text("SELECT username FROM users")).scalar_one()
+                == "existing@example.test"
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT schema_generation FROM nexa_schema_metadata "
+                        "WHERE singleton_key = 'nexa'"
+                    )
+                ).scalar_one()
+                == 2
+            )
+            assert connection.execute(text("SELECT count(*) FROM auth_control")).scalar_one() == 1
+            policy = connection.execute(
+                text(
+                    "SELECT version, weight, cpu_limit_millis, memory_limit_bytes, gpu_limit, "
+                    "outstanding_limit, user_outstanding_limit, tenant_active_limit, "
+                    "user_active_limit, tenant_rate_per_second, tenant_rate_burst, "
+                    "user_rate_per_second, user_rate_burst "
+                    "FROM tenant_policies WHERE tenant_id = :tenant_id AND is_current"
+                ),
+                {"tenant_id": tenant_id},
+            ).one()
+            assert policy == (
+                1,
+                "0:1:0",
+                0,
+                0,
+                0,
+                2000,
+                2000,
+                2,
+                1,
+                "0:5:0",
+                "0:20:0",
+                "0:2:0",
+                "0:10:0",
+            )
+            preserved_policy = connection.execute(
+                text(
+                    "SELECT version, weight, cpu_limit_millis, memory_limit_bytes, gpu_limit, "
+                    "outstanding_limit, user_outstanding_limit, tenant_active_limit, "
+                    "user_active_limit, tenant_rate_per_second, tenant_rate_burst, "
+                    "user_rate_per_second, user_rate_burst "
+                    "FROM tenant_policies WHERE tenant_id = :tenant_id AND is_current"
+                ),
+                {"tenant_id": existing_policy_tenant_id},
+            ).one()
+            assert preserved_policy == (
+                2,
+                "0:7:0",
+                123,
+                456,
+                1,
+                99,
+                11,
+                3,
+                2,
+                "0:3:0",
+                "0:8:0",
+                "0:2:0",
+                "0:4:0",
+            )
+            assert (
+                connection.execute(
+                    text("SELECT global_outstanding_limit FROM policy_versions WHERE is_current")
+                ).scalar_one()
+                == 100_000
+            )
+            credentials = connection.execute(
+                text(
+                    "SELECT credential_id, revoked_at FROM worker_credentials "
+                    "WHERE worker_id = :worker_id ORDER BY created_at"
+                ),
+                {"worker_id": worker_id},
+            ).all()
+            assert [row.credential_id for row in credentials] == [
+                old_credential_id,
+                current_credential_id,
+            ]
+            assert credentials[0].revoked_at is not None
+            assert credentials[1].revoked_at is None
+    finally:
+        engine.dispose()
+
+
+def test_b05_to_b06_upgrade_fails_closed_on_casefold_collision(
+    clean_postgres_database: str,
+) -> None:
+    config = _config(clean_postgres_database)
+    command.upgrade(config, "20260919_0001")
+    engine = create_engine(clean_postgres_database)
+    try:
+        with engine.begin() as connection:
+            for suffix, username in (("1", "straße@example.test"), ("2", "strasse@example.test")):
+                connection.execute(
+                    text(
+                        "INSERT INTO users (user_id, username, display_name, password_hash) "
+                        "VALUES (:user_id, :username, :display_name, :password_hash)"
+                    ),
+                    {
+                        "user_id": UUID(
+                            "018f05c4-a922-7d0d-9f55-f9084a72d0f6"
+                            if suffix == "1"
+                            else "018f05c4-a922-7d0d-9f55-f9084a72d0f7"
+                        ),
+                        "username": username,
+                        "display_name": suffix,
+                        "password_hash": "x" * 32,
+                    },
+                )
+        with pytest.raises(RuntimeError, match="casefold collision"):
+            command.upgrade(config, "head")
     finally:
         engine.dispose()
 

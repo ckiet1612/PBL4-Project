@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01–B04 đã được Task Review duyệt; lần review B05 mới nhất đã đóng R02/R04 và chỉ còn R06, hiện đã remediation local và đang chờ duyệt lại.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 bổ sung schema/migration/constraint và transaction helpers, nhưng chưa được duyệt và repository vẫn chưa có API behavior, scheduler/recovery runtime, Compose runtime hay release acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01–B05 đã được Task Review duyệt; B06 đã có implementation và kiểm chứng local, hiện chờ Task Review độc lập.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. Repository vẫn chưa có workload/coordinator/recovery runtime, Web UI nghiệp vụ, Compose runtime hay release acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -22,6 +22,7 @@ Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho 
 | [PLAN.md](PLAN.md) | Quyết định đã duyệt, requirements chi tiết, 6 giai đoạn, 25 task B01–B25, DoD |
 | [AGENTS.md](AGENTS.md) | Quy tắc ngắn cho agent, invariant và điều kiện hoàn tất task |
 | [Project structure](docs/project-structure.md) | Cây hiện tại, target placement, kiến trúc, ownership và chiều dependency |
+| [Authentication and administration](docs/authentication.md) | Cấu hình, bootstrap, session/CSRF, token scopes, RBAC, policy và handoff B06 |
 | [Contracts](docs/contracts.md) | Điểm vào contract `1.0.0-b01`: OpenAPI `/v1`, domain/state, internal interfaces, workload/checkpoint và concurrency/recovery |
 | [Invariants](docs/invariants.md) | Tenant/resource accounting, concurrency, fencing, checkpoint, recovery, security |
 | [Acceptance](docs/acceptance.md) | Gate ID, điều kiện pass, evidence, môi trường; testing/benchmark objectives |
@@ -76,7 +77,7 @@ Runtime lấy cấu hình trực tiếp từ process environment. [`.env.example
 | `NEXA_API_JSON_MAX_BYTES` | Integer 65,536–16,777,216, tùy chọn | `1048576` theo contract |
 | `NEXA_LOG_LEVEL` | `DEBUG\|INFO\|WARNING\|ERROR\|CRITICAL`, tùy chọn | `INFO` |
 
-Biến `NEXA_*` chưa khai báo làm config validation fail; biến process không thuộc namespace này được bỏ qua. Lỗi chỉ nêu tên biến và rule an toàn, không phản chiếu giá trị. Log/error không được chứa token, password, credential, input hay checkpoint content.
+Biến `NEXA_*` chưa khai báo làm config validation fail; biến process không thuộc namespace này được bỏ qua. B06 bổ sung public HTTPS origin, secret-file paths, deployment/worker identity, maintenance/trusted proxy CIDR, Argon2, session/token/bootstrap TTL, login-rate, cursor và idempotency bounds. Danh sách đầy đủ cùng hướng dẫn tạo secret nằm tại [authentication and administration](docs/authentication.md). Lỗi chỉ nêu tên biến và rule an toàn, không phản chiếu giá trị. Log/error không được chứa token, password, credential, input hay checkpoint content.
 
 ## B03 simulator và baseline
 
@@ -142,11 +143,31 @@ NEXA_TEST_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@127.0.0.1:PORT/nexa_b
   uv run --no-sync pytest -q --run-postgres
 ```
 
-Mapping physical, cách dùng helpers, migration command và nghĩa vụ B06+ nằm tại [database mapping](docs/database.md). Kết quả local và giới hạn gate nằm tại [B05 evidence](docs/evidence/B05-postgresql.md). Task Review độc lập chưa duyệt B05 sau remediation; hosted CI chưa được quan sát.
+Mapping physical, cách dùng helpers, migration command và nghĩa vụ B06+ nằm tại [database mapping](docs/database.md). Kết quả local và giới hạn gate nằm tại [B05 evidence](docs/evidence/B05-postgresql.md). B05 đã được Task Review duyệt theo xác nhận mới nhất của user ngày 20/09/2026; hosted CI chưa được quan sát.
+
+## B06 identity, token và RBAC
+
+B06 cung cấp FastAPI app factory và 24 operation `/v1` đã duyệt cho admin bootstrap, browser login/session/logout, CLI token của chính caller, tenant/user/membership/SYSTEM_ADMIN, global/tenant policy, worker credential bootstrap và audit pagination. Application service recheck user, grant, membership, scope, expiry/revocation và operational mode trong transaction; browser mutation dùng cookie `Secure` cùng Origin/Host/CSRF, còn bearer dùng exact scope không phân cấp. Password dùng Argon2id; session/token/worker credential chỉ lưu hash; secret một lần không được persist vào idempotency snapshot.
+
+Migration `20260920_0002` nâng schema generation lên `2`, thêm auth-control singleton, login-rate state bền vững và uniqueness cho worker credential hiện hành. API startup chỉ kiểm schema và durable deployment identity, không auto-migrate hoặc seed principal. Global policy version 1 là seed migration fail-closed; tenant mới có resource limits bằng zero cho đến khi task inventory/runtime sau cung cấp capacity đã xác minh.
+
+Chạy API sau khi migration và secret/config đã được operator chuẩn bị:
+
+```sh
+uv run --no-sync uvicorn nexa.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Worker bootstrap window hết hạn chỉ được mở lại bằng maintenance command local có audit:
+
+```sh
+uv run --no-sync nexa-maintenance reopen-worker-bootstrap
+```
+
+Luồng và boundary chi tiết nằm tại [authentication and administration](docs/authentication.md); evidence B06 nằm tại [B06 identity/token/RBAC](docs/evidence/B06-identity-token-rbac.md). `/v1/auth/session` vẫn browser-cookie-only theo OpenAPI hiện hành; mâu thuẫn mô tả CLI introspection chưa được tự ý sửa contract.
 
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04 đã được duyệt. Review B05 mới nhất đã đóng R02/R04, còn R06 đã remediation local và chờ Task Review độc lập duyệt lại; B06 chỉ mở dependency sau khi B05 được duyệt. B09 có thể triển khai từ B02. B11 vẫn cần B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B04 và B05 đã được duyệt. B06 hiện có implementation local đang chờ Task Review; chỉ quyết định duyệt B06 độc lập mới mở B07. B09 có thể triển khai từ B02. B11 vẫn cần B08 và B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run chưa được quan sát. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 

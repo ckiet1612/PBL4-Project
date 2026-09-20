@@ -1,6 +1,7 @@
 # PostgreSQL physical database mapping
 
-Tài liệu này mô tả schema generation `1` do B05 triển khai từ contract `1.0.0-b01`.
+Tài liệu này mô tả schema generation `2`: generation `1` bất biến do B05 triển khai và
+phần durable identity runtime do B06 bổ sung từ contract `1.0.0-b01`.
 [PLAN.md](../PLAN.md), [domain model](contracts/domain-model.md),
 [concurrency/recovery](contracts/concurrency-recovery.md) và
 [invariants](invariants.md) vẫn là nguồn sự thật về hành vi. Schema cung cấp storage,
@@ -179,9 +180,12 @@ no event or counter side effect.
 
 ## Migration and schema compatibility
 
-Alembic head is `20260919_0001`. The revision imports immutable `schema_v1` metadata;
-current `schema.py` clones that snapshot so a future table/column cannot change the old
-revision. Online migration takes a PostgreSQL session advisory lock, commits the lock
+Alembic head is `20260920_0002`. Revision B05 `20260919_0001` imports immutable
+`schema_v1`; revision B06 imports layered `schema_v2`, which clones generation 1 before
+adding `auth_control`, `login_rate_limits` and the partial unique index that permits one
+unrevoked worker credential per worker. Migration B06 seeds only the auth-control singleton
+and global policy version 1, then advances `nexa_schema_metadata` to generation 2. Online
+migration takes a PostgreSQL session advisory lock, commits the lock
 acquisition so Alembic owns its DDL transaction, commits migration DDL, then unlocks.
 Two independent migration processes therefore serialize.
 
@@ -212,18 +216,26 @@ NEXA_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST/DATABASE' \
 Do not downgrade a database after product writes. B05 verifies downgrade/re-upgrade only
 for the supported pre-write lifecycle and does not promise lossless rollback of newer data.
 
-## B06 and later handoff
+## B06 runtime state and later handoff
 
-B06 should construct one engine with `create_database_engine`, build a session factory,
-wrap a complete application mutation in `run_transaction`, acquire only required rows in
-the documented lock order, use `compare_and_swap` for versioned aggregates, and map
-infrastructure exceptions outside this package. Before serving writes it must require a
-`CURRENT` schema but must never auto-migrate during import or a request.
+B06 constructs one engine in the FastAPI lifespan, builds one session factory, requires a
+`CURRENT` generation-2 schema and never auto-migrates during import/request. `auth_control`
+persists the installation/local-worker binding, admin bootstrap window/permanent latch and
+worker bootstrap window. `login_rate_limits` persists source-hash + normalized-username
+windows across processes/restarts. Existing B05 browser-session/CLI-token/worker-credential,
+identity, membership, policy, idempotency and audit tables are used without altering frozen
+generation-1 definitions.
+
+B06 application mutations use `run_transaction`, lock the global mode row before mutable
+configuration, and commit domain state, audit and completed idempotency snapshot together.
+Policy update locks current policy before counter rows; B08 admission transactions must use
+the corresponding shared policy lock before changing counters so quota tightening and
+admission serialize.
 
 Schema support does not complete these obligations:
 
-- **B06:** ownership/membership/principal authorization, password/token/session lifecycle,
-  role/policy mutation and safe audit.
+- **B06 implemented:** identity principal/scope authorization, password/token/session
+  lifecycle, bootstrap, role/policy mutation, safe audit and B06 concurrency guards.
 - **B08:** durable submit/admission, exact idempotency replay before `If-Match`, and atomic
   counters/events.
 - **B11:** coordinator epoch, capacity/quota aggregate recheck, fence/state-machine

@@ -38,12 +38,12 @@ def test_current_old_new_and_unknown_schema_states_are_distinct(
     try:
         assert inspect_schema_compatibility(engine) is SchemaCompatibility.CURRENT
         assert (
-            inspect_schema_compatibility(engine, supported_generation=2) is SchemaCompatibility.OLD
+            inspect_schema_compatibility(engine, supported_generation=3) is SchemaCompatibility.OLD
         )
         with engine.begin() as connection:
             connection.execute(
                 text(
-                    "UPDATE nexa_schema_metadata SET schema_generation = 2 "
+                    "UPDATE nexa_schema_metadata SET schema_generation = 3 "
                     "WHERE singleton_key = 'nexa'"
                 )
             )
@@ -51,7 +51,7 @@ def test_current_old_new_and_unknown_schema_states_are_distinct(
         with engine.begin() as connection:
             connection.execute(
                 text(
-                    "UPDATE nexa_schema_metadata SET schema_generation = 1 "
+                    "UPDATE nexa_schema_metadata SET schema_generation = 2 "
                     "WHERE singleton_key = 'nexa'"
                 )
             )

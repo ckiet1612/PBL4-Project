@@ -10,7 +10,6 @@ from nexa.infrastructure.persistence.schema import (
     jobs,
     logical_sessions,
     membership_sets,
-    policy_versions,
     reservations,
     sweep_children,
     sweep_parents,
@@ -233,15 +232,6 @@ def test_only_one_local_reservation_can_be_active(migrated_postgres_engine) -> N
         graph = seed_tenant_graph(connection, label="local-reservation")
         first_job = seed_job(connection, graph)
         second_job = seed_job(connection, graph)
-        connection.execute(
-            policy_versions.insert(),
-            {
-                "policy_version": 1,
-                "global_outstanding_limit": 100_000,
-                "operational_mode": "NORMAL",
-                "is_current": True,
-            },
-        )
         connection.execute(
             reservations.insert(),
             {
