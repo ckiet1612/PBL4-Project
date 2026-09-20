@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import UUID7, BaseModel, ConfigDict, Field, field_validator
+from pydantic import UUID7, BaseModel, ConfigDict, Field, StrictFloat, StrictInt, field_validator
 
 from nexa.domain.identity import TokenScope
 
@@ -112,9 +112,161 @@ class GlobalPolicyUpdate(StrictRequest):
 
 
 class ResourceCapacityVector(StrictRequest):
-    cpu_millis: int = Field(ge=0, le=100_000_000)
-    memory_bytes: int = Field(ge=0, le=9_223_372_036_854_775_807)
-    gpu_count: int = Field(ge=0, le=1)
+    cpu_millis: StrictInt = Field(ge=0, le=100_000_000)
+    memory_bytes: StrictInt = Field(ge=0, le=9_223_372_036_854_775_807)
+    gpu_count: StrictInt = Field(ge=0, le=64)
+
+
+class ResourceRequestVector(StrictRequest):
+    cpu_millis: StrictInt = Field(ge=100, le=100_000_000)
+    memory_bytes: StrictInt = Field(ge=67_108_864, le=9_223_372_036_854_775_807)
+    gpu_count: StrictInt = Field(ge=0, le=1)
+
+
+class CpuParameters(StrictRequest):
+    iterations: StrictInt = Field(ge=1, le=1_000_000_000)
+    seed: StrictInt = Field(ge=0, le=2_147_483_647)
+    modulus: StrictInt = Field(ge=2, le=2_147_483_647)
+
+
+class TrainingParameters(StrictRequest):
+    epochs: StrictInt = Field(ge=1, le=100)
+    batch_size: StrictInt = Field(ge=1, le=512)
+    learning_rate: StrictFloat = Field(gt=0, le=1)
+    seed: StrictInt = Field(ge=0, le=2_147_483_647)
+    subset_size: StrictInt = Field(ge=100, le=50_000)
+
+
+class InferenceParameters(StrictRequest):
+    chunk_size: StrictInt = Field(ge=1, le=100_000)
+    batch_size: StrictInt = Field(ge=1, le=4_096)
+    output_format: Literal["JSONL", "PARQUET"]
+
+
+class JobSpecBase(StrictRequest):
+    template_version: StrictInt = Field(ge=1)
+    input_artifact_id: UuidV7
+    resources: ResourceRequestVector
+    priority: StrictInt = Field(ge=0, le=2)
+    runtime_limit_seconds: StrictInt = Field(ge=1, le=300)
+    checkpoint_interval_seconds: StrictInt = Field(ge=5, le=60)
+
+
+class CpuJobSpec(JobSpecBase):
+    template_id: Literal["cpu-iterative"]
+    parameters: CpuParameters
+
+
+class TrainingJobSpec(JobSpecBase):
+    template_id: Literal["pytorch-cifar10-cnn"]
+    parameters: TrainingParameters
+
+
+class InferenceJobSpec(JobSpecBase):
+    template_id: Literal["batch-inference"]
+    model_artifact_id: UuidV7
+    parameters: InferenceParameters
+
+
+JobSpec = Annotated[
+    CpuJobSpec | TrainingJobSpec | InferenceJobSpec,
+    Field(discriminator="template_id"),
+]
+
+
+class JobSubmitRequest(StrictRequest):
+    spec: JobSpec
+
+
+JobState = Literal[
+    "QUEUED",
+    "DISPATCHING",
+    "RUNNING",
+    "PAUSING",
+    "PAUSED",
+    "RECOVERING",
+    "RETRY_WAIT",
+    "CANCELLING",
+    "SUCCEEDED",
+    "FAILED",
+    "CANCELLED",
+]
+DesiredState = Literal["RUNNING", "PAUSED", "CANCELLED"]
+WaitingReason = Literal[
+    "waiting_for_worker",
+    "waiting_for_capacity",
+    "waiting_for_quota",
+    "waiting_for_reservation",
+    "waiting_for_retry",
+    "waiting_for_compatibility",
+    None,
+]
+
+
+class PageInfo(BaseModel):
+    model_config = ConfigDict(title="PageInfo", extra="forbid")
+
+    next_cursor: str | None = Field(max_length=2048)
+    page_size: int = Field(ge=0, le=100)
+
+
+class Job(BaseModel):
+    model_config = ConfigDict(title="Job", extra="forbid")
+
+    job_id: UuidV7
+    tenant_id: UuidV7
+    user_id: UuidV7
+    session_id: UuidV7
+    state: JobState
+    desired_state: DesiredState
+    waiting_reason: WaitingReason
+    spec: JobSpec
+    spec_checksum: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    job_fence: int = Field(ge=0)
+    retry_count: int = Field(ge=0, le=2)
+    max_retries: Literal[2]
+    retry_of_job_id: UuidV7 | None
+    version: int = Field(ge=1)
+    event_sequence: int = Field(ge=1)
+    created_at: datetime
+    updated_at: datetime
+
+
+class JobPage(BaseModel):
+    model_config = ConfigDict(title="JobPage", extra="forbid")
+
+    items: list[Job] = Field(max_length=100)
+    page: PageInfo
+
+
+class LogicalSession(BaseModel):
+    model_config = ConfigDict(title="LogicalSession", extra="forbid")
+
+    session_id: UuidV7
+    job_id: UuidV7
+    tenant_id: UuidV7
+    derived_state: JobState
+    created_at: datetime
+
+
+class Event(BaseModel):
+    model_config = ConfigDict(title="Event", extra="forbid")
+
+    event_id: UuidV7
+    tenant_id: UuidV7
+    job_id: UuidV7 | None
+    sequence: int = Field(ge=1)
+    type: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,63}$")
+    reason: str = Field(min_length=1, max_length=256)
+    actor_type: Literal["USER", "ADMIN", "WORKER", "COORDINATOR", "SYSTEM"]
+    created_at: datetime
+
+
+class EventPage(BaseModel):
+    model_config = ConfigDict(title="EventPage", extra="forbid")
+
+    items: list[Event] = Field(max_length=100)
+    page: PageInfo
 
 
 class TenantPolicyUpdate(StrictRequest):
@@ -145,13 +297,6 @@ class Artifact(BaseModel):
 
 
 ArtifactResponse = Artifact
-
-
-class PageInfo(BaseModel):
-    model_config = ConfigDict(title="PageInfo", extra="forbid")
-
-    next_cursor: str | None = Field(max_length=2048)
-    page_size: int = Field(ge=0, le=100)
 
 
 class ArtifactPage(BaseModel):

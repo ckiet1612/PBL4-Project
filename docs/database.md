@@ -1,8 +1,8 @@
 # PostgreSQL physical database mapping
 
-Tài liệu này mô tả schema generation `2` cộng lớp metadata phụ gia B07: generation `1`
+Tài liệu này mô tả schema generation `2` cộng lớp metadata phụ gia B07 dùng cho B08: generation `1`
 bất biến do B05 triển khai, durable identity runtime do B06 bổ sung, và migration
-`20260920_0003` thêm counter tenant artifact. B07 giữ generation compatibility cũ để
+`20260920_0003` thêm counter tenant artifact; B08 không thêm migration. B07 giữ generation compatibility cũ để
 B06 schema guard vẫn phân biệt được migration head; Alembic revision mới là nguồn nhận
 diện physical extension.
 [PLAN.md](../PLAN.md), [domain model](contracts/domain-model.md),
@@ -57,8 +57,8 @@ expression index.
 | `TemplateVersion` | P `template_versions(template_id,version)` | Immutable once referenced; image digest format and positive version | INV-18; trigger/migration tests | B06 admin lifecycle and B09 image/capability verification |
 | `Artifact` | F+P `artifacts(artifact_id)` plus internal `artifact_reference_guards(tenant_id,artifact_id)` | Composite tenant/state identity; unique blob key and tenant digest tuple; checksum/state/size checks; only `COMMITTED` artifacts receive a guard; every authoritative consumer FK targets that guard | INV-01/14/16; cross-tenant, staging-guard and two-connection recognition/cleanup races | B07 implements bounded staging, checksum, fsync/rename/fsync-dir and watermark primitives; B19 owns operational GC/reconciliation |
 | `JobSpec` | P `job_specs(job_id)` | Immutable row; composite job/artifact FKs; template version FK; resource and checksum bounds | INV-01/08; cross-tenant insert and immutability tests | B08 canonicalizes request and atomically accepts job/spec/session |
-| `Job` | P `jobs(job_id)` | Composite tenant identity; same-tenant retry FK; closed states; version/sequence checks; monotone fence and terminal update trigger; queue/retry/keyset indexes | INV-01/08/10; incomplete job, retry ownership, fence-decrease and terminal tests | B08/B11/B15 state machine, If-Match and fence orchestration |
-| `LogicalSession` | P `logical_sessions(session_id)` | Unique one per tenant/job; composite `(tenant,job,session)` provenance | INV-08/17; deferred completeness and delete test | B08 creates it with accepted job; B15 preserves it across recovery |
+| `Job` | P `jobs(job_id)` | Composite tenant identity; same-tenant retry FK; closed states; version/sequence checks; monotone fence and terminal update trigger; queue/retry/keyset indexes | INV-01/08/10; incomplete job, retry ownership, fence-decrease and terminal tests | **B08 implemented:** queued accepted state; B11/B15 own dispatch/control/fence orchestration |
+| `LogicalSession` | P `logical_sessions(session_id)` | Unique one per tenant/job; composite `(tenant,job,session)` provenance | INV-08/17; deferred completeness and delete test | **B08 implemented:** created atomically and derived state read-only; B15 preserves it |
 | `Attempt` | P `attempts(attempt_id)` | Unique `(job,attempt_number)` and startup nonce; composite job/fence/worker identity | INV-08/09; worker-mismatch and authority lineage tests | B11 grants authority atomically; B15 classifies/retries attempts |
 | `RetrySchedule` | P `retry_schedules(job_id,retry_number)` | Bounded retry/jitter checks; partial ready index | INV-08/22; migration/index tests | B15 computes allowed failure class, backoff and retry budget |
 | `SweepParent` | P `sweep_parents(sweep_id)` | Tenant identity, child/count bounds and outcome consistency | INV-07/19; metadata/migration parity | B16 expands bounded sweep; parent never receives allocation/slot |
@@ -96,7 +96,7 @@ commit.
 | `PolicyVersion` | P `policy_versions(policy_version)` | One current version partial unique; mode/outstanding checks | INV-07; metadata/migration parity | B06/B13 validated policy change and drain-before-tighten rules |
 | `TenantPolicy` | P `tenant_policies(tenant_id,version)` | One current/tenant; canonical exact positive Decimal text for weights/rates; independent positive tenant/user outstanding limits; quota/concurrency bounds | INV-04/07; Decimal and distinct outstanding-limit round-trip/rejection tests | B06 writes versioned policy; B13 applies it under lock |
 | `AdmissionCounter` | P `admission_counters(scope_type,scope_id)` | Closed global/tenant/user scope; nonnegative counters and version | INV-07/10; atomic rollback/CAS foundations | B08 updates atomically with submit/control/idempotency |
-| `RateBucket` | P `rate_buckets(scope_type,scope_id)` | Exact finite token/rate/capacity values; version | INV-07/10; metadata and Decimal checks | B06/B08 DB-time refill and replay-safe consumption |
+| `RateBucket` | P `rate_buckets(scope_type,scope_id)` | Exact finite token/rate/capacity values; version | INV-07/10; metadata and Decimal checks | **B08 implemented:** DB-time refill, one version step per accepted token and replay-safe consumption |
 | `FairnessLedger` | P `fairness_ledgers(tenant_id)` | Exact nonnegative score, accounted-through time, version; bounded-prefix score index | INV-04; 50-digit/close/5,000-digit/policy-order tests | B13 accounts held allocation at events and tick <=1 s without double charge |
 | virtual floor | P singleton `fairness_state` | Exact nonnegative `virtual_floor` and version | INV-04; round-trip test | B13 advances floor and initializes newly active tenant correctly |
 | `AllocationLedgerSegment` | P `allocation_ledger_segments(segment_id)` | One open segment/allocation; policy/tenant/allocation FKs; exact share/weight/charge and time-order checks | INV-02/04; metadata/index tests | B13 opens/closes segment at allocation transitions and reconstructs after restart |
@@ -232,16 +232,19 @@ generation-1 definitions.
 
 B06 application mutations use `run_transaction`, lock the global mode row before mutable
 configuration, and commit domain state, audit and completed idempotency snapshot together.
-Policy update locks current policy before counter rows; B08 admission transactions must use
-the corresponding shared policy lock before changing counters so quota tightening and
-admission serialize.
+Policy update locks current policy before counter rows; B08 admission transactions use the
+corresponding shared policy lock before changing counters so quota tightening and admission
+serialize. B08's accepted-ID ledger is the durable intersection of Job, JobSpec,
+LogicalSession, committed input/model `JOB_SPEC` artifact references, event sequence 1,
+counter effects and completed idempotency resource linkage; no in-memory queue is
+authoritative.
 
 Schema support does not complete these obligations:
 
 - **B06 implemented:** identity principal/scope authorization, password/token/session
   lifecycle, bootstrap, role/policy mutation, safe audit and B06 concurrency guards.
-- **B08:** durable submit/admission, exact idempotency replay before `If-Match`, and atomic
-  counters/events.
+- **B08 implemented:** durable submit/admission, exact idempotency replay before business
+  mutation, tenant-scoped keyset query, and atomic counters/rate/events.
 - **B11:** coordinator epoch, capacity/quota aggregate recheck, fence/state-machine
   orchestration and fenced result publish.
 - **B13:** <=1-second held-allocation accounting loop, restart reconstruction, reservation

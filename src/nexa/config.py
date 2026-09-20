@@ -1,6 +1,7 @@
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
 from typing import Literal, cast
@@ -43,6 +44,7 @@ class Settings:
     login_rate_per_minute: int
     cursor_ttl_seconds: int
     idempotency_pending_wait_milliseconds: int
+    idempotency_terminal_retention_days: int
     artifact_max_file_bytes: int
     tenant_artifact_quota_bytes: int
     staging_ttl_seconds: int
@@ -89,6 +91,7 @@ _ALLOWED_KEYS = frozenset(
         "NEXA_LOGIN_RATE_PER_MINUTE",
         "NEXA_CURSOR_TTL_SECONDS",
         "NEXA_IDEMPOTENCY_PENDING_WAIT_MILLISECONDS",
+        "NEXA_IDEMPOTENCY_TERMINAL_RETENTION_DAYS",
         "NEXA_ARTIFACT_MAX_FILE_BYTES",
         "NEXA_TENANT_ARTIFACT_QUOTA_BYTES",
         "NEXA_STAGING_TTL_SECONDS",
@@ -280,6 +283,13 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         minimum=0,
         maximum=30_000,
     )
+    idempotency_terminal_retention_days = _integer_setting(
+        environ,
+        "NEXA_IDEMPOTENCY_TERMINAL_RETENTION_DAYS",
+        30,
+        minimum=30,
+        maximum=(datetime.max.replace(tzinfo=UTC) - datetime.now(UTC)).days,
+    )
     artifact_max_file_bytes = _integer_setting(
         environ,
         "NEXA_ARTIFACT_MAX_FILE_BYTES",
@@ -340,6 +350,7 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         login_rate_per_minute=login_rate_per_minute,
         cursor_ttl_seconds=cursor_ttl_seconds,
         idempotency_pending_wait_milliseconds=idempotency_pending_wait_milliseconds,
+        idempotency_terminal_retention_days=idempotency_terminal_retention_days,
         artifact_max_file_bytes=artifact_max_file_bytes,
         tenant_artifact_quota_bytes=tenant_artifact_quota_bytes,
         staging_ttl_seconds=staging_ttl_seconds,

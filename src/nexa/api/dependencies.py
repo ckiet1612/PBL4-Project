@@ -9,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 from nexa.application.admin_service import AdminService
 from nexa.application.errors import ApplicationError
 from nexa.application.identity_service import IdentityService
+from nexa.application.job_service import JobService
 from nexa.application.json_codec import JsonRequestError, decode_json_object
 from nexa.application.policy_service import PolicyService
 from nexa.config import Settings
@@ -22,6 +23,7 @@ class ApiServices:
     admin: AdminService
     policy: PolicyService
     artifact: object | None = None
+    jobs: JobService | None = None
 
 
 def services(request: Request) -> ApiServices:

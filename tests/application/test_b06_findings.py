@@ -18,7 +18,7 @@ def test_username_normalization_uses_casefold_equivalence() -> None:
     (
         ("cpu_millis", 100_000_001),
         ("memory_bytes", 9_223_372_036_854_775_808),
-        ("gpu_count", 2),
+        ("gpu_count", 65),
     ),
 )
 def test_resource_capacity_schema_rejects_contract_upper_bounds(field: str, value: int) -> None:

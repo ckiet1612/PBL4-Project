@@ -36,6 +36,7 @@ def test_load_settings_accepts_safe_mapping() -> None:
     assert settings.browser_session_absolute_ttl_seconds == 43_200
     assert settings.browser_session_idle_ttl_seconds == 7_200
     assert settings.login_rate_per_minute == 10
+    assert settings.idempotency_terminal_retention_days == 30
     assert settings.artifact_max_file_bytes == 10 * 1024**3
     assert settings.tenant_artifact_quota_bytes == 100 * 1024**3
     assert settings.staging_ttl_seconds == 86_400
@@ -233,6 +234,18 @@ def test_artifact_storage_contract_boundaries_are_accepted() -> None:
     assert settings.artifact_max_file_bytes == 1024**2
 
 
+def test_idempotency_terminal_retention_accepts_configured_contract_value() -> None:
+    settings = load_settings({**SAFE_ENV, "NEXA_IDEMPOTENCY_TERMINAL_RETENTION_DAYS": "45"})
+
+    assert settings.idempotency_terminal_retention_days == 45
+
+
+@pytest.mark.parametrize("value", ["29", "999999999", "not-an-integer"])
+def test_idempotency_terminal_retention_rejects_invalid_values(value: str) -> None:
+    with pytest.raises(ConfigError, match="NEXA_IDEMPOTENCY_TERMINAL_RETENTION_DAYS"):
+        load_settings({**SAFE_ENV, "NEXA_IDEMPOTENCY_TERMINAL_RETENTION_DAYS": value})
+
+
 def test_log_level_is_normalized_to_uppercase() -> None:
     settings = load_settings({**SAFE_ENV, "NEXA_LOG_LEVEL": "warning"})
 
@@ -305,6 +318,7 @@ def test_env_example_is_loadable_without_real_credentials() -> None:
         "NEXA_DATABASE_URL",
         "NEXA_ENVIRONMENT",
         "NEXA_IDEMPOTENCY_PENDING_WAIT_MILLISECONDS",
+        "NEXA_IDEMPOTENCY_TERMINAL_RETENTION_DAYS",
         "NEXA_ORPHAN_TTL_SECONDS",
         "NEXA_INSTALLATION_ID",
         "NEXA_LOGIN_RATE_PER_MINUTE",
