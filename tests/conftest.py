@@ -20,6 +20,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "postgres: requires a guarded PostgreSQL 17 test database")
+    config.addinivalue_line(
+        "markers",
+        "docker: requires explicit NEXA_RUN_DOCKER=1 and an exact NEXA_B09_IMAGE_REF",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

@@ -1,6 +1,6 @@
 # Environment inventory
 
-Inventory refreshed: **2026-09-18T01:30:43+07:00**. Labels: `observed` means a command was run on the current machine; `user-provided` means stated in approved PLAN/task/design but not observed; `unverified` means no direct evidence; `blocked` means a named missing prerequisite prevents the stated check. Inventory labels are not acceptance statuses.
+Inventory refreshed: **2026-09-21T13:17:19+07:00**. Labels: `observed` means a command was run on the current machine; `user-provided` means stated in approved PLAN/task/design but not observed; `unverified` means no direct evidence; `blocked` means a named missing prerequisite prevents the stated check. Inventory labels are not acceptance statuses.
 
 No secret was read and no deployment was started. Public release metadata supplied isolated uv 0.12.15, Node 24.21.0 LTS and actionlint 1.7.12 under `/tmp`; archives/binaries were checksum-verified where published. No global tool or machine configuration was changed. `uv sync` and `pnpm install` populated ignored `.venv/` and `web/node_modules/`.
 
@@ -25,7 +25,7 @@ macOS is suitable for documentation/development/simulator only. It cannot satisf
 | Python | CPython 3.12.13 via `python3` and `python3.12` | observed | Meets Python 3.12 floor |
 | `uv` on system PATH | Command not found; common existing binary locations also absent | observed | Normal contributor prerequisite remains external to the repository |
 | Isolated `uv` | 0.12.15, arm64 macOS wheel | observed | Generated/checked `uv.lock`, frozen-synced Python 3.12 and ran Ruff/pytest successfully |
-| Docker CLI | 29.5.3 build d1c06ef | observed | CLI present; daemon and Linux isolation not validated |
+| Docker CLI | 29.5.3 build d1c06ef | observed | CLI present; Docker Desktop VM evidence is recorded below |
 | Docker Compose | v5.1.4 | observed | Plugin present; deployment not started |
 | PostgreSQL client | `psql` command not found | observed | Must be provisioned before DB integration/admin diagnostics |
 | Node.js | v26.4.0 | observed | Used for local UI verification only; not the selected support target |
@@ -38,9 +38,24 @@ macOS is suitable for documentation/development/simulator only. It cannot satisf
 | Ruby/Psych | system Ruby 2.6 with YAML parser | observed during B01 | Used only for local YAML parse; not a product dependency |
 | Python schema packages | PyYAML/jsonschema/openapi-spec-validator/referencing absent in current Python | observed | B01 may use isolated temporary validators; no product dependency added |
 
+## B09 Docker Desktop development evidence
+
+| Item | Value | Label | Source |
+|---|---|---|---|
+| Docker context | `desktop-linux` | observed | `docker context show` during B09 |
+| Docker Desktop | 4.79.0 | observed | `docker version` / Desktop runtime metadata |
+| Engine | 29.5.3 | observed | `docker version` |
+| Guest kernel | LinuxKit 6.12.76-linuxkit | observed | `docker info` |
+| Guest architecture | `aarch64` / image `linux/arm64` | observed | `docker info`, image inspect |
+| Guest cgroups/seccomp | cgroups v2, builtin seccomp | observed | `docker info` |
+| B09 image | `nexa/cpu-iterative@sha256:341d943487940cb67f9e5ef61c2334593d8eab99619fc0f977e4f28a6d0e8e9a` | observed | image inspect and raw B09 evidence |
+| B09 boundary | Docker Desktop Linux VM, not bare Linux deployment host | observed limitation | B09 evidence report |
+
+The VM evidence covers the production executor/entrypoint, distinct runner/workload UIDs, private control relay, deterministic result handshake, container isolation, CPU throttling, PID/scratch/RAM/log bounds, controller disconnect and authority deadline under partial IPC. PID 1 runs as `1000:1000` with all capabilities dropped and none added; the worker starts the fixed supervisor command as `1001:1000` by exact container ID, and the runner validates its one-shot registration peer. This does not prove bare Linux deployment behavior, reboot/reconciliation, two-host portability, GPU, or release acceptance.
+
 ## B02 prerequisite closure
 
-`uv.lock`, frozen Python install/quality checks, Node 24 LTS web checks and CI syntax/semantics are verified. No direct B02 blocker remains. Missing `psql`, Linux, PostgreSQL, Docker daemon and GPU evidence belong to later tasks and are not B02 blockers.
+`uv.lock`, frozen Python install/quality checks, Node 24 LTS web checks and CI syntax/semantics are verified. No direct B02 blocker remains. Missing `psql`, bare Linux deployment, PostgreSQL runtime, two-host and GPU evidence belong to later tasks and are not B02 blockers; B09's Docker Desktop VM evidence is recorded separately and does not close those gates.
 
 ## Required Linux, portability and GPU environments
 
@@ -76,8 +91,8 @@ No named maintainer, benchmark operator, Linux host owner, security reviewer or 
 
 | Before task | Required confirmation |
 |---|---|
-| B03/B05/B09 | B02 direct prerequisites are complete; apply each task's own simulator/PostgreSQL/Linux-Docker prerequisites before execution |
-| B09/B15 | Linux/cgroups v2 Docker host and storage behavior for executor/deadline/recovery tests |
+| B03/B05/B09 | B02 direct prerequisites are complete; B09 implementation and direct Docker Desktop Linux VM scenarios are observed; retain the VM boundary in review evidence |
+| B09/B15 | Bare Linux/cgroups v2 Docker host and storage behavior before bare-deployment/reboot/recovery acceptance claims |
 | B21 | Two independent Linux configurations, backup destination/filesystem semantics, supported image architectures |
 | B22 | Reference load host capacity, exclusive benchmark window, time sync and operator for ≥3 runs/8 h soak |
 | B23 | Real NVIDIA availability/driver/Container Toolkit; otherwise preserve “GPU simulated/unverified” wording |

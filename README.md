@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01–B08 đã được Task Review duyệt.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. B07 bổ sung filesystem artifact store, bounded upload, durable commit order, tenant counter/reservation và artifact REST API. B08 bổ sung submit atomic, idempotency replay/conflict, durable queue, quota/rate backpressure và REST job/session/event query. Repository vẫn chưa có workload/coordinator/recovery runtime, Web UI nghiệp vụ, Compose runtime hay release acceptance evidence. Các thông số hiệu năng ngoài lớp D vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01–B09 đã được Task Review duyệt.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. B07 bổ sung filesystem artifact store, bounded upload, durable commit order, tenant counter/reservation và artifact REST API. B08 bổ sung submit atomic, idempotency replay/conflict, durable queue, quota/rate backpressure và REST job/session/event query. B09 bổ sung discovery/capability, Docker executor, journal/cleanup proof, trusted runner và image CPU deterministic; evidence gồm unit/protocol/fault tests và mười một scenario executor/runner trên Docker Desktop Linux VM. Bare Linux deployment, coordinator/recovery runtime, Web UI nghiệp vụ, Compose runtime, GPU và release acceptance vẫn chưa có; các thông số hiệu năng ngoài evidence đã ghi vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -25,6 +25,9 @@ Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho 
 | [Authentication and administration](docs/authentication.md) | Cấu hình, bootstrap, session/CSRF, token scopes, RBAC, policy và handoff B06 |
 | [Artifact storage](docs/artifacts.md) | Storage layout, upload headers, checksum, durable commit, quota, replay và download |
 | [Submit and durable queue](docs/submit.md) | Submit nguyên tử, admission/quota/rate, idempotency, job/session/event query và accepted-ID reconciliation |
+| [Worker executor](docs/worker-executor.md) | B09 discovery, Docker executor, identity/journal, cleanup proof và giới hạn trách nhiệm |
+| [Trusted runner](docs/trusted-runner.md) | B09 IPC, deadline/watchdog boundary, CPU adapter và result/checkpoint handoff |
+| [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md) | Lệnh tái lập, digest/config, raw reports và gate status có giới hạn môi trường |
 | [Contracts](docs/contracts.md) | Điểm vào contract `1.0.0-b01`: OpenAPI `/v1`, domain/state, internal interfaces, workload/checkpoint và concurrency/recovery |
 | [Invariants](docs/invariants.md) | Tenant/resource accounting, concurrency, fencing, checkpoint, recovery, security |
 | [Acceptance](docs/acceptance.md) | Gate ID, điều kiện pass, evidence, môi trường; testing/benchmark objectives |
@@ -192,9 +195,17 @@ có missing/duplicate/mismatch trong các scenario đã kiểm tra. B08 đã đ�
 theo xác nhận của user ngày 20/09/2026. Worker/coordinator restart, host reboot, terminal
 retention lifecycle, load/soak/chaos và release gates vẫn thuộc các chặng sau.
 
+## B09 Docker executor và trusted runner
+
+B09 có `ResourceProvider` đọc runtime Docker thực nơi workload sẽ chạy, tính capacity sau reserve floor và trả compatibility reason đóng. `DockerExecutor` chỉ nhận execution context bất biến đã được ủy quyền, materialize input đã xác minh theo luồng hữu hạn, ghi journal cục bộ quanh side effect, dùng full container ID cùng runtime identity digest ổn định, và không tự thay đổi Job, allocation, quota hay ledger. Container chạy PID 1 bằng `1000:1000`, drop toàn bộ capability và không add capability; worker khởi chạy supervisor `1001:1000` bằng exact-container-ID `docker exec`. Rootfs/input read-only, network none, seccomp, CPU/RAM/PID/tmpfs/log bounds và restart policy `no` đều được cấu hình và kiểm hành vi.
+
+Trusted runner dùng frame JSON length-prefixed tối đa 64 KiB, payload đóng theo từng type, durable sequence/ACK replay và watchdog độc lập với socket receive. CPU iterative giữ oracle deterministic, phát progress, đi hết result handshake tới final manifest có checksum/provenance và chỉ trả bốn trường kết quả workload theo contract. B09 chưa triển khai HTTP renewal, checkpoint publish/restore, worker reconcile hay server-side result/release; evidence hiện là Docker Desktop Linux VM, không phải pass cho bare Linux, hai-host, GPU hoặc release. Chi tiết ở [worker executor](docs/worker-executor.md), [trusted runner](docs/trusted-runner.md) và [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md).
+
+B09 đã được Task Review duyệt theo xác nhận của user ngày 21/09/2026, trong phạm vi implementation và evidence nêu trên. Báo cáo triển khai được lập trước xác nhận này có thể còn ghi chờ review. B10 có thể tiếp nối các primitive discovery, executor/journal, IPC/deadline và cleanup proof để xây worker local.
+
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B08 đã được duyệt. Chặng tiếp theo là B09, đủ điều kiện từ B02; sau B09 có thể thực hiện B10 vì B06 đã hoàn thành. B11 đã đủ B04 và B08, còn chờ B10. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B09 đã được duyệt. Chặng tiếp theo là B10 — Worker local, heartbeat, reconcile, đã đủ dependency B06 và B09. B11 đã đủ B04 và B08, còn chờ B10 để nối luồng submit đến kết quả CPU. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run chưa được quan sát. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 

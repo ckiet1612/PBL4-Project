@@ -10,7 +10,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 20/09/2026
+## Trạng thái ghi nhận ngày 21/09/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
@@ -20,11 +20,12 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - **B06 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 20/09/2026.** API `/v1` đã có identity, browser session/CSRF, CLI token, SYSTEM_ADMIN, tenant/membership, policy versioned, admin/worker bootstrap và audit. B07 đủ điều kiện bắt đầu; workload, scheduler, recovery, UI và release vẫn thuộc các chặng sau.
 - **B07 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 20/09/2026.** Đã có filesystem ArtifactStore, upload bounded, checksum/size/media validation, PostgreSQL tenant reservation counters, idempotency replay, ownership checks và list/metadata/range download. B08 đủ điều kiện bắt đầu; Linux portability, worker attempt uploads, checkpoint/restore, operational GC/metrics, load và release gates vẫn thuộc các chặng sau.
 - **B08 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 20/09/2026.** Đã nhận và lưu công việc vào PostgreSQL, kiểm tra quyền/tệp/mẫu việc và giới hạn tiếp nhận; gửi lại cùng yêu cầu không tạo công việc trùng. Có API xem công việc, phiên xử lý và lịch sử sự kiện. Kiểm thử đã đối chiếu công việc được nhận khi nhiều yêu cầu đến đồng thời và khi API sập sau khi lưu nhưng chưa trả lời; khởi động API mới vẫn tìm và trả lại đúng công việc. Phần chạy việc, chia tài nguyên thật, phục hồi quá trình tính toán, UI, tải lớn và release vẫn thuộc các chặng sau.
-- Các chặng B09–B25 chưa được coi là hoàn thành.
+- **B09 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 21/09/2026.** Đã có bộ phận nhận biết tài nguyên và chạy công việc CPU trong container có giới hạn sức xử lý, bộ nhớ, số tiến trình, tệp tạm và nhật ký. Runner giám sát riêng để dừng việc khi hết quyền hoặc quá thời gian; executor giữ đúng định danh container khi khởi chạy, dừng và dọn dẹp. Evidence gồm kiểm thử tự động và mười một tình huống container thật trên Docker Desktop Linux VM. Nghiệm thu triển khai Linux, hai máy khác nhau, GPU và release vẫn thuộc các chặng sau.
+- Các chặng B10–B25 chưa được coi là hoàn thành.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md) và các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05, B06, B07 và B08. Các báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B05–B08 ở đây đã được cập nhật theo xác nhận mới nhất của user.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08 và xác nhận ngày 21/09/2026 rằng Task **Review** đã duyệt B09. Các báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B05–B09 ở đây đã được cập nhật theo xác nhận mới nhất của user.
 
-Chặng tiếp theo là **B09 — Docker executor và trusted runner**, đã đủ điều kiện từ B02. Sau B09 có thể thực hiện B10 vì B06 đã hoàn thành. B11 đã đủ phần B04 và B08, còn chờ B10 để nối luồng từ gửi việc đến nhận kết quả CPU.
+Chặng tiếp theo là **B10 — Worker local, heartbeat, reconcile**, đã đủ điều kiện từ B06 và B09: xây chương trình trên máy chủ để nhận việc, báo còn hoạt động và đối soát các lần chạy cũ trước khi sẵn sàng nhận việc mới. B11 đã đủ phần B04 và B08, còn chờ B10 để nối luồng từ gửi việc đến nhận kết quả CPU.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -85,7 +86,7 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B06 | Identity, token, RBAC | Tạo cách nhận biết người dùng và quy định ai được xem hoặc làm việc gì, đồng thời quản lý các giới hạn được phép. | B05 |
 | B07 | Artifact store và upload bền vững | Đã hoàn thành và được duyệt: lưu tệp an toàn, upload có giới hạn, kiểm tra checksum, commit bền vững, giữ quota theo tenant, chống gửi trùng và cung cấp API tệp. | B06 |
 | B08 | Submit, idempotency, durable queue | Đã hoàn thành và được duyệt: lưu yêu cầu vào hàng chờ bền vững, gửi lại cùng yêu cầu không tạo việc trùng; xem trạng thái và lịch sử đúng quyền; từ chối rõ ràng khi hết chỗ hoặc vượt giới hạn. | B07 |
-| B09 | Docker executor và trusted runner | Nhận biết tài nguyên của máy và xây bộ phận chạy công việc trong khu vực có giới hạn sức xử lý, bộ nhớ, thời gian và tệp tạm. | B02 |
+| B09 | Docker executor và trusted runner | Đã hoàn thành và được duyệt: nhận biết tài nguyên, chạy công việc CPU có giới hạn, tự dừng khi hết quyền hoặc quá giờ và dọn đúng container. Đã kiểm thử trên Docker Desktop Linux VM. | B02 |
 | B10 | Worker local, heartbeat, reconcile | Tạo chương trình chạy ngay trên máy chủ để nhận việc, báo mình còn hoạt động và kiểm tra, dọn các lần chạy cũ sau khởi động lại. | B06, B09 |
 | B11 | Coordinator, allocation, dispatch, fenced result | Nối các bộ phận để nhận yêu cầu, chọn việc, cấp tài nguyên, chạy và nhận kết quả. Chặn kết quả đến từ lần chạy đã mất quyền. | B04, B08, B10 |
 | B12 | CLI | Tạo cách điều khiển bằng cửa sổ gõ lệnh: tải tệp lên, gửi việc, xem tình trạng, lấy kết quả và quản trị. Các lệnh tạm dừng/chạy tiếp được bổ sung ở B15. | B11 |
