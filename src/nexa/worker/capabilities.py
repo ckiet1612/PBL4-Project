@@ -311,7 +311,15 @@ def inventory_to_json(
         },
         "adapters": [asdict(item) for item in inventory.adapters],
         "images": [asdict(item) for item in inventory.images],
-        "frameworks": [asdict(item) for item in inventory.frameworks],
+        "frameworks": [
+            {
+                "framework": item.framework,
+                "framework_version": item.framework_version,
+                "device": item.device,
+                "cuda_runtime_version": item.cuda_runtime_version,
+            }
+            for item in inventory.frameworks
+        ],
         "gpu_devices": [asdict(item) for item in inventory.gpu_devices],
         "discovered_at": inventory.discovered_at,
     }

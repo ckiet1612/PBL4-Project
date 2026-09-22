@@ -438,6 +438,40 @@ class FilesystemArtifactStore:
         used_percent = ((total - free + expected_bytes) / total) * 100
         return total, free, used_percent
 
+    def check_readiness(self, *, critical_watermark_percent: int) -> None:
+        """Verify current storage durability without retaining a probe artifact."""
+        _total, _free, used_percent = self.disk_usage()
+        if used_percent >= critical_watermark_percent:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage is at the critical watermark"
+            )
+        probe = self._staging_root / f".readiness-{secrets.token_hex(16)}"
+        directory_fd = None
+        try:
+            fd = os.open(
+                probe,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+            )
+            try:
+                os.write(fd, b"nexa-storage-readiness\n")
+                self._fsync(fd)
+            finally:
+                os.close(fd)
+            directory_fd = os.open(self._staging_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            self._fsync(directory_fd)
+            probe.unlink()
+            self._fsync(directory_fd)
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage readiness probe failed"
+            ) from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
+            with suppress(OSError):
+                probe.unlink()
+
     def delete_unreferenced(self, blob_key: str, gc_token: GcToken) -> DeleteResult:
         issued = self._gc_tokens.get(gc_token._capability)
         if (

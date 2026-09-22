@@ -4,7 +4,16 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import UUID7, BaseModel, ConfigDict, Field, StrictFloat, StrictInt, field_validator
+from pydantic import (
+    UUID7,
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    StrictFloat,
+    StrictInt,
+    field_validator,
+)
 
 from nexa.domain.identity import TokenScope
 
@@ -123,6 +132,125 @@ class ResourceRequestVector(StrictRequest):
     gpu_count: StrictInt = Field(ge=0, le=1)
 
 
+Architecture = Literal["linux/amd64", "linux/arm64"]
+
+
+class RuntimeCapability(StrictRequest):
+    docker_version: str = Field(min_length=1, max_length=64)
+    oci_runtime: Literal["runc", "crun"]
+    oci_runtime_version: str = Field(min_length=1, max_length=64)
+    cgroups_version: Literal[2]
+    kernel_release: str = Field(min_length=1, max_length=128)
+    seccomp_available: bool
+
+
+class AdapterCapability(StrictRequest):
+    adapter_id: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,63}$")
+    adapter_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
+
+
+class ImageCapability(StrictRequest):
+    image_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    architecture: Architecture
+    verified: bool
+
+
+class FrameworkCapability(StrictRequest):
+    framework: Literal["PYTORCH", "NEXA_CPU"]
+    framework_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
+    device: Literal["CPU", "CUDA"]
+    cuda_runtime_version: str | None = Field(
+        default=None,
+        pattern=r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+    )
+
+
+class GpuDevice(StrictRequest):
+    uuid: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=128)
+    memory_bytes: StrictInt = Field(ge=1)
+    compute_capability: str = Field(pattern=r"^[0-9]+\.[0-9]+$")
+    driver_version: str = Field(min_length=1, max_length=64)
+    cuda_driver_api_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
+    healthy: bool
+
+
+class WorkerInventory(StrictRequest):
+    architecture: Architecture
+    host_cpu_millis: StrictInt = Field(ge=1_000)
+    host_memory_bytes: StrictInt = Field(ge=2_147_483_648)
+    allocatable: ResourceCapacityVector
+    runtime: RuntimeCapability
+    adapters: list[AdapterCapability] = Field(max_length=64)
+    images: list[ImageCapability] = Field(max_length=256)
+    frameworks: list[FrameworkCapability] = Field(max_length=64)
+    gpu_devices: list[GpuDevice] = Field(max_length=64)
+    discovered_at: datetime
+
+
+class WorkerIncarnationCreateRequest(StrictRequest):
+    process_start_nonce: UuidV7
+
+
+class ContainerIdentity(StrictRequest):
+    container_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    runtime_identity_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class Authority(StrictRequest):
+    worker_id: UuidV7
+    worker_incarnation_id: UuidV7
+    attempt_id: UuidV7
+    allocation_id: UuidV7
+    lease_id: UuidV7
+    job_fence: StrictInt = Field(ge=1)
+
+
+class HeartbeatRequest(StrictRequest):
+    worker_incarnation_id: UuidV7
+    observed_health: Literal["STARTING", "READY"]
+    reconcile_complete: bool
+    inventory: WorkerInventory
+    observed_containers: list[ContainerIdentity] = Field(max_length=1_000)
+
+
+class PollRequest(StrictRequest):
+    worker_incarnation_id: UuidV7
+    long_poll_seconds: StrictInt = Field(default=20, ge=0, le=30)
+
+
+class AdoptRequest(StrictRequest):
+    prior_authority: Authority
+    current_worker_incarnation_id: UuidV7
+    container: ContainerIdentity
+
+
+class ProgressSnapshot(StrictRequest):
+    fraction: StrictFloat = Field(ge=0, le=1)
+    step: StrictInt | None = Field(ge=0)
+    epoch: StrictInt | None = Field(ge=0)
+    item_cursor: StrictInt | None = Field(ge=0)
+
+
+class RenewWithoutProgressRequest(StrictRequest):
+    authority: Authority
+    progress_sequence: StrictInt = Field(ge=0, le=0)
+    progress: None
+
+
+class RenewWithProgressRequest(StrictRequest):
+    authority: Authority
+    progress_sequence: StrictInt = Field(ge=1)
+    progress: ProgressSnapshot
+
+
+RenewRequest = RenewWithoutProgressRequest | RenewWithProgressRequest
+
+
+class RenewBody(RootModel[RenewWithoutProgressRequest | RenewWithProgressRequest]):
+    pass
+
+
 class CpuParameters(StrictRequest):
     iterations: StrictInt = Field(ge=1, le=1_000_000_000)
     seed: StrictInt = Field(ge=0, le=2_147_483_647)
@@ -208,6 +336,117 @@ class PageInfo(BaseModel):
 
     next_cursor: str | None = Field(max_length=2048)
     page_size: int = Field(ge=0, le=100)
+
+
+class WorkerIncarnation(BaseModel):
+    model_config = ConfigDict(title="WorkerIncarnation", extra="forbid")
+
+    worker_id: UuidV7
+    worker_incarnation_id: UuidV7
+    sequence: int = Field(ge=1)
+    process_start_nonce: UuidV7
+    health: Literal["STARTING"]
+    created_at: datetime
+
+
+class HeartbeatResponse(BaseModel):
+    model_config = ConfigDict(title="HeartbeatResponse", extra="forbid")
+
+    server_time: datetime
+    admin_state: Literal["ENABLED", "DRAINING", "DISABLED"]
+    accepted_incarnation_id: UuidV7
+    next_heartbeat_seconds: Literal[5]
+
+
+class Allocation(BaseModel):
+    model_config = ConfigDict(title="Allocation", extra="forbid")
+
+    allocation_id: UuidV7
+    tenant_id: UuidV7
+    job_id: UuidV7
+    attempt_id: UuidV7
+    worker_id: UuidV7
+    resources: ResourceRequestVector
+    gpu_uuids: list[str] = Field(max_length=1)
+    state: Literal["HELD", "QUARANTINED", "RELEASED"]
+    held_at: datetime
+    quarantined_at: datetime | None
+    released_at: datetime | None
+
+
+class ReconciliationItem(BaseModel):
+    model_config = ConfigDict(title="ReconciliationItem", extra="forbid")
+
+    authority: Authority
+    authority_state: Literal["LIVE", "REVOKED"]
+    lease_expires_at: datetime
+    desired_state: DesiredState
+    allocation: Allocation
+    startup_nonce: UuidV7
+    claim_state: Literal["UNCLAIMED", "CLAIMED", "STARTED"]
+    expected_container: ContainerIdentity | None
+
+
+class ReconciliationPage(BaseModel):
+    model_config = ConfigDict(title="ReconciliationPage", extra="forbid")
+
+    server_time: datetime
+    items: list[ReconciliationItem] = Field(max_length=100)
+    page: PageInfo
+
+
+class PollResponse(BaseModel):
+    model_config = ConfigDict(title="PollResponse", extra="forbid")
+
+    server_time: datetime
+    offer: None
+    retry_after_seconds: int = Field(ge=0, le=30)
+
+
+class CheckpointReservationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    callback_id: UuidV7
+    checkpoint_id: UuidV7
+    job_id: UuidV7
+    attempt_id: UuidV7
+    sequence: int = Field(ge=1)
+    reserved_at: datetime
+
+
+class ResultReservationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    callback_id: UuidV7
+    result_id: UuidV7
+    job_id: UuidV7
+    attempt_id: UuidV7
+    reserved_at: datetime
+
+
+class AdoptResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    callback_id: UuidV7
+    accepted: Literal[True]
+    server_time: datetime
+    authority: Authority
+    transferred_checkpoint_reservation: CheckpointReservationResponse | None
+    transferred_result_reservation: ResultReservationResponse | None
+    lease_expires_at: datetime
+    lease_duration_seconds: Literal[45]
+    renew_interval_seconds: Literal[5]
+    safety_margin_seconds: Literal[5]
+
+
+class RenewResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    server_time: datetime
+    lease_expires_at: datetime
+    desired_state: DesiredState
+    renew_interval_seconds: Literal[5]
+    safety_margin_seconds: Literal[5]
 
 
 class Job(BaseModel):

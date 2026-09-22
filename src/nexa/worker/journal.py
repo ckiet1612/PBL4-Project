@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 import threading
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -42,7 +42,7 @@ class JournalRecord:
     startup_nonce: str
     authority: Authority
     resources: ResourceVector
-    image_digest: str
+    image_digest: str | None
     input_checksum: str | None
     execution_binding: dict[str, object]
     state: str
@@ -447,10 +447,105 @@ class ExecutionJournal:
                 )
             )
 
+    def create_reconciliation_tombstone(
+        self,
+        *,
+        attempt_id: str,
+        allocation_id: str,
+        startup_nonce: str,
+        authority: Authority,
+        resources: ResourceVector,
+        inspection_checksum: str,
+        reason: str,
+    ) -> JournalRecord:
+        """Create the sequence-one tombstone available from reconciliation data.
+
+        A revoked UNCLAIMED row deliberately does not include the immutable
+        execution spec. This record is terminal local evidence only and cannot
+        be passed back through ``prepare`` or used to start a container.
+        """
+        with self.lock(attempt_id):
+            if self.exists(attempt_id):
+                record = self.load(attempt_id)
+                if (
+                    record.allocation_id != allocation_id
+                    or record.startup_nonce != startup_nonce
+                    or record.authority != authority
+                    or record.resources != resources
+                ):
+                    raise JournalWriteError("reconciliation tombstone identity mismatch")
+                if record.state != "TOMBSTONED":
+                    raise JournalWriteError(
+                        "existing execution cannot become an unclaimed tombstone"
+                    )
+                return record
+            return self._write(
+                JournalRecord(
+                    attempt_id=attempt_id,
+                    allocation_id=allocation_id,
+                    startup_nonce=startup_nonce,
+                    authority=authority,
+                    resources=resources,
+                    image_digest=None,
+                    input_checksum=None,
+                    execution_binding={"source": "reconciliation", "claim_state": "UNCLAIMED"},
+                    state="TOMBSTONED",
+                    operation_sequence=1,
+                    tombstone_sequence=1,
+                    reason=reason,
+                    inspection_checksum=inspection_checksum,
+                )
+            )
+
     def append_runner_state(self, attempt_id: str, state: dict[str, object]) -> JournalRecord:
         with self.lock(attempt_id):
             record = self.load(attempt_id)
             return self._write(replace(record, runner_state=_canonical_mapping(state)))
+
+    def update_runner_state(
+        self,
+        attempt_id: str,
+        update: Callable[[dict[str, object]], Mapping[str, object]],
+    ) -> JournalRecord:
+        with self.lock(attempt_id):
+            record = self.load(attempt_id)
+            current = dict(record.runner_state or {})
+            return self._write(replace(record, runner_state=_canonical_mapping(update(current))))
+
+    def rebind_authority(
+        self,
+        attempt_id: str,
+        *,
+        prior_authority: Authority,
+        current_authority: Authority,
+        transferred_reservations: Mapping[str, object] | None = None,
+    ) -> JournalRecord:
+        """Atomically replace only the authority tuple after server adoption.
+
+        Adoption must not call ``prepare`` again: execution inputs, container
+        identity, operation sequence and runner bindings are immutable local
+        evidence. Reservation snapshots are retained in runner state solely so
+        a restart can verify the server's transfer response before continuing.
+        """
+        if prior_authority.attempt_id != attempt_id or current_authority.attempt_id != attempt_id:
+            raise JournalWriteError("authority attempt identity mismatch")
+        if (
+            prior_authority.worker_id != current_authority.worker_id
+            or prior_authority.allocation_id != current_authority.allocation_id
+            or prior_authority.lease_id != current_authority.lease_id
+            or prior_authority.job_fence != current_authority.job_fence
+            or prior_authority == current_authority
+        ):
+            raise JournalWriteError("authority rebind identity is invalid")
+        if transferred_reservations is not None:
+            _canonical_mapping(transferred_reservations)
+        with self.lock(attempt_id):
+            record = self.load(attempt_id)
+            if record.authority == current_authority:
+                return record
+            if record.authority != prior_authority:
+                raise JournalWriteError("journal authority predecessor mismatch")
+            return self._write(replace(record, authority=current_authority))
 
     @staticmethod
     def inspection_checksum(payload: bytes) -> str:

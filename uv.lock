@@ -327,6 +327,7 @@ dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
     { name = "rfc8785" },
     { name = "sqlalchemy" },
@@ -336,7 +337,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "ruff" },
@@ -347,6 +347,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.18.4,<1.19" },
     { name = "argon2-cffi", specifier = ">=25.1.0,<26" },
     { name = "fastapi", specifier = ">=0.141.1,<0.142" },
+    { name = "httpx", specifier = ">=0.28.1,<0.29" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.5,<3.4" },
     { name = "rfc8785", specifier = ">=0.1.4,<0.2" },
     { name = "sqlalchemy", specifier = ">=2.0.54,<2.1" },
@@ -356,7 +357,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28.1,<0.29" },
     { name = "hypothesis", specifier = ">=6.168.0,<7" },
     { name = "pytest", specifier = ">=9.1.1,<10" },
     { name = "ruff", specifier = ">=0.16.8,<0.17" },

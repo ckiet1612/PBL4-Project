@@ -1,5 +1,7 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
@@ -14,12 +16,14 @@ from nexa.api.routes_artifacts import router as artifacts_router
 from nexa.api.routes_auth import router as auth_router
 from nexa.api.routes_bootstrap import router as bootstrap_router
 from nexa.api.routes_jobs import router as jobs_router
+from nexa.api.routes_worker import router as worker_router
 from nexa.application.admin_service import AdminService
 from nexa.application.artifact_service import ArtifactService
 from nexa.application.errors import ApplicationError
 from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
 from nexa.application.policy_service import PolicyService
+from nexa.application.worker_service import WorkerService
 from nexa.config import Settings
 from nexa.infrastructure.artifacts.store import FilesystemArtifactStore
 from nexa.infrastructure.persistence.database import (
@@ -29,6 +33,8 @@ from nexa.infrastructure.persistence.database import (
 from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.schema_guard import require_current_schema
 from nexa.infrastructure.persistence.transactions import TransactionRetryExhausted
+
+_LOG = logging.getLogger(__name__)
 
 
 def _request_id(request: Request) -> str:
@@ -74,8 +80,31 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                 policy=PolicyService(session_factory, settings, identity),
                 artifact=ArtifactService(session_factory, settings, identity, artifact_store),
                 jobs=JobService(session_factory, settings, identity),
+                worker=WorkerService(
+                    session_factory,
+                    settings,
+                    identity,
+                    storage_readiness=lambda: artifact_store.check_readiness(
+                        critical_watermark_percent=settings.storage_critical_watermark_percent
+                    ),
+                ),
             )
-            yield
+
+            async def health_monitor() -> None:
+                while True:
+                    await asyncio.sleep(5)
+                    try:
+                        await asyncio.to_thread(app.state.services.worker.sweep_health)
+                    except SQLAlchemyError:
+                        _LOG.warning("worker health sweep unavailable")
+
+            monitor = asyncio.create_task(health_monitor())
+            try:
+                yield
+            finally:
+                monitor.cancel()
+                with suppress(asyncio.CancelledError):
+                    await monitor
         finally:
             if owns_engine:
                 active_engine.dispose()
@@ -109,6 +138,11 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                         "token. No scope bypasses membership, ownership, global grant, CSRF, "
                         "tenant context or object-state checks."
                     ),
+                },
+                "workerBearer": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "opaque-worker-token",
                 },
             }
         )
@@ -195,4 +229,5 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
     app.include_router(bootstrap_router)
     app.include_router(artifacts_router)
     app.include_router(jobs_router)
+    app.include_router(worker_router)
     return app

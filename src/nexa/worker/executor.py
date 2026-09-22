@@ -42,6 +42,7 @@ class DockerExecutor:
         staging_root: str | Path = "/var/lib/nexa/staging",
         monotonic: Callable[[], float] = time.monotonic,
         clock_domain: str | None = None,
+        installation_id: str | None = None,
     ) -> None:
         self.journal = journal
         self.docker = backend if isinstance(backend, DockerCli) else DockerCli(backend)
@@ -49,6 +50,7 @@ class DockerExecutor:
         self.staging_root = Path(staging_root)
         self.monotonic = monotonic
         self.clock_domain = clock_domain or _detect_clock_domain()
+        self.installation_id = installation_id
 
     def prepare(self, request: StartExecution) -> PreparedExecution:
         attempt_id = request.context.authority.attempt_id
@@ -74,6 +76,7 @@ class DockerExecutor:
                 prepared_request,
                 image=f"{self.image_ref}@{request.context.image_digest}",
                 control_dir=str(control_dir),
+                installation_id=self.installation_id,
             )
         except (JournalWriteError, OSError, ValueError) as exc:
             message = str(exc)
@@ -387,6 +390,8 @@ class DockerExecutor:
     def tombstone_unclaimed(self, request: StartExecution, *, reason: str) -> CleanupProof:
         attempt_id = request.context.authority.attempt_id
         labels = _identity_labels(request)
+        if self.installation_id is not None:
+            labels["nexa.installation_id"] = self.installation_id
         with self.journal.lock(attempt_id):
             if self.journal.exists(attempt_id):
                 existing = self.journal.load(attempt_id)
@@ -733,6 +738,8 @@ def _immutable_runtime_identity(payload: dict[str, object]) -> dict[str, object]
             "nexa.startup_nonce",
         )
     }
+    if "nexa.installation_id" in labels:
+        selected_labels["nexa.installation_id"] = labels["nexa.installation_id"]
     return {
         "container_id": payload.get("Id"),
         "image_id": payload.get("Image"),
@@ -756,8 +763,11 @@ def _immutable_runtime_identity(payload: dict[str, object]) -> dict[str, object]
     }
 
 
-def _runtime_identity_digest(payload: dict[str, object]) -> str:
+def runtime_identity_digest(payload: dict[str, object]) -> str:
     return _payload_checksum(_immutable_runtime_identity(payload))
+
+
+_runtime_identity_digest = runtime_identity_digest
 
 
 def _write_immutable_json(path: Path, value: object) -> None:

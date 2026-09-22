@@ -12,6 +12,7 @@ from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
 from nexa.application.json_codec import JsonRequestError, decode_json_object
 from nexa.application.policy_service import PolicyService
+from nexa.application.worker_service import WorkerService
 from nexa.config import Settings
 from nexa.domain.identity import Principal
 
@@ -24,6 +25,7 @@ class ApiServices:
     policy: PolicyService
     artifact: object | None = None
     jobs: JobService | None = None
+    worker: WorkerService | None = None
 
 
 def services(request: Request) -> ApiServices:

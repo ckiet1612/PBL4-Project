@@ -8,6 +8,7 @@ dependencies = [
   "alembic>=1.18.4,<1.19",
   "argon2-cffi>=25.1.0,<26",
   "fastapi>=0.141.1,<0.142",
+  "httpx>=0.28.1,<0.29",
   "psycopg[binary]>=3.3.5,<3.4",
   "rfc8785>=0.1.4,<0.2",
   "sqlalchemy>=2.0.54,<2.1",
@@ -17,10 +18,10 @@ dependencies = [
 
 [project.scripts]
 nexa-maintenance = "nexa.cli.main:app"
+nexa-worker = "nexa.worker.main:main"
 
 [dependency-groups]
 dev = [
-  "httpx>=0.28.1,<0.29",
   "hypothesis>=6.168.0,<7",
   "pytest>=9.1.1,<10",
   "ruff>=0.16.8,<0.17",

@@ -232,3 +232,30 @@ def test_delete_requires_unexpired_matching_gc_token(tmp_path) -> None:
     assert store.delete_unreferenced(blob.blob_key, valid).deleted is True
     with pytest.raises(ArtifactError, match="not found"):
         store.inspect(blob.blob_key)
+
+
+def test_readiness_probe_fsyncs_cleans_up_and_rejects_storage_faults(tmp_path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "healthy")
+    store.check_readiness(critical_watermark_percent=95)
+    assert list((tmp_path / "healthy" / "staging").iterdir()) == []
+
+    class CriticalUsage:
+        f_frsize = 1
+        f_blocks = 100
+        f_bavail = 4
+
+    critical = FilesystemArtifactStore(
+        tmp_path / "critical", statvfs_fn=lambda _path: CriticalUsage()
+    )
+    with pytest.raises(ArtifactError) as watermark:
+        critical.check_readiness(critical_watermark_percent=95)
+    assert watermark.value.code == "storage_unavailable"
+
+    failing = FilesystemArtifactStore(
+        tmp_path / "fsync-failure",
+        fsync_fn=lambda _fd: (_ for _ in ()).throw(OSError("injected fsync failure")),
+    )
+    with pytest.raises(ArtifactError) as fsync:
+        failing.check_readiness(critical_watermark_percent=95)
+    assert fsync.value.code == "storage_unavailable"
+    assert list((tmp_path / "fsync-failure" / "staging").iterdir()) == []

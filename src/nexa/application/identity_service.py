@@ -1349,34 +1349,62 @@ class IdentityService:
         return run_transaction(self.session_factory, operation)
 
     def resolve_worker_credential(self, credential: str) -> UUID:
+        def operation(session: Session) -> UUID:
+            parsed = self._secrets.parse(credential)
+            row = (
+                session.execute(
+                    select(worker_credentials.c.worker_id).where(
+                        worker_credentials.c.credential_id == parsed.identifier
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                raise _AUTHENTICATION_ERROR
+            return self.revalidate_worker_credential(
+                session,
+                credential,
+                expected_worker_id=row["worker_id"],
+            )
+
+        try:
+            return run_transaction(self.session_factory, operation)
+        except ValueError:
+            raise _AUTHENTICATION_ERROR from None
+
+    def revalidate_worker_credential(
+        self,
+        session: Session,
+        credential: str,
+        *,
+        expected_worker_id: UUID,
+    ) -> UUID:
         try:
             parsed = self._secrets.parse(credential)
             digest = self._secrets.digest(credential)
         except ValueError:
             raise _AUTHENTICATION_ERROR from None
-
-        def operation(session: Session) -> UUID:
-            row = (
-                session.execute(
-                    select(worker_credentials)
-                    .where(worker_credentials.c.credential_id == parsed.identifier)
-                    .with_for_update()
-                )
-                .mappings()
-                .one_or_none()
+        row = (
+            session.execute(
+                select(worker_credentials)
+                .where(worker_credentials.c.credential_id == parsed.identifier)
+                .with_for_update()
             )
-            now = clock_timestamp(session)
-            if (
-                row is None
-                or not hmac.compare_digest(row["credential_hash"], digest)
-                or row["revoked_at"] is not None
-                or now >= row["expires_at"]
-                or row["scopes"] != ["worker:local"]
-            ):
-                raise _AUTHENTICATION_ERROR
-            return row["worker_id"]
-
-        return run_transaction(self.session_factory, operation)
+            .mappings()
+            .one_or_none()
+        )
+        now = clock_timestamp(session)
+        if (
+            row is None
+            or row["worker_id"] != expected_worker_id
+            or not hmac.compare_digest(row["credential_hash"], digest)
+            or row["revoked_at"] is not None
+            or now >= row["expires_at"]
+            or row["scopes"] != ["worker:local"]
+        ):
+            raise _AUTHENTICATION_ERROR
+        return row["worker_id"]
 
     def get_worker_bootstrap_state(self) -> dict[str, Any]:
         def operation(session: Session) -> dict[str, Any]:

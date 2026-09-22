@@ -7,6 +7,7 @@ from nexa.worker.capabilities import (
     ImageCapability,
     ProbeBackend,
     ResourceProvider,
+    inventory_to_json,
 )
 from nexa.worker.errors import CompatibilityReason, DiscoveryError
 from nexa.worker.models import ResourceVector, WorkloadRequirement
@@ -58,6 +59,24 @@ def test_discovery_reports_host_and_runtime_capability() -> None:
     assert inventory.host_cpu_millis == 8000
     assert inventory.runtime.cgroups_version == 2
     assert inventory.images[0].verified is True
+
+
+def test_inventory_wire_projection_omits_internal_framework_driver_requirement() -> None:
+    provider = ResourceProvider(
+        backend(frameworks=(FrameworkCapability("PYTORCH", "2.5.1", "CUDA", "12.1.0", "550.0"),))
+    )
+    inventory = provider.discover()
+
+    payload = inventory_to_json(inventory, provider.allocatable(inventory))
+
+    assert payload["frameworks"] == [
+        {
+            "framework": "PYTORCH",
+            "framework_version": "2.5.1",
+            "device": "CUDA",
+            "cuda_runtime_version": "12.1.0",
+        }
+    ]
 
 
 def test_discovery_fails_closed_for_non_linux_or_missing_runtime() -> None:

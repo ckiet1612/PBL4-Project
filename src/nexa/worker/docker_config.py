@@ -103,13 +103,25 @@ class ContainerConfig:
 
 
 def build_container_config(
-    request: StartExecution, *, image: str, control_dir: str | None = None
+    request: StartExecution,
+    *,
+    image: str,
+    control_dir: str | None = None,
+    installation_id: str | None = None,
 ) -> ContainerConfig:
     digest = request.context.image_digest
     if "@" not in image or image.rsplit("@", 1)[1] != digest or not _DIGEST.fullmatch(digest):
         raise ValueError("image must use the exact verified digest")
     if request.scratch_bytes >= request.context.resources.memory_bytes:
         raise ValueError("scratch_bytes must fit inside the hard memory budget")
+    labels = {
+        "nexa.managed": "true",
+        "nexa.attempt_id": request.context.authority.attempt_id,
+        "nexa.allocation_id": request.context.authority.allocation_id,
+        "nexa.startup_nonce": request.startup_nonce,
+    }
+    if installation_id is not None:
+        labels["nexa.installation_id"] = installation_id
     return ContainerConfig(
         image=image,
         user="1000:1000",
@@ -127,12 +139,7 @@ def build_container_config(
         log_bytes=request.log_bytes,
         runtime_limit_seconds=request.runtime_limit_seconds,
         restart_policy="no",
-        labels={
-            "nexa.managed": "true",
-            "nexa.attempt_id": request.context.authority.attempt_id,
-            "nexa.allocation_id": request.context.authority.allocation_id,
-            "nexa.startup_nonce": request.startup_nonce,
-        },
+        labels=labels,
         mounts=request.input_mounts,
         control_dir=control_dir,
     )

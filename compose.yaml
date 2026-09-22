@@ -1,0 +1,118 @@
+# B10 single-host development contract, not a B21 production deployment.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: nexa
+      POSTGRES_USER: nexa
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [db_data:/var/lib/postgresql/data]
+    networks: [control]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexa -d nexa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/b10/Dockerfile
+    command:
+      - sh
+      - -c
+      - 'export NEXA_DATABASE_URL="$$(cat /run/secrets/nexa_database_url)"; exec uvicorn nexa.api.main:app --host 0.0.0.0 --port 8000'
+    environment:
+      NEXA_ENVIRONMENT: development
+      NEXA_PUBLIC_ORIGIN: ${NEXA_PUBLIC_ORIGIN:-https://caddy:8443}
+      NEXA_ARTIFACT_ROOT: /var/lib/nexa/artifacts
+      NEXA_SERVER_SECRET_FILE: /run/secrets/nexa_server_secret
+      NEXA_BOOTSTRAP_SECRET_FILE: /run/secrets/nexa_bootstrap_secret
+      NEXA_INSTALLATION_ID: ${NEXA_INSTALLATION_ID:?set installation ID}
+      NEXA_LOCAL_WORKER_ID: ${NEXA_LOCAL_WORKER_ID:?set worker ID}
+      NEXA_LOCAL_WORKER_FINGERPRINT: ${NEXA_LOCAL_WORKER_FINGERPRINT:?set worker fingerprint}
+      NEXA_MAINTENANCE_CIDRS: ${NEXA_CONTROL_SUBNET:-172.31.195.0/24}
+      NEXA_TRUSTED_PROXY_CIDRS: ${NEXA_CONTROL_SUBNET:-172.31.195.0/24}
+    secrets: [nexa_database_url, nexa_server_secret, nexa_bootstrap_secret]
+    volumes: [artifact_data:/var/lib/nexa/artifacts]
+    depends_on:
+      db: {condition: service_healthy}
+    networks: [control]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=2).close()"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./deploy/b10/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api: {condition: service_healthy}
+    networks: [control]
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - --no-check-certificate
+        - https://caddy:8443/openapi.json
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/b10/Dockerfile
+    command: ["nexa-worker", "--bootstrap"]
+    environment:
+      NEXA_WORKER_API_URL: https://caddy:8443
+      SSL_CERT_FILE: /caddy-data/caddy/pki/authorities/local/root.crt
+      NEXA_WORKER_STATE_ROOT: /var/lib/nexa-worker
+      NEXA_INSTALLATION_ID: ${NEXA_INSTALLATION_ID:?set installation ID}
+      NEXA_LOCAL_WORKER_ID: ${NEXA_LOCAL_WORKER_ID:?set worker ID}
+      NEXA_LOCAL_WORKER_FINGERPRINT: ${NEXA_LOCAL_WORKER_FINGERPRINT:?set worker fingerprint}
+      NEXA_BOOTSTRAP_SECRET_FILE: /run/secrets/nexa_bootstrap_secret
+      NEXA_CPU_IMAGE_REF: ${NEXA_CPU_IMAGE_REF:?set a verified digest image reference}
+    secrets: [nexa_bootstrap_secret]
+    volumes:
+      - worker_state:/var/lib/nexa-worker
+      - caddy_data:/caddy-data:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    depends_on:
+      caddy: {condition: service_healthy}
+    networks: [control]
+
+networks:
+  control:
+    ipam:
+      config:
+        - subnet: ${NEXA_CONTROL_SUBNET:-172.31.195.0/24}
+
+volumes:
+  db_data:
+  artifact_data:
+  worker_state:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  postgres_password:
+    file: ${NEXA_POSTGRES_PASSWORD_FILE:?set password secret file}
+  nexa_database_url:
+    file: ${NEXA_DATABASE_URL_FILE:?set database URL secret file}
+  nexa_server_secret:
+    file: ${NEXA_SERVER_SECRET_FILE:?set server secret file}
+  nexa_bootstrap_secret:
+    file: ${NEXA_BOOTSTRAP_SECRET_FILE:?set bootstrap secret file}
