@@ -14,6 +14,8 @@ from .credentials import _atomic_private_json
 _MAX_STATE_BYTES = 1_048_576
 _OPERATIONS = {
     "create_incarnation",
+    "claim",
+    "start",
     "heartbeat",
     "adopt",
     "renew",
@@ -190,6 +192,49 @@ class PendingOperationStore:
             current = self._operations[callback_id]
             if current["acknowledgment"] is None:
                 raise ValueError("unacknowledged callback cannot be discarded")
+            operations = dict(self._operations)
+            del operations[callback_id]
+            self._commit(operations)
+
+    def discard_rejected_start(
+        self,
+        callback_id: str,
+        *,
+        attempt_id: str,
+        authority_revoked: bool,
+        cleanup_verified: bool,
+    ) -> None:
+        """Discard a denied start only after revocation and exact cleanup finish."""
+        if not authority_revoked or not cleanup_verified:
+            raise ValueError("revoked authority and verified cleanup are required")
+        with self._lock:
+            current = self._operations[callback_id]
+            if (
+                current["operation"] != "start"
+                or current["payload"].get("attempt_id") != attempt_id
+                or current["acknowledgment"] is not None
+            ):
+                raise ValueError("rejected start callback identity is invalid")
+            operations = dict(self._operations)
+            del operations[callback_id]
+            self._commit(operations)
+
+    def discard_terminal_renewal(
+        self, callback_id: str, *, attempt_id: str, completion_ack: dict
+    ) -> None:
+        """Discard a renewal only after the same attempt has a durable success ACK."""
+        if (
+            completion_ack.get("accepted") is not True
+            or completion_ack.get("job_state") != "SUCCEEDED"
+        ):
+            raise ValueError("terminal result acknowledgment is required")
+        with self._lock:
+            current = self._operations[callback_id]
+            if (
+                current["operation"] != "renew"
+                or current["payload"].get("attempt_id") != attempt_id
+            ):
+                raise ValueError("terminal renewal identity mismatch")
             operations = dict(self._operations)
             del operations[callback_id]
             self._commit(operations)

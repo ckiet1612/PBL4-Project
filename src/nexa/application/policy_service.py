@@ -12,6 +12,7 @@ from nexa.application.identity_service import IdentityService
 from nexa.application.json_codec import json_wire_value
 from nexa.application.preconditions import ExpectedVersion, resolve_expected_version
 from nexa.config import Settings
+from nexa.coordinator.accounting import account_locked, rebase_locked
 from nexa.domain.identity import AuthorizationError, Principal, require_admin
 from nexa.domain.policy import (
     OperationalMode,
@@ -19,7 +20,7 @@ from nexa.domain.policy import (
     validate_mode_transition,
 )
 from nexa.infrastructure.persistence.ids import new_uuid7
-from nexa.infrastructure.persistence.locking import transaction_timestamp
+from nexa.infrastructure.persistence.locking import clock_timestamp, transaction_timestamp
 from nexa.infrastructure.persistence.schema import (
     admission_counters,
     allocations,
@@ -496,7 +497,7 @@ class PolicyService:
             mode = session.execute(
                 select(policy_versions.c.operational_mode)
                 .where(policy_versions.c.is_current.is_(True))
-                .with_for_update(read=True)
+                .with_for_update()
             ).scalar_one()
             if mode == "WRITE_FROZEN":
                 raise ApplicationError(
@@ -591,6 +592,9 @@ class PolicyService:
                     status=409,
                     message="Tenant resource policy is below unreleased allocations",
                 )
+            # Charge at the old weight before publishing the new policy.
+            now = clock_timestamp(session)
+            account_locked(session, now)
             new_version = current["version"] + 1
             session.execute(
                 update(tenant_policies)
@@ -633,6 +637,7 @@ class PolicyService:
                 .mappings()
                 .one()
             )
+            rebase_locked(session, now)
             self._audit(
                 session,
                 actor_id=live.user_id,

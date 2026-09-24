@@ -2,12 +2,12 @@
 
 from sqlalchemy import MetaData
 
-from nexa.infrastructure.persistence import schema_v4
+from nexa.infrastructure.persistence import schema_v6
 
-SCHEMA_GENERATION = schema_v4.SCHEMA_GENERATION
+SCHEMA_GENERATION = schema_v6.SCHEMA_GENERATION
 
-metadata = MetaData(naming_convention=dict(schema_v4.metadata.naming_convention))
-for _table in schema_v4.metadata.tables.values():
+metadata = MetaData(naming_convention=dict(schema_v6.metadata.naming_convention))
+for _table in schema_v6.metadata.tables.values():
     _table.to_metadata(metadata)
 
 globals().update(metadata.tables)

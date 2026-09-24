@@ -80,6 +80,10 @@ class ArtifactDownload:
 
 
 class ArtifactService:
+    _upload_operation = "uploadArtifact"
+    _upload_provenance: dict = {}
+    _upload_metadata = staticmethod(validate_public_artifact_metadata)
+
     def __init__(
         self, session_factory, settings: Settings, identity, store: FilesystemArtifactStore
     ):
@@ -87,6 +91,16 @@ class ArtifactService:
         self.settings = settings
         self.identity = identity
         self.store = store
+
+    def _upload_request_scope(self) -> dict[str, Any]:
+        """Additional immutable identity for specialized upload protocols."""
+        return {}
+
+    def _upload_receipt_identity(self) -> dict[str, Any] | None:
+        return None
+
+    def _validate_upload_replay(self, session: Session, record_id: UUID) -> None:
+        return None
 
     @staticmethod
     def _view(row: Any) -> dict[str, Any]:
@@ -272,17 +286,18 @@ class ArtifactService:
             )
         self._validate_checksum(expected_checksum)
         try:
-            normalized_kind, normalized_media = validate_public_artifact_metadata(kind, media_type)
+            normalized_kind, normalized_media = self._upload_metadata(kind, media_type)
         except ArtifactError as exc:
             raise ApplicationError(code=exc.code, status=422, message=exc.message) from exc
         request_hash = jcs_request_hash(
             {
                 "tenant_id": str(tenant_id),
-                "operation": "uploadArtifact",
+                "operation": self._upload_operation,
                 "kind": normalized_kind,
                 "media_type": normalized_media,
                 "size_bytes": expected_size,
                 "checksum": expected_checksum,
+                "scope": self._upload_request_scope(),
             }
         )
         upload_id = new_uuid7()
@@ -295,14 +310,22 @@ class ArtifactService:
                 session,
                 context=str(tenant_id),
                 principal_id=str(live.user_id),
-                operation_id="uploadArtifact",
+                operation_id=self._upload_operation,
                 key=idempotency_key,
                 request_hash=request_hash,
                 expires_at=now + timedelta(days=30),
                 pending_wait_milliseconds=self.settings.idempotency_pending_wait_milliseconds,
             )
             if idempotency.replay is not None:
+                self._validate_upload_replay(session, idempotency.record_id)
                 return dict(idempotency.replay.body or {}), idempotency.record_id
+            receipt_identity = self._upload_receipt_identity()
+            if receipt_identity is not None:
+                session.execute(
+                    update(idempotency_records)
+                    .where(idempotency_records.c.idempotency_id == idempotency.record_id)
+                    .values(original_authority=receipt_identity)
+                )
             self._check_disk(expected_size)
             counter = self._counter_lock(session, tenant_id)
             if (
@@ -335,6 +358,7 @@ class ArtifactService:
                     bytes_received=0,
                     expires_at=now + timedelta(seconds=self.settings.staging_ttl_seconds),
                     state="ACTIVE",
+                    **self._upload_provenance,
                 )
             )
             return None, idempotency.record_id
@@ -581,6 +605,7 @@ class ArtifactService:
                 )
                 .values(state="COMMITTED", bytes_received=expected_size, updated_at=now)
             )
+            self._commit_upload_reference(session, tenant_id, upload_id, UUID(body["artifact_id"]))
             location = f"/v1/artifacts/{body['artifact_id']}"
             headers = {"Location": location, "ETag": f'"v{body["version"]}"'}
             complete_idempotency(
@@ -631,6 +656,9 @@ class ArtifactService:
                 # A failed cleanup is retained as an orphan for a later reconciliation pass.
                 pass
         return result
+
+    def _commit_upload_reference(self, session, tenant_id, upload_id, artifact_id):
+        pass
 
     def list_artifacts(
         self,

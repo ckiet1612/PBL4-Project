@@ -104,11 +104,11 @@ def _wait_for_database_lock(engine) -> None:
     raise AssertionError("worker operation did not reach the expected database lock")
 
 
-def _assert_receipt_policy_worker_order(statements: list[str]) -> None:
+def _assert_policy_receipt_worker_order(statements: list[str]) -> None:
     receipt = next(i for i, value in enumerate(statements) if "callback_receipts" in value)
     policy = next(i for i, value in enumerate(statements) if "policy_versions" in value)
     worker = next(i for i, value in enumerate(statements) if " workers" in value)
-    assert receipt < policy < worker
+    assert policy < receipt < worker
 
 
 def test_incarnation_replay_is_stable_and_does_not_reactivate_an_old_process(
@@ -762,7 +762,7 @@ def test_health_sweep_reads_database_time_after_waiting_for_worker_lock(
             )
 
 
-def test_heartbeat_callback_receipt_lock_precedes_policy_and_worker(
+def test_heartbeat_policy_lock_precedes_receipt_and_worker(
     migrated_postgres_engine, tmp_path
 ) -> None:
     with _client(migrated_postgres_engine, tmp_path) as client:
@@ -805,6 +805,6 @@ def test_heartbeat_callback_receipt_lock_precedes_policy_and_worker(
                 },
             )
             assert heartbeat.status_code == 200, heartbeat.text
-            _assert_receipt_policy_worker_order(statements)
+            _assert_policy_receipt_worker_order(statements)
         finally:
             event.remove(migrated_postgres_engine, "before_cursor_execute", record)

@@ -57,6 +57,18 @@ EXPECTED_B10_OPERATIONS = {
     "workerRenewAttempt",
 }
 
+EXPECTED_B11_OPERATIONS = {
+    "getJobResult",
+    "workerReserveResult",
+    "workerClaimAttempt",
+    "workerStartAttempt",
+    "workerUploadAttemptArtifact",
+    "workerDownloadExecutionArtifact",
+    "workerFailAttempt",
+    "workerReportCleanup",
+    "workerCompleteAttempt",
+}
+
 _DUMMY_ID = "018f05c4-a922-7d0d-9f55-f9084a72d0f9"
 ADMIN_OPERATION_CASES = (
     ("GET", "/v1/admin/tenants", None, 200, 403),
@@ -113,7 +125,7 @@ ADMIN_OPERATION_CASES = (
 )
 
 
-def test_b06_and_b07_operation_ids_are_registered(migrated_postgres_engine, tmp_path) -> None:
+def test_b06_through_b11_operation_ids_are_registered(migrated_postgres_engine, tmp_path) -> None:
     client = _client(migrated_postgres_engine, tmp_path)
     operation_ids = {
         operation["operationId"]
@@ -126,6 +138,7 @@ def test_b06_and_b07_operation_ids_are_registered(migrated_postgres_engine, tmp_
         | EXPECTED_B07_OPERATIONS
         | EXPECTED_B08_OPERATIONS
         | EXPECTED_B10_OPERATIONS
+        | EXPECTED_B11_OPERATIONS
     )
 
 

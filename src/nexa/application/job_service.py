@@ -36,6 +36,7 @@ from nexa.infrastructure.persistence.schema import (
     logical_sessions,
     policy_versions,
     rate_buckets,
+    results,
     template_versions,
     templates,
     tenant_policies,
@@ -1161,6 +1162,37 @@ class JobService:
                     code="resource_not_found", status=404, message="Job was not found"
                 )
             return self._job_view(row)
+
+        return run_transaction(self.session_factory, operation)
+
+    def get_result(self, principal: Principal, *, tenant_id: UUID, job_id: UUID) -> dict[str, Any]:
+        def operation(session: Session) -> dict[str, Any]:
+            self._authorize(session, principal, tenant_id, write=False)
+            row = (
+                session.execute(
+                    select(results).where(
+                        results.c.tenant_id == tenant_id,
+                        results.c.job_id == job_id,
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                # A reservation or upload without a recognized Result is intentionally invisible.
+                raise ApplicationError(
+                    code="resource_not_found", status=404, message="Recognized result was not found"
+                )
+            return json_wire_value(
+                {
+                    "result_id": row["result_id"],
+                    "job_id": row["job_id"],
+                    "attempt_id": row["attempt_id"],
+                    "manifest_artifact_id": row["manifest_artifact_id"],
+                    "manifest_checksum": row["manifest_checksum"],
+                    "created_at": row["created_at"],
+                }
+            )
 
         return run_transaction(self.session_factory, operation)
 

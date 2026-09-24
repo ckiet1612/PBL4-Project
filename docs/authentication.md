@@ -102,6 +102,8 @@ và CLI token của user trong cùng workflow transaction; re-enable không hồ
 | Tenant/user/membership/policy/audit reads | SYSTEM_ADMIN active | SYSTEM_ADMIN active + exact `admin:read` | Không | Không |
 | Tenant/user/membership/policy mutations | SYSTEM_ADMIN active + CSRF | SYSTEM_ADMIN active + exact `admin:write` | Không | Không |
 | `bootstrapInitialAdmin`, `bootstrapLocalWorker` | Không | Không | Không | Maintenance source + bootstrap secret + open window |
+| `getJobResult` | Live tenant membership + ownership; browser cookie | Exact `jobs:read` + live membership + ownership | Không | Không |
+| `workerPollDispatch`, `workerClaimAttempt`, `workerStartAttempt`, `workerReserveResult`, `workerUploadAttemptArtifact`, `workerDownloadExecutionArtifact`, `workerCompleteAttempt`, `workerFailAttempt`, `workerReportCleanup` | Không | Không | Credential đúng worker + current incarnation; Authority/attempt/tenant/fence/lease còn hợp lệ, trừ replay callback đã commit theo contract | Không |
 
 24 operation ID B06 đã wire:
 

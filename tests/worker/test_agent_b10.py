@@ -102,6 +102,32 @@ def test_main_returns_unavailable_and_never_logs_transport_secret(
     assert "worker API transport unavailable" in caplog.text
 
 
+def test_periodic_reconciliation_preserves_prior_ready_until_scan_finishes() -> None:
+    scanning = threading.Event()
+    finish = threading.Event()
+
+    class Client:
+        def reconciliation(self, *_args, **_kwargs):
+            scanning.set()
+            assert finish.wait(2)
+            return {"items": [], "page": {"next_cursor": None}}
+
+    agent = WorkerAgent.for_test(Client(), worker_id="worker", incarnation_id="incarnation")
+    agent._reconcile_complete = True
+    agent._server_ready = True
+    thread = threading.Thread(target=agent.reconcile_once)
+    thread.start()
+    try:
+        assert scanning.wait(2)
+        assert agent._reconcile_complete is True
+        assert agent._server_ready is True
+    finally:
+        finish.set()
+        thread.join(timeout=2)
+    assert not thread.is_alive()
+    assert agent._reconcile_complete is True
+
+
 def test_background_loop_error_clears_reconciliation_readiness() -> None:
     agent = WorkerAgent.for_test(object(), worker_id="worker", incarnation_id="incarnation")
     agent._reconcile_complete = True
@@ -337,7 +363,12 @@ def test_run_starts_supervision_before_reconciliation(tmp_path, monkeypatch) -> 
 
     monkeypatch.setattr("nexa.worker.main.WorkerApiClient", Client)
     monkeypatch.setattr("nexa.worker.main.DockerCli", object)
-    monkeypatch.setattr("nexa.worker.main.DockerExecutor", lambda *_args, **_kwargs: object())
+
+    def capture_executor(*_args, **kwargs):
+        assert kwargs["staging_root"] == config.state_root / "staging"
+        return object()
+
+    monkeypatch.setattr("nexa.worker.main.DockerExecutor", capture_executor)
     monkeypatch.setattr("nexa.worker.main.WorkerAgent", Agent)
 
     assert run(config) == 0

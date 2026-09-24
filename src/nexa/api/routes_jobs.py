@@ -17,6 +17,7 @@ from nexa.api.schemas import (
     JobState,
     JobSubmitRequest,
     LogicalSession,
+    ResultRecord,
     UuidV7,
 )
 from nexa.application.errors import ApplicationError
@@ -147,6 +148,27 @@ async def get_job(
         job_id=job_id,
     )
     return JSONResponse(body, headers={"ETag": strong_etag(int(body["version"]))})
+
+
+@router.get(
+    "/jobs/{job_id}/result",
+    operation_id="getJobResult",
+    response_model=ResultRecord,
+    responses=_error_responses(400, 401, 403, 404, 500, 503),
+    openapi_extra={"security": _READ_SECURITY},
+)
+async def get_job_result(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+) -> dict:
+    principal = await run_in_threadpool(resolve_principal, request, mutation=False)
+    return await run_in_threadpool(
+        _job_service(request).get_result,
+        principal,
+        tenant_id=tenant_id,
+        job_id=job_id,
+    )
 
 
 @router.get(

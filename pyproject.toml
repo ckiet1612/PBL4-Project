@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 nexa-maintenance = "nexa.cli.main:app"
 nexa-worker = "nexa.worker.main:main"
+nexa-coordinator = "nexa.coordinator.main:main"
 
 [dependency-groups]
 dev = [

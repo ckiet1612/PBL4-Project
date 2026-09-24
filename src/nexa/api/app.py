@@ -20,10 +20,10 @@ from nexa.api.routes_worker import router as worker_router
 from nexa.application.admin_service import AdminService
 from nexa.application.artifact_service import ArtifactService
 from nexa.application.errors import ApplicationError
+from nexa.application.execution_service import ExecutionService
 from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
 from nexa.application.policy_service import PolicyService
-from nexa.application.worker_service import WorkerService
 from nexa.config import Settings
 from nexa.infrastructure.artifacts.store import FilesystemArtifactStore
 from nexa.infrastructure.persistence.database import (
@@ -80,10 +80,11 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                 policy=PolicyService(session_factory, settings, identity),
                 artifact=ArtifactService(session_factory, settings, identity, artifact_store),
                 jobs=JobService(session_factory, settings, identity),
-                worker=WorkerService(
+                worker=ExecutionService(
                     session_factory,
                     settings,
                     identity,
+                    artifact_store=artifact_store,
                     storage_readiness=lambda: artifact_store.check_readiness(
                         critical_watermark_percent=settings.storage_critical_watermark_percent
                     ),

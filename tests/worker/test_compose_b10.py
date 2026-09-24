@@ -8,7 +8,9 @@ def test_worker_uses_tls_proxy_restart_and_persistent_state() -> None:
     assert "NEXA_WORKER_API_URL: https://caddy:8443" in compose
     assert "SSL_CERT_FILE: /caddy-data/caddy/pki/authorities/local/root.crt" in compose
     assert "restart: unless-stopped" in compose
-    assert "worker_state:/var/lib/nexa-worker" in compose
+    assert "source: ${NEXA_WORKER_STATE_ROOT:?set absolute shared worker state path}" in compose
+    assert "target: ${NEXA_WORKER_STATE_ROOT:?set absolute shared worker state path}" in compose
+    assert "create_host_path: false" in compose
     assert "/var/run/docker.sock:/var/run/docker.sock" in compose
     worker = compose.split("  worker:", 1)[1].split("networks:", 1)[0]
     assert "NEXA_DATABASE_URL" not in worker

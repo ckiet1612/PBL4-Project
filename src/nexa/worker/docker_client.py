@@ -251,6 +251,66 @@ class DockerCli:
             raise RuntimeError("Docker container query returned an invalid identity")
         return identifiers
 
+    def read_output(self, container_id: str, descriptor: dict) -> bytes:
+        """Read one closed CPU output, bounded by the command backend and descriptor.
+
+        No extraction is performed. Links, directories and extra tar members are
+        rejected before bytes can reach an attempt upload.
+        """
+        import hashlib
+        import io
+        import tarfile
+
+        _validate_container_id(container_id)
+        name = descriptor["staging_name"]
+        if name not in {"result.json", "result-manifest.json"}:
+            raise ValueError("unsupported CPU output staging name")
+        size = descriptor["size_bytes"]
+        if not isinstance(size, int) or isinstance(size, bool) or not 0 <= size <= 512 * 1024:
+            raise ValueError("CPU output exceeds bounded reader")
+        code, raw, _ = self.backend.run(
+            # Docker's archive endpoint does not expose the container's tmpfs
+            # mount. Archive from inside the verified running image as runner UID.
+            (
+                "docker",
+                "exec",
+                "--user",
+                "1000:1000",
+                container_id,
+                "tar",
+                "-C",
+                "/output",
+                "-cf",
+                "-",
+                "--",
+                name,
+            ),
+            5.0,
+        )
+        if code:
+            raise RuntimeError("closed container output is unavailable")
+        if len(raw) > 1024 * 1024:
+            raise ValueError("CPU output archive exceeds bound")
+        with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
+            entries = archive.getmembers()
+            if (
+                len(entries) != 1
+                or entries[0].name != name
+                or not entries[0].isreg()
+                or entries[0].size != size
+            ):
+                raise ValueError("unsafe container output archive")
+            stream = archive.extractfile(entries[0])
+            if stream is None:
+                raise ValueError("container output bytes are absent")
+            content = stream.read(size + 1)
+        if (
+            len(content) != size
+            or "sha256:" + hashlib.sha256(content).hexdigest() != descriptor["checksum"]
+        ):
+            raise ValueError("closed container output checksum mismatch")
+        return content
+
     def _run(self, argv: tuple[str, ...], timeout_seconds: float) -> None:
         code, _, _ = self.backend.run(argv, timeout_seconds)
         if code != 0:

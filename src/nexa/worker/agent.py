@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import time
 from collections.abc import Callable
 from contextlib import nullcontext, suppress
@@ -15,12 +16,15 @@ from .capabilities import ResourceProvider, inventory_to_json
 from .client import WorkerApiClient, WorkerApiError
 from .docker_client import DockerCli, DockerContainerNotFound, DockerControlChannel
 from .errors import ExecutorError
+from .execution import WorkerExecutionMixin
 from .executor import DockerExecutor, runtime_identity_digest
 from .journal import ExecutionJournal, JournalRecord
 from .models import Authority, ContainerIdentity, ResourceVector
 from .protocol import SequenceState, canonical_envelope_effect
 from .runner_control import RunnerControl, RunnerControlError
 from .state import PendingOperationStore
+
+LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +53,7 @@ def _identity(value: dict, *, authority: Authority, startup_nonce: str) -> Conta
     )
 
 
-class WorkerAgent:
+class WorkerAgent(WorkerExecutionMixin):
     def __init__(
         self,
         *,
@@ -88,6 +92,7 @@ class WorkerAgent:
         }
         self._adopted: dict[str, Authority] = {}
         self._containers: dict[str, ContainerIdentity] = {}
+        self._replayable_claims: set[str] = set()
         self._reconcile_complete = False
         self._readiness_blocked = False
         self._server_ready = False
@@ -118,6 +123,7 @@ class WorkerAgent:
         }
         agent._adopted = {}
         agent._containers = {}
+        agent._replayable_claims = set()
         agent._reconcile_complete = False
         agent._readiness_blocked = False
         agent._server_ready = False
@@ -126,8 +132,9 @@ class WorkerAgent:
         return agent
 
     def reconcile_once(self) -> ReconciliationResult:
-        self._reconcile_complete = False
-        self._server_ready = False
+        # A completed scan remains valid while a periodic scan is in flight.
+        # The loop clears readiness if this scan fails or times out.
+        self._replayable_claims = set()
         for restart in range(self.page_restart_limit + 1):
             discovered: dict[str, ContainerIdentity] = {}
             cursor = None
@@ -136,6 +143,7 @@ class WorkerAgent:
             unresolved: list[str] = []
             expected_containers: set[str] = set()
             deferred: list[dict] = []
+            claim_candidates: list[dict] = []
             try:
                 while True:
                     page = self.client.reconciliation(
@@ -149,6 +157,7 @@ class WorkerAgent:
                         raise ValueError("worker reconciliation page exceeded bound")
                     for item in items:
                         items_seen += 1
+                        claim_candidates.append(item)
                         expected = (
                             item.get("expected_container") if isinstance(item, dict) else None
                         )
@@ -192,9 +201,14 @@ class WorkerAgent:
                     if (
                         container_id not in expected_containers
                         and identity.attempt_id not in unresolved
-                        and not self._stop_orphan(identity)
+                        and not self._resolve_snapshot_orphan(identity)
                     ):
                         unresolved.append(identity.attempt_id)
+                self._replayable_claims = {
+                    item["authority"]["attempt_id"]
+                    for item in claim_candidates
+                    if self._can_replay_claim(item, discovered)
+                }
                 if self.state is not None:
                     for callback_id, record in list(self.state.operations.items()):
                         if record["operation"] in {
@@ -213,12 +227,68 @@ class WorkerAgent:
                     unresolved_attempts=tuple(unresolved),
                 )
                 self._reconcile_complete = result.complete
+                if not result.complete:
+                    self._server_ready = False
                 self._containers = discovered
                 return result
             except WorkerApiError as exc:
                 if exc.status != 409 or restart >= self.page_restart_limit:
                     raise
         raise RuntimeError("reconciliation restart bound exhausted")
+
+    def _can_replay_claim(self, item: dict, discovered: dict[str, ContainerIdentity]) -> bool:
+        """Resume only the original callback after a complete identity scan."""
+        if item.get("authority_state") != "LIVE" or not isinstance(item.get("authority"), dict):
+            return False
+        authority = item["authority"]
+        attempt_id = authority.get("attempt_id")
+        if (
+            authority.get("worker_id") != self.worker_id
+            or authority.get("worker_incarnation_id") != self.incarnation_id
+            or not isinstance(attempt_id, str)
+            or item.get("claim_state") not in {"UNCLAIMED", "CLAIMED", "STARTED"}
+        ):
+            return False
+        pending = [
+            value
+            for value in self.state.operations.values()
+            if value["operation"] == "claim"
+            and value["payload"].get("attempt_id") == attempt_id
+            and value["payload"].get("body") == {"authority": authority}
+        ]
+        if len(pending) != 1:
+            return False
+        found = [value for value in discovered.values() if value.attempt_id == attempt_id]
+        if not self.journal.exists(attempt_id):
+            return item.get("expected_container") is None and not found
+        local = self.journal.load(attempt_id)
+        if (
+            asdict(local.authority) != authority
+            or local.allocation_id != authority.get("allocation_id")
+            or local.startup_nonce != item.get("startup_nonce")
+            or local.state not in {"PREPARED", "CREATED", "START_IN_FLIGHT", "STARTED"}
+        ):
+            return False
+        if local.container is None:
+            return (
+                local.state == "PREPARED" and item.get("expected_container") is None and not found
+            )
+        expected = item.get("expected_container")
+        return (
+            len(found) == 1
+            and found[0].container_id == local.container.container_id
+            and found[0].runtime_identity_digest == local.container.runtime_identity_digest
+            and found[0].allocation_id == local.container.allocation_id
+            and found[0].startup_nonce == local.container.startup_nonce
+            and (
+                expected is None
+                or expected
+                == {
+                    "container_id": found[0].container_id,
+                    "runtime_identity_digest": found[0].runtime_identity_digest,
+                }
+            )
+        )
 
     def _discover_containers(self) -> dict[str, ContainerIdentity]:
         identifiers = self.docker.find_by_labels(
@@ -300,6 +370,21 @@ class WorkerAgent:
             and local.allocation_id == authority.allocation_id
             and local.startup_nonce == item["startup_nonce"]
         )
+        if (
+            item["authority_state"] == "LIVE"
+            and item["claim_state"] == "UNCLAIMED"
+            and authority.worker_incarnation_id == self.incarnation_id
+            and expected is None
+            and local is None
+            and not any(value.attempt_id == attempt_id for value in discovered.values())
+            and not any(
+                value["payload"].get("attempt_id") == attempt_id
+                for value in self.state.operations.values()
+            )
+        ):
+            # A committed offer has no local Docker work yet. The worker must
+            # remain able to poll it after a periodic reconciliation scan.
+            return attempt_id, True, False
         if item["authority_state"] == "LIVE" and exact:
             resumed = self._resume_pending_authority(item, local, actual)
             if resumed is not None:
@@ -344,9 +429,13 @@ class WorkerAgent:
                 or (actual is None and local.state not in {"CLEANUP_IN_FLIGHT", "TOMBSTONED"})
             ):
                 return attempt_id, False, False
+            if not self._restore_completion_receipt(attempt_id, item):
+                return attempt_id, False, False
+            self._discard_completed_renewals(attempt_id)
             resolved = self._stop_orphan(bound)
             if resolved:
                 discovered.pop(bound.container_id, None)
+                self._retire_fenced_startup(attempt_id)
             return attempt_id, resolved, False
         if actual is not None:
             self._stop_orphan(actual)
@@ -594,7 +683,7 @@ class WorkerAgent:
         }
         body = {
             "worker_id": self.worker_id,
-            "worker_incarnation_id": self.incarnation_id,
+            "worker_incarnation_id": authority.worker_incarnation_id,
             "attempt_id": authority.attempt_id,
             "allocation_id": authority.allocation_id,
             "job_fence": authority.job_fence,
@@ -678,7 +767,7 @@ class WorkerAgent:
             proof = self.executor.cleanup(bound)
             body = {
                 "worker_id": self.worker_id,
-                "worker_incarnation_id": self.incarnation_id,
+                "worker_incarnation_id": record.authority.worker_incarnation_id,
                 "attempt_id": identity.attempt_id,
                 "allocation_id": identity.allocation_id,
                 "job_fence": record.authority.job_fence,
@@ -723,21 +812,110 @@ class WorkerAgent:
         except (ExecutorError, RuntimeError):
             return False
 
+    def _resolve_snapshot_orphan(self, identity: ContainerIdentity) -> bool:
+        # Docker discovery can observe a container created after the API page
+        # snapshot. A local authority from this incarnation is not proof that
+        # its allocation has been revoked, even after its callbacks finish.
+        # Serialize the decision with journal writes and Docker cleanup.
+        with self.journal.lock(identity.attempt_id):
+            if self.journal.exists(identity.attempt_id):
+                record = self.journal.load(identity.attempt_id)
+                if (
+                    record.authority.worker_incarnation_id == self.incarnation_id
+                    and record.state not in {"CLEANUP_IN_FLIGHT", "TOMBSTONED"}
+                ):
+                    return False
+            return self._stop_orphan(identity)
+
     def _blocking_pending_attempts(self) -> list[str]:
         if self.state is None:
             return []
         result: list[str] = []
         for record in self.state.operations.values():
-            if record["operation"] in {"adopt", "renew", "failure", "cleanup", "runner_deadline"}:
+            if record["operation"] in {
+                "claim",
+                "start",
+                "adopt",
+                "renew",
+                "failure",
+                "cleanup",
+                "runner_deadline",
+            }:
                 attempt_id = record["payload"].get("attempt_id")
                 if isinstance(attempt_id, str):
                     result.append(attempt_id)
         return result
 
+    def _discard_completed_renewals(self, attempt_id: str) -> None:
+        if self.state is None:
+            return
+        result = (self.journal.load(attempt_id).runner_state or {}).get("result_flow", {})
+        if not result.get("completed"):
+            return
+        for callback_id, pending in self.state.operations.items():
+            if (
+                pending["operation"] == "renew"
+                and pending["payload"].get("attempt_id") == attempt_id
+            ):
+                self.state.discard_terminal_renewal(
+                    callback_id, attempt_id=attempt_id, completion_ack=result["completion_ack"]
+                )
+
+    def _restore_completion_receipt(self, attempt_id: str, item: dict) -> bool:
+        receipt = item.get("completion_receipt")
+        if receipt is None:
+            return True
+        flow = (self.journal.load(attempt_id).runner_state or {}).get("result_flow", {})
+        acknowledgment = receipt.get("acknowledgment", {})
+        if (
+            flow.get("completion_callback_id") != receipt.get("callback_id")
+            or flow.get("reservation", {}).get("result_id") != receipt.get("result_id")
+            or acknowledgment.get("callback_id") != receipt.get("callback_id")
+            or acknowledgment.get("accepted") is not True
+            or acknowledgment.get("job_state") != "SUCCEEDED"
+            or sum(
+                binding.get("artifact_id") == receipt.get("manifest_artifact_id")
+                and binding.get("kind") == "RESULT_MANIFEST"
+                for binding in flow.get("bindings", {}).values()
+            )
+            != 1
+        ):
+            return False
+        if flow.get("completed"):
+            return flow.get("completion_ack") == acknowledgment
+        self.journal.update_runner_state(
+            attempt_id,
+            lambda state: {
+                **state,
+                "result_flow": {
+                    **state.get("result_flow", {}),
+                    "completed": True,
+                    "completion_ack": acknowledgment,
+                },
+            },
+        )
+        return True
+
     def renew_once(self) -> None:
+        first_error = None
         for attempt_id, authority in tuple(self._adopted.items()):
-            with self.journal.lock(attempt_id):
-                self._renew_attempt(attempt_id, authority)
+            try:
+                with self.journal.lock(attempt_id):
+                    if (
+                        (self.journal.load(attempt_id).runner_state or {})
+                        .get("result_flow", {})
+                        .get("completed")
+                    ):
+                        self._discard_completed_renewals(attempt_id)
+                        continue
+                    self._renew_attempt(attempt_id, authority)
+            except (OSError, TimeoutError, WorkerApiError, RuntimeError, ValueError) as exc:
+                # A conflicted or unreachable attempt must not starve the
+                # other held allocations; surface the error after trying all.
+                if first_error is None:
+                    first_error = exc
+        if first_error is not None:
+            raise first_error
 
     def _renew_attempt(self, attempt_id: str, authority: Authority) -> None:
         if any(
@@ -746,6 +924,7 @@ class WorkerAgent:
             for pending in self.state.operations.values()
         ):
             return
+        self._flush_result_controls(attempt_id)
         record = self.journal.load(attempt_id)
         progress = (record.runner_state or {}).get("latest_progress")
         body = {
@@ -833,6 +1012,9 @@ class WorkerAgent:
             asyncio.create_task(self._loop(self.reconcile_once, self.loop_intervals["reconcile"])),
             asyncio.create_task(self._loop(self._poll_once, self.loop_intervals["poll"])),
             asyncio.create_task(self._loop(self._ipc_once, self.loop_intervals["ipc"])),
+            asyncio.create_task(
+                self._loop(self._result_once, self.loop_intervals.get("result", 0.25))
+            ),
         )
         try:
             await self._stop.wait()
@@ -865,6 +1047,8 @@ class WorkerAgent:
                         asyncio.shield(in_flight), timeout=self.operation_timeout_seconds
                     )
                 except TimeoutError:
+                    if not timed_out:
+                        LOG.warning("worker_loop_timeout operation=%s", operation.__name__)
                     self._server_ready = False
                     if operation != self._poll_once:
                         self._reconcile_complete = False
@@ -876,7 +1060,15 @@ class WorkerAgent:
                         timed_out = False
                     else:
                         timed_out = True
-                except errors:
+                except errors as exc:
+                    detail = (
+                        f"{exc.status}/{exc.code}"
+                        if isinstance(exc, WorkerApiError)
+                        else type(exc).__name__
+                    )
+                    LOG.warning(
+                        "worker_loop_failed operation=%s detail=%s", operation.__name__, detail
+                    )
                     self._server_ready = False
                     if operation != self._poll_once:
                         self._reconcile_complete = False
@@ -905,23 +1097,51 @@ class WorkerAgent:
                     self._reconcile_complete = False
 
     def _poll_once(self) -> None:
-        if self._server_ready and self._reconcile_complete and not self._readiness_blocked:
-            response = self.client.poll(self.worker_id, self.incarnation_id)
-            if response.get("offer") is not None:
-                raise RuntimeError("dispatch claim/start belongs to B11")
+        # A claim may commit while its response or the subsequent start response
+        # is lost. The pending local callback is the durable path back into the
+        # same offer; the API no longer polls a CLAIMED/RUNNING attempt. Replay
+        # of that callback is required even while reconciliation blocks READY.
+        for record in tuple(self.state.operations.values()) if self.state is not None else ():
+            if (
+                record["operation"] == "claim"
+                and record["payload"].get("attempt_id") in self._replayable_claims
+                and record["payload"]["body"]["authority"]["worker_incarnation_id"]
+                == self.incarnation_id
+            ):
+                self._dispatch_offer({"authority": record["payload"]["body"]["authority"]})
+                return
+        if not (self._server_ready and self._reconcile_complete and not self._readiness_blocked):
+            return
+        response = self.client.poll(self.worker_id, self.incarnation_id)
+        if response.get("offer") is not None:
+            self._dispatch_offer(response["offer"])
 
     def _ipc_once(self) -> None:
         for attempt_id in tuple(self._adopted):
-            record = self.journal.load(attempt_id)
-            if record.container is None:
-                continue
-            channel = self.channel_factory(record.container.container_id)
-            manager = channel if hasattr(channel, "__enter__") else nullcontext(channel)
-            with manager as connection:
-                RunnerControl(next_sequence=self._next_control_sequence(record)).receive_messages(
-                    connection,
-                    lambda frame, current=attempt_id: self._record_runner_message(current, frame),
-                )
+            # The runner serves control connections one at a time. A receive
+            # session must end before renewal/result can wait for its ACK.
+            with self.journal.lock(attempt_id):
+                record = self.journal.load(attempt_id)
+                if record.container is None:
+                    continue
+                if (record.runner_state or {}).get("pending_execution_message") is not None:
+                    # ResultFlow must durably handle this frame before the
+                    # runner can advance to the next message sequence.
+                    continue
+                channel = self.channel_factory(record.container.container_id)
+                manager = channel if hasattr(channel, "__enter__") else nullcontext(channel)
+                with manager as connection:
+                    RunnerControl(
+                        next_sequence=self._next_control_sequence(record)
+                    ).receive_messages(
+                        connection,
+                        lambda frame, current=attempt_id: self._record_runner_message(
+                            current, frame
+                        ),
+                        # docker exec relay startup is part of this budget; 100 ms
+                        # repeatedly closes a healthy channel before it connects.
+                        timeout_seconds=2.0,
+                    )
 
     def _record_runner_message(self, attempt_id: str, envelope: dict[str, object]) -> str:
         outcome = "OUT_OF_ORDER"
@@ -937,6 +1157,20 @@ class WorkerAgent:
             if outcome != "ACCEPTED":
                 return runner_state
             message_type = envelope["type"]
+            if message_type in {
+                "RESULT_PREPARE",
+                "RESULT_FILE_BATCH",
+                "RESULT_READY",
+                "FAILED",
+                "STOPPED",
+            }:
+                existing = runner_state.get("pending_execution_message")
+                if existing is not None and existing != envelope:
+                    outcome = "INVALID"
+                    return runner_state
+                runner_state["pending_execution_message"] = dict(envelope)
+                outcome = "OUT_OF_ORDER"
+                return runner_state
             if message_type not in {"STARTED", "PROGRESS"}:
                 outcome = "OUT_OF_ORDER"
                 return runner_state

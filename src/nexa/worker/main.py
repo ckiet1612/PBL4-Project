@@ -39,7 +39,7 @@ def _replay_pending(
     config: "WorkerConfig", client: WorkerApiClient, state: PendingOperationStore
 ) -> None:
     for callback_id, record in list(state.operations.items()):
-        if record["operation"] in {"adopt", "renew", "runner_deadline"}:
+        if record["operation"] in {"adopt", "renew", "runner_deadline", "claim", "start"}:
             continue
         acknowledgment = record["acknowledgment"]
         if acknowledgment is not None and (
@@ -196,6 +196,7 @@ def run(config: WorkerConfig, *, bootstrap: bool = False) -> int:
                     journal,
                     docker,
                     image_ref=os.environ["NEXA_CPU_IMAGE_REF"],
+                    staging_root=config.state_root / "staging",
                     installation_id=config.installation_id,
                 ),
                 provider=provider,

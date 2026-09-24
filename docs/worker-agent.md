@@ -1,8 +1,8 @@
-# B10 worker agent: implementation boundary
+# B10/B11 worker agent: implementation boundary
 
 This is the B10 worker implementation with scoped verification evidence; it is
 not an accepted production deployment. The REST API persists incarnation,
-bounded reconciliation, heartbeat/inventory, null poll, exact adoption and
+bounded reconciliation, heartbeat/inventory, dispatch poll, exact adoption and
 lease renewal in PostgreSQL. The local agent drains nonempty pages, discovers
 only its installation-labelled containers, rebinds an exact live journal
 authority, applies a first-send runner deadline after ACK, renews adopted
@@ -49,11 +49,16 @@ operator can inspect the lock holder with `fuser
 authorized admin tools; do not infer authority from a PID file or Docker name.
 
 The worker sends heartbeat every five seconds while healthy, renews adopted
-attempts independently, polls only when READY+ENABLED, and receives only null
-poll responses until B11 dispatch exists. A pending heartbeat callback is
-replayed with its original callback ID and payload before a new inventory
-sample is taken. Startup supervision launches reconciliation, heartbeat and
-renewal together. It inspects and adopts live expected identities as pages
+attempts independently, and requests new offers only when READY+ENABLED. A
+current-incarnation pending claim retries its original callback after a full
+identity scan even while readiness is blocked by that claim; an unclaimed
+offer with no local work does not itself block the first poll. A Docker identity
+created after a reconciliation page snapshot is kept unresolved if its journal
+still binds a current-incarnation execution; the worker waits for a fresh API
+snapshot instead of stopping that live container as an orphan. A pending
+heartbeat callback is replayed with its original callback ID and payload
+before a new inventory sample is taken. Startup supervision launches
+reconciliation, heartbeat and renewal together. It inspects and adopts live expected identities as pages
 arrive, allowing renewal during the remaining pages and full orphan scan.
 Cleanup requiring a full inventory is deferred until that scan completes.
 Adoption/pending replay and renewal serialize under the attempt lock. A
@@ -70,6 +75,21 @@ reconstructs the stopped proof from `TOMBSTONED` through the executor, after
 matching the journal to the expected identity. A missing container alone is
 insufficient. Unverified cleanup reuses its pending callback and blocks READY;
 verified release completes reconciliation without a stale failure callback.
+For a recognized Result, reconciliation can return the committed completion
+receipt. The worker compares callback, reserved Result and manifest Artifact
+binding with its journal before durably restoring a lost acknowledgment and
+discarding any pending renewal. The subsequent cleanup still needs the exact
+stopped-container proof and original grant lineage. An old-incarnation claim
+without a known container remains unresolved; missing Docker identity alone
+never proves safe release.
+If the server rejects `/start` after the exact Docker container was created,
+the worker reports its identity in the failure callback, then stops it and
+submits a stopped-container proof. A pending `202` cleanup retains its callback;
+reconciliation retries the identical payload and receives the stored `202` until
+the release transaction promotes that receipt to verified `200`. It only discards
+the rejected start after verified release. A failed failure callback still
+stops the locally bound container, but keeps the allocation unresolved rather
+than fabricating release.
 An operation's own completed `TimeoutError` is retried; a wait timeout retains
 the running operation until it finishes so retries cannot overlap.
 
@@ -83,8 +103,14 @@ PostgreSQL URL pointing at the Compose `db` service. Run the existing Alembic
 migrations explicitly before starting API; the API fails closed on a missing
 schema. Set the bootstrap network CIDR to the actual private Compose subnet.
 Only `worker` mounts `/var/run/docker.sock`; it does not receive the DB URL.
-The API has DB access but no Docker socket; state, artifacts and database use
-distinct persistent volumes. No service uses privileged or host networking.
+The API has DB access but no Docker socket. Set `NEXA_WORKER_STATE_ROOT` to
+an existing absolute host directory shared with the Docker daemon; Compose
+binds it at the identical path in the worker. B11 stores journal, materialized
+input and launch spec there so Docker can bind only those exact paths into the
+runner. Keep the directory private and durable. An older B10 `worker_state`
+named volume is not removed or migrated automatically: preserve its credential,
+journal and pending callbacks before switching paths. Database and artifacts
+remain separate persistent volumes. No service uses privileged or host networking.
 
 With real secret files and environment values, the intended sequence is:
 

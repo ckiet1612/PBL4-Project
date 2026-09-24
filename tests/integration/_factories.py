@@ -31,11 +31,13 @@ CHECKSUM = "sha256:" + "a" * 64
 IMAGE_DIGEST = "sha256:" + "b" * 64
 
 
-def seed_tenant_graph(connection: Connection, *, label: str) -> dict[str, Any]:
+def seed_tenant_graph(
+    connection: Connection, *, label: str, template_id: str | None = None
+) -> dict[str, Any]:
     tenant_id = new_uuid7()
     user_id = new_uuid7()
     artifact_id = new_uuid7()
-    template_id = f"cpu.iterative.{label}"
+    template_id = template_id or f"cpu.iterative.{label}"
     connection.execute(
         tenants.insert(),
         {
@@ -118,6 +120,7 @@ def seed_job(
     desired_state: str = "RUNNING",
     retry_of_job_id: UUID | None = None,
     artifact_id: UUID | None = None,
+    canonical_spec: dict | None = None,
 ) -> dict[str, UUID]:
     job_id = job_id or new_uuid7()
     session_id = new_uuid7()
@@ -145,7 +148,7 @@ def seed_job(
         {
             "job_id": job_id,
             "tenant_id": graph["tenant_id"],
-            "canonical_spec": {"seed": 7},
+            "canonical_spec": canonical_spec or {"seed": 7},
             "spec_checksum": CHECKSUM,
             "template_id": graph["template_id"],
             "template_version": 1,
@@ -164,34 +167,50 @@ def seed_job(
     return {"job_id": job_id, "session_id": session_id}
 
 
-def seed_worker(connection: Connection, *, label: str, gpu_versions: int = 1) -> dict[str, Any]:
-    worker_id = new_uuid7()
-    incarnation_id = new_uuid7()
-    connection.execute(
-        workers.insert(),
-        {
-            "worker_id": worker_id,
-            "admin_state": "ENABLED",
-            "health": "READY",
-            "version": 1,
-        },
-    )
-    connection.execute(
-        worker_incarnations.insert(),
-        {
-            "worker_incarnation_id": incarnation_id,
-            "worker_id": worker_id,
-            "sequence": 1,
-            "process_start_nonce": new_uuid7(),
-            "process_started_at": datetime.now(UTC),
-            "reconcile_completed_at": datetime.now(UTC),
-            "ready_at": datetime.now(UTC),
-        },
-    )
+def seed_worker(
+    connection: Connection,
+    *,
+    label: str,
+    gpu_versions: int = 1,
+    existing: tuple[UUID, UUID] | None = None,
+) -> dict[str, Any]:
+    worker_id, incarnation_id = existing or (new_uuid7(), new_uuid7())
+    if existing is None:
+        connection.execute(
+            workers.insert(),
+            {
+                "worker_id": worker_id,
+                "admin_state": "ENABLED",
+                "health": "READY",
+                "version": 1,
+            },
+        )
+        connection.execute(
+            worker_incarnations.insert(),
+            {
+                "worker_incarnation_id": incarnation_id,
+                "worker_id": worker_id,
+                "sequence": 1,
+                "process_start_nonce": new_uuid7(),
+                "process_started_at": datetime.now(UTC),
+                "reconcile_completed_at": datetime.now(UTC),
+                "ready_at": datetime.now(UTC),
+            },
+        )
+    else:
+        connection.execute(
+            worker_incarnations.update()
+            .where(worker_incarnations.c.worker_incarnation_id == incarnation_id)
+            .values(reconcile_completed_at=datetime.now(UTC), ready_at=datetime.now(UTC))
+        )
     connection.execute(
         workers.update()
         .where(workers.c.worker_id == worker_id)
-        .values(current_incarnation_id=incarnation_id, current_inventory_version=gpu_versions)
+        .values(
+            health="READY",
+            current_incarnation_id=incarnation_id,
+            current_inventory_version=gpu_versions,
+        )
     )
     gpu_uuid = f"GPU-{label}"
     for version in range(1, gpu_versions + 1):

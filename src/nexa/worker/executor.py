@@ -32,6 +32,14 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _pinned_image_ref(image_ref: str, digest: str) -> str:
+    if "@" not in image_ref:
+        return f"{image_ref}@{digest}"
+    if image_ref.count("@") != 1 or image_ref.rsplit("@", 1)[1] != digest:
+        raise ValueError("configured image digest does not match execution context")
+    return image_ref
+
+
 class DockerExecutor:
     def __init__(
         self,
@@ -56,6 +64,7 @@ class DockerExecutor:
         attempt_id = request.context.authority.attempt_id
         binding = _execution_binding(request)
         try:
+            image = _pinned_image_ref(self.image_ref, request.context.image_digest)
             self._validate_primary_input_binding(request)
             self.journal.prepare(
                 attempt_id=attempt_id,
@@ -74,7 +83,7 @@ class DockerExecutor:
             control_dir = self._prepare_control_dir(request)
             config = build_container_config(
                 prepared_request,
-                image=f"{self.image_ref}@{request.context.image_digest}",
+                image=image,
                 control_dir=str(control_dir),
                 installation_id=self.installation_id,
             )
@@ -502,8 +511,9 @@ class DockerExecutor:
     def _prepare_control_dir(self, request: StartExecution) -> Path:
         attempt_id = request.context.authority.attempt_id
         control_dir = self.journal.root / "control" / attempt_id
-        control_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(control_dir, 0o700)
+        control_dir.mkdir(mode=0o711, parents=True, exist_ok=True)
+        # Runner UID 1000 must traverse this read-only bind to read the 0444 spec.
+        os.chmod(control_dir, 0o711)
         if request.cpu_workload is not None:
             workload = request.cpu_workload
             launch_spec = {

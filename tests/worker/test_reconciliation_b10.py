@@ -3,13 +3,14 @@ import json
 import struct
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 
 import pytest
 
 from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.worker.agent import WorkerAgent
-from nexa.worker.client import WorkerApiError
+from nexa.worker.client import WorkerApiError, WorkerTransportError
 from nexa.worker.docker_client import DockerCli
 from nexa.worker.executor import DockerExecutor, runtime_identity_digest
 from nexa.worker.journal import ExecutionJournal
@@ -871,6 +872,330 @@ def test_missing_container_does_not_emit_invalid_container_observation(tmp_path)
     assert state.operations == {}
 
 
+def test_fresh_unclaimed_offer_keeps_current_worker_reconciliation_ready(tmp_path) -> None:
+    worker_id = str(new_uuid7())
+    incarnation_id = str(new_uuid7())
+    authority = Authority(
+        worker_id,
+        incarnation_id,
+        str(new_uuid7()),
+        str(new_uuid7()),
+        str(new_uuid7()),
+        1,
+    )
+    item = {
+        "authority": asdict(authority),
+        "authority_state": "LIVE",
+        "claim_state": "UNCLAIMED",
+        "expected_container": None,
+        "startup_nonce": str(new_uuid7()),
+    }
+    agent = WorkerAgent(
+        worker_id=worker_id,
+        incarnation_id=incarnation_id,
+        installation_id=str(new_uuid7()),
+        client=PageClient([{"items": [item], "page": {"next_cursor": None}}]),
+        state=PendingOperationStore(tmp_path / "state.json", boot_id="boot"),
+        journal=ExecutionJournal(tmp_path / "journal"),
+        docker=type("EmptyDocker", (), {"find_by_labels": lambda *_args, **_kwargs: ()})(),
+        provider=object(),
+    )
+
+    assert agent.reconcile_once().complete is True
+
+
+def test_pending_claim_replays_only_after_identity_and_docker_scan(tmp_path) -> None:
+    worker_id, incarnation_id = str(new_uuid7()), str(new_uuid7())
+    authority = Authority(
+        worker_id,
+        incarnation_id,
+        str(new_uuid7()),
+        str(new_uuid7()),
+        str(new_uuid7()),
+        1,
+    )
+    row = {
+        "authority": asdict(authority),
+        "authority_state": "LIVE",
+        "claim_state": "CLAIMED",
+        "expected_container": None,
+        "startup_nonce": str(new_uuid7()),
+    }
+
+    class Peer:
+        claim_calls = 0
+
+        def reconciliation(self, *_args, **_kwargs):
+            return {"items": [row], "page": {"next_cursor": None}}
+
+        def claim(self, attempt_id, callback_id, body):
+            assert attempt_id == authority.attempt_id
+            assert body == {"authority": asdict(authority)}
+            self.claim_calls += 1
+            raise WorkerTransportError("post-commit claim response lost")
+
+    peer = Peer()
+    state = PendingOperationStore(tmp_path / "state.json", boot_id="boot")
+    callback_id = str(new_uuid7())
+    state.begin(
+        callback_id,
+        operation="claim",
+        payload={"attempt_id": authority.attempt_id, "body": {"authority": asdict(authority)}},
+    )
+    state.first_send(callback_id)
+    agent = WorkerAgent(
+        worker_id=worker_id,
+        incarnation_id=incarnation_id,
+        installation_id=str(new_uuid7()),
+        client=peer,
+        state=state,
+        journal=ExecutionJournal(tmp_path / "journal"),
+        docker=type("EmptyDocker", (), {"find_by_labels": lambda *_args, **_kwargs: ()})(),
+        executor=object(),
+        provider=object(),
+    )
+
+    agent._poll_once()
+    assert peer.claim_calls == 0
+    assert agent.reconcile_once().complete is False
+    with pytest.raises(WorkerTransportError):
+        agent._poll_once()
+    assert peer.claim_calls == 1
+    assert list(agent.state.operations) == [callback_id]
+
+
+def test_reconciliation_does_not_stop_container_started_after_page_snapshot(tmp_path) -> None:
+    worker, _next, installation, current, payload, prior_journal, _page = _adoption_fixture(
+        tmp_path
+    )
+    previous = prior_journal.load(current.attempt_id)
+    authority = previous.authority
+    journal = ExecutionJournal(tmp_path / "late-journal")
+    state = PendingOperationStore(tmp_path / "state.json", boot_id="boot")
+    callback_id = str(new_uuid7())
+    state.begin(
+        callback_id,
+        operation="claim",
+        payload={
+            "attempt_id": authority.attempt_id,
+            "body": {"authority": asdict(authority)},
+        },
+    )
+    backend = CleanupBackend(payload)
+    backend.removed = True
+    snapshot_taken = threading.Event()
+    launch_finished = threading.Event()
+
+    class SnapshotPeer(CleanupPeer):
+        def reconciliation(self, *_args, **_kwargs):
+            snapshot_taken.set()
+            assert launch_finished.wait(5), "dispatch did not finish after the snapshot"
+            return self.page
+
+    client = SnapshotPeer({"items": [], "page": {"next_cursor": None}})
+    docker = DockerCli(backend)
+    agent = WorkerAgent(
+        worker_id=worker,
+        incarnation_id=authority.worker_incarnation_id,
+        installation_id=installation,
+        client=client,
+        state=state,
+        journal=journal,
+        docker=docker,
+        executor=DockerExecutor(journal, docker, image_ref="registry.invalid/cpu"),
+        provider=object(),
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        scan = pool.submit(agent.reconcile_once)
+        assert snapshot_taken.wait(5)
+        try:
+            prepared = journal.prepare(
+                attempt_id=authority.attempt_id,
+                allocation_id=authority.allocation_id,
+                startup_nonce=previous.startup_nonce,
+                authority=authority,
+                resources=previous.resources,
+                image_digest=previous.image_digest,
+                execution_binding=previous.execution_binding,
+            )
+            journal.begin_create(
+                authority.attempt_id, expected_sequence=prepared.operation_sequence
+            )
+            created = journal.bind_created(authority.attempt_id, previous.container)
+            starting = journal.begin_start(
+                authority.attempt_id, expected_sequence=created.operation_sequence
+            )
+            journal.mark_started(
+                authority.attempt_id, expected_sequence=starting.operation_sequence
+            )
+            backend.removed = False
+        finally:
+            launch_finished.set()
+        result = scan.result(timeout=5)
+
+    assert result.complete is False
+    assert backend.removed is False
+    assert client.cleanup_calls == []
+    assert journal.load(authority.attempt_id).state == "STARTED"
+
+
+def test_terminal_result_restart_cleans_with_original_grant_lineage(tmp_path) -> None:
+    worker, incarnation, installation, current, payload, journal, page = _adoption_fixture(tmp_path)
+    original = journal.load(current.attempt_id).authority
+    assert original.worker_incarnation_id != incarnation
+    page["items"][0]["authority_state"] = "REVOKED"
+    page["items"][0]["allocation"]["state"] = "HELD"
+    backend = CleanupBackend(payload)
+    client = CleanupPeer(page, cleanup_verified=True)
+    recovered = ExecutionJournal(journal.root)
+    docker = DockerCli(backend)
+    agent = WorkerAgent(
+        worker_id=worker,
+        incarnation_id=incarnation,
+        installation_id=installation,
+        client=client,
+        state=PendingOperationStore(tmp_path / "new-state.json", boot_id="boot"),
+        journal=recovered,
+        docker=docker,
+        executor=DockerExecutor(recovered, docker, image_ref="registry.invalid/cpu"),
+        provider=object(),
+    )
+
+    result = agent.reconcile_once()
+
+    assert result.complete is True
+    assert backend.removed is True
+    assert client.cleanup_calls[0][2]["worker_incarnation_id"] == original.worker_incarnation_id
+
+
+@pytest.mark.parametrize("renewal_acknowledged", [False, True])
+def test_terminal_restart_discards_pending_renewal_after_durable_completion(
+    tmp_path, renewal_acknowledged
+) -> None:
+    worker, incarnation, installation, current, payload, journal, page = _adoption_fixture(tmp_path)
+    original = journal.load(current.attempt_id).authority
+    page["items"][0]["authority_state"] = "REVOKED"
+    completion_ack = {"accepted": True, "job_state": "SUCCEEDED"}
+    journal.update_runner_state(
+        current.attempt_id,
+        lambda state: {
+            **state,
+            "result_flow": {"completed": True, "completion_ack": completion_ack},
+        },
+    )
+    pending_path = tmp_path / "pending.json"
+    state = PendingOperationStore(pending_path, boot_id="same-boot")
+    callback = str(new_uuid7())
+    state.begin(
+        callback,
+        operation="renew",
+        payload={
+            "attempt_id": current.attempt_id,
+            "body": {"authority": asdict(original), "progress_sequence": 0, "progress": None},
+        },
+    )
+    state.first_send(callback)
+    if renewal_acknowledged:
+        state.acknowledge(callback, {"callback_id": callback, "accepted": True})
+    client = CleanupPeer(page, cleanup_verified=True)
+    recovered = ExecutionJournal(journal.root)
+    docker = DockerCli(CleanupBackend(payload))
+    agent = WorkerAgent(
+        worker_id=worker,
+        incarnation_id=incarnation,
+        installation_id=installation,
+        client=client,
+        state=PendingOperationStore(pending_path, boot_id="same-boot"),
+        journal=recovered,
+        docker=docker,
+        executor=DockerExecutor(recovered, docker, image_ref="registry.invalid/cpu"),
+        provider=object(),
+    )
+
+    result = agent.reconcile_once()
+
+    assert result.complete is True
+    assert client.cleanup_calls[0][2]["worker_incarnation_id"] == original.worker_incarnation_id
+    assert agent.state.operations == {}
+
+
+@pytest.mark.parametrize("receipt_matches", [True, False])
+def test_restart_recovers_lost_completion_ack_only_for_matching_result_receipt(
+    tmp_path, receipt_matches
+) -> None:
+    worker, incarnation, installation, current, payload, journal, page = _adoption_fixture(tmp_path)
+    prior = journal.load(current.attempt_id).authority
+    page["items"][0]["authority_state"] = "REVOKED"
+    callback_id, result_id, manifest_id = (str(new_uuid7()) for _ in range(3))
+    acknowledgment = {
+        "callback_id": callback_id,
+        "accepted": True,
+        "job_state": "SUCCEEDED",
+        "job_version": 4,
+        "server_time": "2026-09-21T00:00:00Z",
+    }
+    page["items"][0]["completion_receipt"] = {
+        "callback_id": callback_id if receipt_matches else str(new_uuid7()),
+        "result_id": result_id,
+        "manifest_artifact_id": manifest_id,
+        "acknowledgment": acknowledgment,
+    }
+    journal.update_runner_state(
+        current.attempt_id,
+        lambda state: {
+            **state,
+            "result_flow": {
+                "completion_callback_id": callback_id,
+                "reservation": {"result_id": result_id},
+                "bindings": {
+                    "manifest-key": {"artifact_id": manifest_id, "kind": "RESULT_MANIFEST"}
+                },
+            },
+        },
+    )
+    state = PendingOperationStore(tmp_path / "pending.json", boot_id="boot")
+    renewal = str(new_uuid7())
+    state.begin(
+        renewal,
+        operation="renew",
+        payload={
+            "attempt_id": current.attempt_id,
+            "body": {"authority": asdict(prior), "progress_sequence": 0, "progress": None},
+        },
+    )
+    state.first_send(renewal)
+    client = CleanupPeer(page)
+    recovered = ExecutionJournal(journal.root)
+    docker = DockerCli(CleanupBackend(payload))
+    agent = WorkerAgent(
+        worker_id=worker,
+        incarnation_id=incarnation,
+        installation_id=installation,
+        client=client,
+        state=PendingOperationStore(state.path, boot_id="boot"),
+        journal=recovered,
+        docker=docker,
+        executor=DockerExecutor(recovered, docker, image_ref="registry.invalid/cpu"),
+        provider=object(),
+    )
+
+    result = agent.reconcile_once()
+
+    if receipt_matches:
+        assert result.complete is True
+        assert agent.state.operations == {}
+        assert (
+            recovered.load(current.attempt_id).runner_state["result_flow"]["completion_ack"]
+            == acknowledgment
+        )
+        assert len(client.cleanup_calls) == 1
+    else:
+        assert result.complete is False
+        assert renewal in agent.state.operations
+        assert not client.cleanup_calls
+
+
 def test_revoked_unclaimed_row_creates_sequence_one_tombstone_and_cleanup_peer(tmp_path) -> None:
     worker_id = str(new_uuid7())
     incarnation_id = str(new_uuid7())
@@ -1029,3 +1354,35 @@ def test_live_attempt_renews_during_scan_longer_than_lease(tmp_path) -> None:
     assert client.renew_calls >= 10
     assert journal.load(current.attempt_id).authority == current
     assert agent.state.operations == {}
+
+
+def test_old_incarnation_claim_without_container_blocks_new_readiness(tmp_path) -> None:
+    worker = str(new_uuid7())
+    prior = str(new_uuid7())
+    current = str(new_uuid7())
+    attempt = str(new_uuid7())
+    state = PendingOperationStore(tmp_path / "claim-state.json", boot_id="boot")
+    state.begin(
+        str(new_uuid7()),
+        operation="claim",
+        payload={
+            "attempt_id": attempt,
+            "body": {
+                "authority": asdict(
+                    Authority(worker, prior, attempt, str(new_uuid7()), str(new_uuid7()), 1)
+                )
+            },
+        },
+    )
+    agent = WorkerAgent.for_test(
+        PageClient([{"items": [], "page": {"next_cursor": None}}]),
+        worker_id=worker,
+        incarnation_id=current,
+    )
+    agent.state = state
+
+    result = agent.reconcile_once()
+
+    assert result.complete is False
+    assert result.unresolved_attempts == (attempt,)
+    assert agent._reconcile_complete is False

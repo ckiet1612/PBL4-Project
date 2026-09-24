@@ -32,6 +32,7 @@ from nexa.infrastructure.persistence.schema import (
     jobs,
     policy_versions,
     result_reservations,
+    results,
     worker_incarnations,
     worker_inventories,
     workers,
@@ -40,6 +41,10 @@ from nexa.infrastructure.persistence.transactions import run_transaction
 from nexa.infrastructure.security import CursorCodec, CursorError, read_secret_file
 
 _LEASE_DURATION = timedelta(seconds=45)
+# These paths take an exclusive policy/counter lock after opening their callback.
+# Acquire the strongest policy lock before the receipt to avoid SHARE→UPDATE
+# conversion deadlocks between independent failure and cleanup callbacks.
+_EXCLUSIVE_POLICY_CALLBACKS = frozenset({"workerFailAttempt", "workerReportCleanup"})
 
 
 class WorkerService:
@@ -58,11 +63,11 @@ class WorkerService:
         self._cursor_key = read_secret_file(settings.server_secret_file)
 
     @staticmethod
-    def _mode(session: Session) -> str:
+    def _mode(session: Session, *, exclusive: bool = False) -> str:
         return session.execute(
             select(policy_versions.c.operational_mode)
             .where(policy_versions.c.is_current.is_(True))
-            .with_for_update(read=True)
+            .with_for_update(read=not exclusive)
         ).scalar_one()
 
     def _worker_auth(
@@ -131,6 +136,10 @@ class WorkerService:
         callback_id: UUID,
         payload_hash: str,
     ) -> tuple[UUID | None, dict[str, Any] | None]:
+        # Coordinator transactions take the policy row before the worker row.
+        # The receipt insert takes a worker FK KEY SHARE lock, so take policy
+        # first here too; otherwise start/renew can deadlock with dispatch.
+        WorkerService._mode(session, exclusive=operation_id in _EXCLUSIVE_POLICY_CALLBACKS)
         receipt_id = new_uuid7()
         inserted = session.execute(
             pg_insert(callback_receipts)
@@ -471,9 +480,15 @@ class WorkerService:
             .mappings()
             .one()
         )
-        job = session.execute(
-            select(jobs.c.desired_state).where(jobs.c.job_id == allocation["job_id"])
-        ).scalar_one()
+        job = (
+            session.execute(
+                select(jobs.c.state, jobs.c.desired_state).where(
+                    jobs.c.job_id == allocation["job_id"]
+                )
+            )
+            .mappings()
+            .one()
+        )
         container = (
             session.execute(
                 select(container_identities)
@@ -499,6 +514,7 @@ class WorkerService:
             and lease["expires_at"] > now
             and grant["ended_at"] is None
             and allocation["state"] == "HELD"
+            and job["state"] not in {"SUCCEEDED", "FAILED", "CANCELLED"}
         )
         if container is not None:
             claim_state = "STARTED"
@@ -512,6 +528,41 @@ class WorkerService:
                 "container_id": container["container_id"],
                 "runtime_identity_digest": container["runtime_identity_digest"],
             }
+        completion_receipt = None
+        if job["state"] == "SUCCEEDED":
+            result = (
+                session.execute(select(results).where(results.c.job_id == allocation["job_id"]))
+                .mappings()
+                .one_or_none()
+            )
+            callback = None
+            if result is not None and result["completion_callback_id"] is not None:
+                callback = (
+                    session.execute(
+                        select(callback_receipts).where(
+                            callback_receipts.c.worker_id == allocation["worker_id"],
+                            callback_receipts.c.operation_id == "workerCompleteAttempt",
+                            callback_receipts.c.callback_id == result["completion_callback_id"],
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+            if callback is not None:
+                acknowledgment = callback["acknowledgment"]
+                if (
+                    result["attempt_id"] != allocation["attempt_id"]
+                    or acknowledgment.get("callback_id") != str(result["completion_callback_id"])
+                    or acknowledgment.get("accepted") is not True
+                    or acknowledgment.get("job_state") != "SUCCEEDED"
+                ):
+                    raise RuntimeError("committed completion receipt has invalid identity")
+                completion_receipt = {
+                    "callback_id": result["completion_callback_id"],
+                    "result_id": result["result_id"],
+                    "manifest_artifact_id": result["manifest_artifact_id"],
+                    "acknowledgment": acknowledgment,
+                }
         return {
             "authority": {
                 "worker_id": allocation["worker_id"],
@@ -523,7 +574,7 @@ class WorkerService:
             },
             "authority_state": "LIVE" if live else "REVOKED",
             "lease_expires_at": lease["expires_at"],
-            "desired_state": job,
+            "desired_state": job["desired_state"],
             "allocation": {
                 "allocation_id": allocation["allocation_id"],
                 "tenant_id": allocation["tenant_id"],
@@ -544,6 +595,7 @@ class WorkerService:
             "startup_nonce": attempt["startup_nonce"],
             "claim_state": claim_state,
             "expected_container": expected_container,
+            "completion_receipt": completion_receipt,
         }
 
     @staticmethod
@@ -664,13 +716,19 @@ class WorkerService:
                 or lease["expires_at"] <= now
                 or grant["worker_incarnation_id"] != incarnation_id
                 or grant["ended_at"] is not None
-                or container is None
-                or (
-                    container["container_id"],
-                    container["runtime_identity_digest"],
-                )
-                not in observed_containers
             ):
+                return False
+            if container is None:
+                # A dispatched, unclaimed offer must survive a worker scan
+                # between allocation and its first poll. A claimed attempt
+                # still needs the worker's pending callback/Docker resolution.
+                if attempt["state"] != "CREATED":
+                    return False
+                continue
+            if (
+                container["container_id"],
+                container["runtime_identity_digest"],
+            ) not in observed_containers:
                 return False
             observed_containers.remove(
                 (container["container_id"], container["runtime_identity_digest"])
@@ -731,6 +789,8 @@ class WorkerService:
                     )
                 ).scalar_one()
             if checksum != current_checksum:
+                from nexa.coordinator.accounting import account_locked
+
                 held_cpu, held_memory, held_gpu = self._held_capacity(session, worker_id)
                 allocatable = inventory["allocatable"]
                 if (
@@ -743,6 +803,9 @@ class WorkerService:
                         status=409,
                         message="Inventory cannot cover unreleased allocations",
                     )
+                # Charge through this DB-time boundary using the old denominator
+                # before the new inventory becomes current.
+                account_locked(session, now)
                 last_version = session.execute(
                     select(
                         func.coalesce(func.max(worker_inventories.c.inventory_version), 0)
@@ -834,6 +897,10 @@ class WorkerService:
             session.execute(
                 update(workers).where(workers.c.worker_id == worker_id).values(**worker_values)
             )
+            if checksum != current_checksum:
+                from nexa.coordinator.accounting import rebase_locked
+
+                rebase_locked(session, now)
             response = json_wire_value(
                 {
                     "server_time": now,
@@ -1013,7 +1080,7 @@ class WorkerService:
     def _live_authority(job: dict, attempt: dict, lease: dict, allocation: dict, now) -> None:
         normal_run = (
             job["desired_state"] == "RUNNING"
-            and job["state"] in {"STARTING", "RUNNING", "CHECKPOINTING"}
+            and job["state"] in {"DISPATCHING", "STARTING", "RUNNING", "CHECKPOINTING"}
             and attempt["execution_intent"] == "RUN"
         )
         checkpoint_for_pause = (
@@ -1023,7 +1090,8 @@ class WorkerService:
         )
         if (
             not (normal_run or checkpoint_for_pause)
-            or attempt["state"] not in {"STARTING", "RUNNING", "CHECKPOINTING"}
+            or attempt["state"]
+            not in {"CREATED", "CLAIMED", "STARTING", "RUNNING", "CHECKPOINTING"}
             or allocation["state"] != "HELD"
             or lease["revoked_at"] is not None
             or lease["expires_at"] <= now

@@ -1,4 +1,4 @@
-# B10 single-host development contract, not a B21 production deployment.
+# B10/B11 single-host development contract, not a B21 production deployment.
 services:
   db:
     image: postgres:17
@@ -49,6 +49,23 @@ services:
       timeout: 3s
       retries: 10
 
+  coordinator:
+    build:
+      context: .
+      dockerfile: deploy/b10/Dockerfile
+    command: ["nexa-coordinator"]
+    environment:
+      NEXA_ENVIRONMENT: development
+    secrets: [nexa_database_url]
+    entrypoint:
+      - sh
+      - -c
+      - 'export NEXA_DATABASE_URL="$$(cat /run/secrets/nexa_database_url)"; exec "$@"'
+      - sh
+    depends_on:
+      db: {condition: service_healthy}
+    networks: [control]
+
   caddy:
     image: caddy:2.10.2-alpine
     restart: unless-stopped
@@ -78,7 +95,7 @@ services:
     environment:
       NEXA_WORKER_API_URL: https://caddy:8443
       SSL_CERT_FILE: /caddy-data/caddy/pki/authorities/local/root.crt
-      NEXA_WORKER_STATE_ROOT: /var/lib/nexa-worker
+      NEXA_WORKER_STATE_ROOT: ${NEXA_WORKER_STATE_ROOT:?set absolute shared worker state path}
       NEXA_INSTALLATION_ID: ${NEXA_INSTALLATION_ID:?set installation ID}
       NEXA_LOCAL_WORKER_ID: ${NEXA_LOCAL_WORKER_ID:?set worker ID}
       NEXA_LOCAL_WORKER_FINGERPRINT: ${NEXA_LOCAL_WORKER_FINGERPRINT:?set worker fingerprint}
@@ -86,7 +103,11 @@ services:
       NEXA_CPU_IMAGE_REF: ${NEXA_CPU_IMAGE_REF:?set a verified digest image reference}
     secrets: [nexa_bootstrap_secret]
     volumes:
-      - worker_state:/var/lib/nexa-worker
+      - type: bind
+        source: ${NEXA_WORKER_STATE_ROOT:?set absolute shared worker state path}
+        target: ${NEXA_WORKER_STATE_ROOT:?set absolute shared worker state path}
+        bind:
+          create_host_path: false
       - caddy_data:/caddy-data:ro
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -103,7 +124,6 @@ networks:
 volumes:
   db_data:
   artifact_data:
-  worker_state:
   caddy_data:
   caddy_config:
 

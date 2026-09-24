@@ -436,3 +436,73 @@ def test_cleanup_recovers_after_remove_then_journal_write_failure(tmp_path) -> N
     ).cleanup(identity)
     assert recovered.proof_type == "CONTAINER_STOPPED"
     assert ExecutionJournal(tmp_path).load(identity.attempt_id).state == "TOMBSTONED"
+
+
+def test_pinned_image_reference_is_used_once_and_matches_claimed_digest(tmp_path):
+    import pytest
+
+    from nexa.worker.errors import ExecutorError
+    from tests.worker.test_docker_config import start
+
+    request = start()
+    image = f"registry.invalid/cpu@{request.context.image_digest}"
+    executor = DockerExecutor(
+        ExecutionJournal(tmp_path / "matching"),
+        object(),
+        image_ref=image,
+        staging_root=tmp_path / "staging",
+    )
+    assert executor.prepare(request).config.image == image
+
+    changed = f"registry.invalid/cpu@sha256:{'0' * 64}"
+    mismatch = DockerExecutor(
+        ExecutionJournal(tmp_path / "mismatch"),
+        object(),
+        image_ref=changed,
+        staging_root=tmp_path / "staging-mismatch",
+    )
+    with pytest.raises(ExecutorError, match="image digest"):
+        mismatch.prepare(request)
+
+
+def test_prepared_launch_spec_is_readable_by_non_root_runner(tmp_path):
+    import os
+    import stat
+    from dataclasses import replace
+
+    from nexa.worker.models import CpuWorkloadSpec
+    from tests.worker.test_docker_config import start
+
+    request = start()
+    source = tmp_path / "staging" / "input.json"
+    source.parent.mkdir()
+    payload = b'{"initial_value":17}'
+    source.write_bytes(payload)
+    digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+    request = replace(
+        request,
+        context=replace(request.context, input_checksum=digest),
+        input_mounts=(
+            InputMount(
+                artifact_id="018f0d60-7b6a-7a27-9d82-1aa39c4f30b7",
+                source_path=str(source),
+                target_path="/input/input.json",
+                content_checksum=digest,
+                size_bytes=len(payload),
+            ),
+        ),
+        cpu_workload=CpuWorkloadSpec(
+            iterations=2, seed=1, modulus=101, spec_checksum="sha256:" + "f" * 64
+        ),
+    )
+    executor = DockerExecutor(
+        ExecutionJournal(tmp_path / "journal"),
+        object(),
+        image_ref="registry.invalid/cpu",
+        staging_root=tmp_path / "staging",
+    )
+    prepared = executor.prepare(request)
+    directory = prepared.config.control_dir
+    assert directory is not None
+    assert stat.S_IMODE(os.stat(directory).st_mode) & 0o001
+    assert stat.S_IMODE(os.stat(directory + "/launch-spec.json").st_mode) & 0o004

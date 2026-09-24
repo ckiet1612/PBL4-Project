@@ -1122,7 +1122,7 @@ paths:
       tags: [Worker]
       operationId: workerGetReconciliation
       summary: Page through server-known unreleased allocations before worker READY
-      description: The cursor is bound to worker identity and current STARTING incarnation. The worker drains all pages and reconciles exact startup/container identities before reporting `reconcile_complete=true`. A LIVE prior-incarnation item is not permission to continue compute; the new incarnation must complete `workerAdoptAttempt`, and only a timely valid adoption acknowledgment may update the existing runner deadline.
+      description: The cursor is bound to worker identity and current STARTING incarnation. The worker drains all pages and reconciles exact startup/container identities before reporting `reconcile_complete=true`. A LIVE prior-incarnation item is not permission to continue compute; the new incarnation must complete `workerAdoptAttempt`, and only a timely valid adoption acknowledgment may update the existing runner deadline. An unclaimed current-incarnation offer with no journal/container remains eligible for its first poll. A current-incarnation pending claim may replay its original callback after a complete journal and Docker identity scan even while READY is blocked. A succeeded attempt may carry its exact committed completion callback acknowledgment and Result/manifest IDs for terminal reconciliation; worker must match the durable local callback, reservation and committed manifest binding before storing the lost acknowledgment or discarding a pending renewal.
       security: [ { workerBearer: [] } ]
       parameters:
         - $ref: '#/components/parameters/WorkerId'
@@ -1152,12 +1152,12 @@ paths:
     post:
       tags: [Worker]
       operationId: workerPollDispatch
-      summary: Poll for at most one dispatch offer
+      summary: Poll for at most one live dispatch offer
       description: Poll never authorizes execution; claim/start must commit before the runner starts.
       security: [ { workerBearer: [] } ]
       parameters: [ { $ref: '#/components/parameters/WorkerId' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PollRequest' } } } }
-      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: Dispatch offer or explicit no-work response., content: { application/json: { schema: { $ref: '#/components/schemas/PollResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: 'A committed dispatch offer with an unrevoked lease live at PostgreSQL DB time, or an explicit no-work response.', content: { application/json: { schema: { $ref: '#/components/schemas/PollResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
   /attempts/{attempt_id}/claim:
     post:
       tags: [Worker]
@@ -1336,7 +1336,7 @@ paths:
       tags: [Worker]
       operationId: workerFailAttempt
       summary: Fence and commit a classified attempt failure before cleanup
-      description: The exact live Authority and typed observation are rechecked. A post-create observation binds exact container identity; a pre-create observation carries `NoContainerProof` backed by startup nonce and executor tombstone. The callback atomically stores the failure and safe reason code, revokes the lease, increments the job fence, moves the job to RECOVERING and the allocation to QUARANTINED, and records the replay acknowledgment. No allocation is released until separate proof-based cleanup; same callback ID and payload replays the original acknowledgment, while stale or payload-mismatched callbacks return 409.
+      description: The exact live Authority and typed observation are rechecked. A post-create observation binds exact container identity, including the first observation from a CLAIMED attempt whose start was rejected after Docker create; a pre-create observation carries `NoContainerProof` backed by startup nonce and executor tombstone. STARTUP_TIMEOUT is distinct from a runner runtime-limit observation. The callback atomically stores the failure and safe reason code, revokes the lease, increments the job fence, moves the job to RECOVERING and the allocation to QUARANTINED, and records the replay acknowledgment. No allocation is released until separate proof-based cleanup; same callback ID and payload replays the original acknowledgment, while stale or payload-mismatched callbacks return 409.
       security: [ { workerBearer: [] } ]
       parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FailureRequest' } } } }
@@ -1350,7 +1350,7 @@ paths:
       security: [ { workerBearer: [] } ]
       parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CleanupRequest' } } } }
-      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: 'Cleanup accepted and allocation released, or replay of that acknowledgment.', content: { application/json: { schema: { $ref: '#/components/schemas/CleanupResponse' } } } }, '202': { description: Proof recorded but reconcile must still verify absence; allocation remains quarantined., content: { application/json: { schema: { $ref: '#/components/schemas/CleanupResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
+      responses: { '400': { $ref: '#/components/responses/BadRequest' }, '500': { $ref: '#/components/responses/InternalError' }, '200': { description: 'Cleanup accepted and allocation released, or replay of that acknowledgment.', content: { application/json: { schema: { $ref: '#/components/schemas/CleanupResponse' } } } }, '202': { description: 'Cleanup pending; identical callback replays this acknowledgment until exact proof and state allow release, then that receipt atomically advances to verified 200.', content: { application/json: { schema: { $ref: '#/components/schemas/CleanupResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' }, '403': { $ref: '#/components/responses/Forbidden' }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationFailed' }, '503': { $ref: '#/components/responses/DependencyUnavailable' } }
 components:
   securitySchemes:
     browserCookie: { type: apiKey, in: cookie, name: nexa_session }
@@ -1977,7 +1977,7 @@ components:
     ReconciliationItem:
       type: object
       additionalProperties: false
-      required: [authority, authority_state, lease_expires_at, desired_state, allocation, startup_nonce, claim_state, expected_container]
+      required: [authority, authority_state, lease_expires_at, desired_state, allocation, startup_nonce, claim_state, expected_container, completion_receipt]
       properties:
         authority: { $ref: '#/components/schemas/Authority' }
         authority_state: { type: string, enum: [LIVE, REVOKED] }
@@ -1987,6 +1987,16 @@ components:
         startup_nonce: { $ref: '#/components/schemas/UuidV7' }
         claim_state: { type: string, enum: [UNCLAIMED, CLAIMED, STARTED] }
         expected_container: { oneOf: [ { $ref: '#/components/schemas/ContainerIdentity' }, { type: 'null' } ] }
+        completion_receipt: { oneOf: [ { $ref: '#/components/schemas/CommittedCompletionReceipt' }, { type: 'null' } ] }
+    CommittedCompletionReceipt:
+      type: object
+      additionalProperties: false
+      required: [callback_id, result_id, manifest_artifact_id, acknowledgment]
+      properties:
+        callback_id: { $ref: '#/components/schemas/UuidV7' }
+        result_id: { $ref: '#/components/schemas/UuidV7' }
+        manifest_artifact_id: { $ref: '#/components/schemas/UuidV7' }
+        acknowledgment: { $ref: '#/components/schemas/WorkerAck' }
     ReconciliationPage: { type: object, additionalProperties: false, required: [server_time, items, page], properties: { server_time: { $ref: '#/components/schemas/Timestamp' }, items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ReconciliationItem' } }, page: { $ref: '#/components/schemas/PageInfo' } } }
     PollRequest: { type: object, additionalProperties: false, required: [worker_incarnation_id, long_poll_seconds], properties: { worker_incarnation_id: { $ref: '#/components/schemas/UuidV7' }, long_poll_seconds: { type: integer, minimum: 0, maximum: 30, default: 20 } } }
     ExecutionIntent: { type: string, enum: [RUN, CHECKPOINT_FOR_PAUSE] }

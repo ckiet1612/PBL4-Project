@@ -12,6 +12,7 @@ from pydantic import (
     RootModel,
     StrictFloat,
     StrictInt,
+    field_serializer,
     field_validator,
 )
 
@@ -374,6 +375,30 @@ class Allocation(BaseModel):
     released_at: datetime | None
 
 
+class CompletionAcknowledgment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    callback_id: UuidV7
+    accepted: Literal[True]
+    server_time: datetime
+    job_state: Literal["SUCCEEDED"]
+    job_version: int = Field(ge=1)
+
+    @field_serializer("server_time")
+    def _original_timestamp(self, value: datetime) -> str:
+        # A reconciliation receipt must preserve the committed callback wire.
+        return value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+class CommittedCompletionReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    callback_id: UuidV7
+    result_id: UuidV7
+    manifest_artifact_id: UuidV7
+    acknowledgment: CompletionAcknowledgment
+
+
 class ReconciliationItem(BaseModel):
     model_config = ConfigDict(title="ReconciliationItem", extra="forbid")
 
@@ -385,6 +410,7 @@ class ReconciliationItem(BaseModel):
     startup_nonce: UuidV7
     claim_state: Literal["UNCLAIMED", "CLAIMED", "STARTED"]
     expected_container: ContainerIdentity | None
+    completion_receipt: CommittedCompletionReceipt | None
 
 
 class ReconciliationPage(BaseModel):
@@ -395,11 +421,23 @@ class ReconciliationPage(BaseModel):
     page: PageInfo
 
 
+class DispatchOffer(BaseModel):
+    model_config = ConfigDict(title="DispatchOffer", extra="forbid")
+
+    authority: Authority
+    dispatch_coordinator_epoch: int = Field(ge=1)
+    spec: JobSpec
+    input_artifact: "Artifact"
+    checkpoint: dict | None
+    startup_limit_seconds: Literal[30]
+    lease_duration_seconds: Literal[45]
+
+
 class PollResponse(BaseModel):
     model_config = ConfigDict(title="PollResponse", extra="forbid")
 
     server_time: datetime
-    offer: None
+    offer: DispatchOffer | None
     retry_after_seconds: int = Field(ge=0, le=30)
 
 
@@ -422,6 +460,17 @@ class ResultReservationResponse(BaseModel):
     job_id: UuidV7
     attempt_id: UuidV7
     reserved_at: datetime
+
+
+class ResultRecord(BaseModel):
+    model_config = ConfigDict(title="ResultRecord", extra="forbid")
+
+    result_id: UuidV7
+    job_id: UuidV7
+    attempt_id: UuidV7
+    manifest_artifact_id: UuidV7
+    manifest_checksum: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    created_at: datetime
 
 
 class AdoptResponse(BaseModel):
@@ -554,3 +603,19 @@ class ErrorResponse(BaseModel):
     code: str
     message: str
     request_id: str
+
+
+class AuthorityRequest(StrictRequest):
+    authority: Authority
+
+
+class StartRequest(AuthorityRequest):
+    startup_nonce: UuidV7
+    executor_operation_sequence: StrictInt = Field(ge=1)
+    container: ContainerIdentity
+
+
+class CompleteRequest(StrictRequest):
+    authority: Authority
+    result_manifest_artifact_id: UuidV7
+    manifest: dict

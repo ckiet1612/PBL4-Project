@@ -44,11 +44,11 @@ def _wait_for_database_lock(engine) -> None:
     raise AssertionError("worker operation did not reach the expected database lock")
 
 
-def _assert_receipt_policy_worker_order(statements: list[str]) -> None:
+def _assert_policy_receipt_worker_order(statements: list[str]) -> None:
     receipt = next(i for i, value in enumerate(statements) if "callback_receipts" in value)
     policy = next(i for i, value in enumerate(statements) if "policy_versions" in value)
     worker = next(i for i, value in enumerate(statements) if " workers" in value)
-    assert receipt < policy < worker
+    assert policy < receipt < worker
 
 
 def _running_authority(engine, incarnation: dict, *, reservations: bool = False) -> dict:
@@ -471,7 +471,7 @@ def test_adoption_rechecks_database_time_after_waiting_for_reservation_lock(
         assert grants == [prior["grant_id"]]
 
 
-def test_callback_receipt_lock_precedes_policy_and_worker_for_adopt_and_renew(
+def test_policy_lock_precedes_receipt_and_worker_for_adopt_and_renew(
     migrated_postgres_engine, tmp_path
 ) -> None:
     with _client(migrated_postgres_engine, tmp_path) as client:
@@ -516,7 +516,7 @@ def test_callback_receipt_lock_precedes_policy_and_worker_for_adopt_and_renew(
                 },
             )
             assert adoption.status_code == 200, adoption.text
-            _assert_receipt_policy_worker_order(statements)
+            _assert_policy_receipt_worker_order(statements)
             statements.clear()
             renewal = client.post(
                 f"/v1/attempts/{prior['attempt_id']}/renew",
@@ -531,6 +531,6 @@ def test_callback_receipt_lock_precedes_policy_and_worker_for_adopt_and_renew(
                 },
             )
             assert renewal.status_code == 200, renewal.text
-            _assert_receipt_policy_worker_order(statements)
+            _assert_policy_receipt_worker_order(statements)
         finally:
             event.remove(migrated_postgres_engine, "before_cursor_execute", record)
