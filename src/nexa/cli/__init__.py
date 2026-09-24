@@ -1,1 +1,3 @@
-"""Local operator maintenance commands."""
+"""Nexa command-line interfaces."""
+
+__all__ = ["app"]

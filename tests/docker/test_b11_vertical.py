@@ -21,6 +21,8 @@ from nexa.infrastructure.persistence import schema as s
 from nexa.worker.credentials import CredentialStore
 from nexa.workloads.cpu_iterative import CpuIterativeAdapter
 from tests.api.test_http_contract import _client
+from tests.integration.test_cli_b12_vertical import _success
+from tests.integration.test_jobs_b08 import _running_api_process
 from tests.integration.test_worker_api_b10 import (
     FINGERPRINT,
     INSTALLATION_ID,
@@ -203,6 +205,7 @@ def test_two_tenant_api_to_docker_result_and_release(
         csrf = session["csrf_token"]
         tenants = []
         jobs = []
+        cli_token = None
         job_count = 1 if restart_before_cleanup else 2
         for index in range(job_count):
             write = {"Origin": "https://nexa.test", "X-CSRF-Token": csrf}
@@ -247,24 +250,69 @@ def test_two_tenant_api_to_docker_result_and_release(
             csrf = session["csrf_token"]
             content = json.dumps({"initial_value": index + 5}, separators=(",", ":")).encode()
             checksum = "sha256:" + hashlib.sha256(content).hexdigest()
-            artifact = _check(
-                client.post(
-                    "/v1/artifacts",
-                    content=content,
-                    headers={
-                        **write,
-                        "X-CSRF-Token": csrf,
-                        "X-Nexa-Tenant-Id": tenant_id,
-                        "Idempotency-Key": f"b11-vertical-input-{index}",
-                        "X-Artifact-Checksum": checksum,
-                        "X-Artifact-Size": str(len(content)),
-                        "X-Artifact-Kind": "INPUT",
-                        "X-Artifact-Media-Type": "application/vnd.nexa.cpu-iterative-input+json",
-                        "Content-Type": "application/octet-stream",
-                    },
-                ),
-                201,
-            )
+            if index == 0 and not restart_before_cleanup:
+                cli_token = _check(
+                    client.post(
+                        "/v1/tokens",
+                        headers={
+                            "Origin": "https://nexa.test",
+                            "X-CSRF-Token": csrf,
+                            "Idempotency-Key": "b12-docker-cli-token-0001",
+                        },
+                        json={
+                            "name": "b12-docker-vertical",
+                            "scopes": [
+                                "jobs:read",
+                                "jobs:write",
+                                "artifacts:read",
+                                "artifacts:write",
+                            ],
+                            "expires_in_seconds": 600,
+                        },
+                    ),
+                    201,
+                )["token"]
+                source = tmp_path / "b12-docker-input.json"
+                source.write_bytes(content)
+                with _running_api_process(engine, tmp_path) as (cli_url, _process):
+                    artifact = _success(
+                        cli_url,
+                        cli_token,
+                        tmp_path,
+                        "artifact",
+                        "upload",
+                        str(source),
+                        "--kind",
+                        "INPUT",
+                        "--media-type",
+                        "application/vnd.nexa.cpu-iterative-input+json",
+                        "--tenant",
+                        tenant_id,
+                        "--idempotency-key",
+                        "b12-docker-cli-upload-0001",
+                    )
+                assert artifact["checksum"] == checksum
+            else:
+                artifact = _check(
+                    client.post(
+                        "/v1/artifacts",
+                        content=content,
+                        headers={
+                            **write,
+                            "X-CSRF-Token": csrf,
+                            "X-Nexa-Tenant-Id": tenant_id,
+                            "Idempotency-Key": f"b11-vertical-input-{index}",
+                            "X-Artifact-Checksum": checksum,
+                            "X-Artifact-Size": str(len(content)),
+                            "X-Artifact-Kind": "INPUT",
+                            "X-Artifact-Media-Type": (
+                                "application/vnd.nexa.cpu-iterative-input+json"
+                            ),
+                            "Content-Type": "application/octet-stream",
+                        },
+                    ),
+                    201,
+                )
             body = {
                 "spec": {
                     "template_id": "cpu-iterative",
@@ -281,21 +329,82 @@ def test_two_tenant_api_to_docker_result_and_release(
                     "parameters": {"iterations": 100, "seed": 7, "modulus": 101},
                 }
             }
-            accepted = _check(
-                client.post(
-                    "/v1/jobs",
-                    headers={
-                        **write,
-                        "X-CSRF-Token": csrf,
-                        "X-Nexa-Tenant-Id": tenant_id,
-                        "Idempotency-Key": f"b11-vertical-submit-{index}",
-                    },
-                    json=body,
-                ),
-                202,
-            )
+            if index == 0 and not restart_before_cleanup:
+                spec_file = tmp_path / "b12-docker-job-spec.json"
+                spec_file.write_text(json.dumps(body["spec"]), encoding="utf-8")
+                with _running_api_process(engine, tmp_path) as (cli_url, _process):
+                    accepted = _success(
+                        cli_url,
+                        cli_token,
+                        tmp_path,
+                        "job",
+                        "submit",
+                        "--spec-file",
+                        str(spec_file),
+                        "--tenant",
+                        tenant_id,
+                        "--idempotency-key",
+                        "b12-docker-cli-submit-0001",
+                    )
+                    assert (
+                        _success(
+                            cli_url,
+                            cli_token,
+                            tmp_path,
+                            "job",
+                            "get",
+                            accepted["job_id"],
+                            "--tenant",
+                            tenant_id,
+                        )["state"]
+                        == "QUEUED"
+                    )
+                    assert (
+                        _success(
+                            cli_url,
+                            cli_token,
+                            tmp_path,
+                            "job",
+                            "events",
+                            accepted["job_id"],
+                            "--tenant",
+                            tenant_id,
+                        )["items"][0]["sequence"]
+                        == 1
+                    )
+            else:
+                accepted = _check(
+                    client.post(
+                        "/v1/jobs",
+                        headers={
+                            **write,
+                            "X-CSRF-Token": csrf,
+                            "X-Nexa-Tenant-Id": tenant_id,
+                            "Idempotency-Key": f"b11-vertical-submit-{index}",
+                        },
+                        json=body,
+                    ),
+                    202,
+                )
             tenants.append(tenant_id)
             jobs.append((accepted["job_id"], tenant_id, index + 5))
+        if not restart_before_cleanup:
+            cli_token = _check(
+                client.post(
+                    "/v1/tokens",
+                    headers={
+                        "Origin": "https://nexa.test",
+                        "X-CSRF-Token": csrf,
+                        "Idempotency-Key": "b12-docker-cli-read-token-0001",
+                    },
+                    json={
+                        "name": "b12-docker-result-read",
+                        "scopes": ["jobs:read", "artifacts:read"],
+                        "expires_in_seconds": 600,
+                    },
+                ),
+                201,
+            )["token"]
         # Same FastAPI factory and PostgreSQL database; separate serving process
         # boundary is exercised by worker HTTP and coordinator subprocess.
         with socket.socket() as sock:
@@ -522,6 +631,83 @@ def test_two_tenant_api_to_docker_result_and_release(
                     spec_checksum=spec_checksum,
                 )
                 assert data == expected.result_bytes
+                if job_id == jobs[0][0] and not restart_before_cleanup:
+                    assert cli_token is not None
+                    cli_url = f"http://127.0.0.1:{port}"
+                    cli_status = _success(
+                        cli_url, cli_token, tmp_path, "job", "get", job_id, "--tenant", tenant_id
+                    )
+                    assert cli_status["state"] == "SUCCEEDED"
+                    cli_events = _success(
+                        cli_url,
+                        cli_token,
+                        tmp_path,
+                        "job",
+                        "events",
+                        job_id,
+                        "--tenant",
+                        tenant_id,
+                    )
+                    assert len(cli_events["items"]) > 1
+                    cli_result = _success(
+                        cli_url,
+                        cli_token,
+                        tmp_path,
+                        "job",
+                        "result",
+                        job_id,
+                        "--tenant",
+                        tenant_id,
+                    )
+                    assert cli_result["manifest_artifact_id"] == result["manifest_artifact_id"]
+                    manifest_id = UUID(result["manifest_artifact_id"])
+                    with engine.connect() as connection:
+                        manifest_checksum = connection.execute(
+                            select(s.artifacts.c.checksum).where(
+                                s.artifacts.c.artifact_id == manifest_id
+                            )
+                        ).scalar_one()
+                        output_checksum = connection.execute(
+                            select(s.artifacts.c.checksum).where(
+                                s.artifacts.c.artifact_id == output_id
+                            )
+                        ).scalar_one()
+                    manifest_bytes = _check_output(client, tenant_id, manifest_id)
+                    assert json.loads(manifest_bytes)["provenance"]["job_id"] == job_id
+                    manifest_path = tmp_path / "b12-docker-result-manifest.json"
+                    cli_manifest = _success(
+                        cli_url,
+                        cli_token,
+                        tmp_path,
+                        "job",
+                        "result-download",
+                        job_id,
+                        "--output-file",
+                        str(manifest_path),
+                        "--checksum",
+                        manifest_checksum,
+                        "--tenant",
+                        tenant_id,
+                    )
+                    assert manifest_path.read_bytes() == manifest_bytes
+                    assert cli_manifest["sha256"] == manifest_checksum
+                    output_path = tmp_path / "b12-docker-result.json"
+                    cli_output = _success(
+                        cli_url,
+                        cli_token,
+                        tmp_path,
+                        "artifact",
+                        "download",
+                        str(output_id),
+                        "--output-file",
+                        str(output_path),
+                        "--checksum",
+                        output_checksum,
+                        "--tenant",
+                        tenant_id,
+                    )
+                    assert output_path.read_bytes() == expected.result_bytes
+                    assert cli_output["sha256"] == output_checksum
             _wait_for(
                 lambda: _released(engine, job_count), "allocation/counter release", timeout=30
             )

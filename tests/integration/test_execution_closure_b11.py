@@ -13,6 +13,8 @@ from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
 from tests.api.test_http_contract import _client
 from tests.integration._factories import seed_authority, seed_job, seed_tenant_graph
+from tests.integration.test_cli_b12_vertical import _success
+from tests.integration.test_jobs_b08 import _running_api_process
 from tests.integration.test_worker_api_b10 import WORKER_ID, _bootstrap_worker, _create_incarnation
 from tests.integration.test_worker_authority_b10 import CONTAINER_ID, DIGEST
 
@@ -400,7 +402,11 @@ def test_http_graph_result_recognition_cleanup_and_replay(migrated_postgres_engi
         event_page = client.get(f"/v1/jobs/{job['job_id']}/events", headers=user_headers)
         assert event_page.status_code == 200, event_page.text
         tokens = {}
-        for name, scope in (("read", "jobs:read"), ("write", "jobs:write")):
+        for name, scopes in (
+            ("read", ["jobs:read"]),
+            ("write", ["jobs:write"]),
+            ("cli-result", ["jobs:read", "artifacts:read"]),
+        ):
             created = client.post(
                 "/v1/tokens",
                 headers={
@@ -408,10 +414,39 @@ def test_http_graph_result_recognition_cleanup_and_replay(migrated_postgres_engi
                     "X-CSRF-Token": relogin.json()["csrf_token"],
                     "Idempotency-Key": f"b11-closure-token-{name}",
                 },
-                json={"name": f"b11-{name}", "scopes": [scope], "expires_in_seconds": 300},
+                json={"name": f"b11-{name}", "scopes": scopes, "expires_in_seconds": 300},
             )
             assert created.status_code == 201, created.text
             tokens[name] = created.json()["token"]
+        with _running_api_process(engine, tmp_path) as (base_url, _process):
+            cli_result = _success(
+                base_url,
+                tokens["cli-result"],
+                tmp_path,
+                "job",
+                "result",
+                str(job["job_id"]),
+                "--tenant",
+                str(job["tenant_id"]),
+            )
+            assert cli_result["manifest_artifact_id"] == manifest_blob["artifact_id"]
+            manifest_path = tmp_path / "b12-cli-result-manifest.json"
+            cli_download = _success(
+                base_url,
+                tokens["cli-result"],
+                tmp_path,
+                "job",
+                "result-download",
+                str(job["job_id"]),
+                "--output-file",
+                str(manifest_path),
+                "--checksum",
+                manifest_blob["checksum"],
+                "--tenant",
+                str(job["tenant_id"]),
+            )
+            assert manifest_path.read_bytes() == rfc8785.dumps(manifest)
+            assert cli_download["sha256"] == manifest_blob["checksum"]
         client.cookies.clear()
         assert (
             client.get(

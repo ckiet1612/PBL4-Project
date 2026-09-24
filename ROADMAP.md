@@ -10,7 +10,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 24/09/2026
+## Trạng thái ghi nhận ngày 25/09/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
@@ -23,11 +23,12 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - **B09 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 21/09/2026.** Đã có bộ phận nhận biết tài nguyên và chạy công việc CPU trong container có giới hạn sức xử lý, bộ nhớ, số tiến trình, tệp tạm và nhật ký. Runner giám sát riêng để dừng việc khi hết quyền hoặc quá thời gian; executor giữ đúng định danh container khi khởi chạy, dừng và dọn dẹp. Evidence gồm kiểm thử tự động và mười một tình huống container thật trên Docker Desktop Linux VM. Nghiệm thu triển khai Linux, hai máy khác nhau, GPU và release vẫn thuộc các chặng sau.
 - **B10 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 22/09/2026.** Đã có chương trình chạy trên máy chủ để báo còn hoạt động, kiểm tra các lần chạy cũ và chỉ sẵn sàng nhận việc sau khi đối soát an toàn. Khi chương trình khởi động lại, nó có thể tiếp quản lần chạy còn quyền hoặc dọn dẹp đúng định danh; giữ lại thông tin chưa được xác nhận để xử lý tiếp. Đã kiểm thử tình huống tắt đột ngột rồi khởi động lại với runner thật trên Docker Desktop Linux VM. Luồng đầy đủ từ gửi việc đến nhận kết quả, phục hồi từ điểm lưu, triển khai Linux, hai máy khác nhau, GPU và release vẫn thuộc các chặng sau.
 - **B11 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 24/09/2026.** Đã nối hàng chờ với coordinator, cấp tài nguyên, giao việc cho worker, chạy workload CPU, nhận kết quả có kiểm tra quyền và trả tài nguyên sau cleanup đúng định danh. Luồng upload → submit → dispatch → runner → tải kết quả cho hai tenant, mất response sau commit và restart trước cleanup đã được kiểm thử trên Docker Desktop Linux VM. Checkpoint/recovery đầy đủ, triển khai bare Linux, hai máy khác nhau, GPU và release vẫn thuộc các chặng sau.
-- Các chặng B12–B25 chưa được coi là hoàn thành.
+- **B12 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 25/09/2026.** Đã có CLI `nexa` để cấu hình kết nối, quản lý token, tải tệp lên, gửi việc, xem công việc/phiên xử lý/sự kiện, tải kết quả và quản trị danh tính/giới hạn/lịch sử thao tác qua API chung. Đã kiểm thử quyền của hai nhóm người dùng, gửi lại yêu cầu khi mất phản hồi và luồng CLI → chạy CPU → tải kết quả trên Docker Desktop Linux VM. Chỉ đăng ký các lệnh có backend tương ứng; phần còn thiếu được ghi tại [CLI guide](docs/cli.md) và [B12 evidence](docs/evidence/B12-cli.md). Phê duyệt này không thay nghiệm thu đầy đủ của sản phẩm; job controls thuộc B15, các chức năng và gate còn lại tiếp tục theo PLAN.
+- Các chặng B13–B25 chưa được coi là hoàn thành.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10 và ngày 24/09/2026 đã duyệt B11. Các báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B11 ở đây đã được cập nhật theo xác nhận mới nhất của user.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11 và ngày 25/09/2026 đã duyệt B12. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B12 ở đây đã được cập nhật theo xác nhận mới nhất của user.
 
-Chặng tiếp theo là **B12 — CLI**, đã đủ điều kiện từ B11: tạo cách điều khiển bằng cửa sổ gõ lệnh để tải tệp lên, gửi việc, xem tình trạng, xem lịch sử, lấy kết quả và thực hiện thao tác quản trị theo quyền. B13 và B14 cũng đã đủ điều kiện từ B11 và có thể làm cùng lúc theo PLAN.
+Chặng tiếp theo là **B13 — Fairness production, quota, ledger**: đưa cách chia công bằng vào hệ thống thật, giữ đúng giới hạn và lưu sổ ghi tài nguyên qua khởi động lại. B14 — CPU checkpoint/restore cũng đã đủ điều kiện từ B11 và có thể làm cùng lúc theo PLAN. B15 chỉ bắt đầu khi B12, B13 và B14 đều hoàn thành.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -91,7 +92,7 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B09 | Docker executor và trusted runner | Đã hoàn thành và được duyệt: nhận biết tài nguyên, chạy công việc CPU có giới hạn, tự dừng khi hết quyền hoặc quá giờ và dọn đúng container. Đã kiểm thử trên Docker Desktop Linux VM. | B02 |
 | B10 | Worker local, heartbeat, reconcile | Đã hoàn thành và được duyệt: báo còn hoạt động, đối soát các lần chạy cũ sau khởi động lại, tiếp quản lần chạy còn quyền và giữ việc dọn dẹp chưa được xác nhận. Chỉ sẵn sàng nhận việc sau khi kiểm tra an toàn; đã kiểm thử trên Docker Desktop Linux VM. | B06, B09 |
 | B11 | Coordinator, allocation, dispatch, fenced result | Đã hoàn thành và được duyệt: nối hàng chờ với bộ phận điều phối, cấp tài nguyên, giao việc cho worker, nhận kết quả CPU có kiểm tra quyền và trả tài nguyên sau cleanup đúng định danh. Đã kiểm thử trên Docker Desktop Linux VM. | B04, B08, B10 |
-| B12 | CLI | Tạo cách điều khiển bằng cửa sổ gõ lệnh: tải tệp lên, gửi việc, xem tình trạng, lấy kết quả và quản trị. Các lệnh tạm dừng/chạy tiếp được bổ sung ở B15. | B11 |
+| B12 | CLI | Đã hoàn thành và được duyệt trong phạm vi lệnh có backend: tải tệp lên, gửi việc, xem tình trạng/sự kiện, lấy kết quả và quản trị danh tính/giới hạn. Đã kiểm thử luồng CPU qua CLI trên Docker Desktop Linux VM; các lệnh hủy/tạm dừng/chạy tiếp/thử lại được bổ sung ở B15. | B11 |
 | B13 | Fairness production, quota, ledger | Đưa cách chia công bằng vào hệ thống thật, giữ đúng giới hạn mỗi nhóm và ghi lại tài nguyên đã cấp cùng thời gian giữ. Khởi động lại không làm mất sổ ghi này. | B11 |
 | B14 | CPU checkpoint/restore | Cho công việc lưu tiến độ giữa chừng, chạy tiếp từ lần lưu hợp lệ gần nhất và kiểm tra kết quả giống khi chạy không bị ngắt. | B11 |
 | B15 | Cancel, pause/resume, retry, recovery | Hoàn thiện hủy, tạm dừng, chạy tiếp và thử lại. Khi gặp lỗi, khôi phục từ điểm lưu; chỉ cấp lại tài nguyên khi lần chạy cũ đã thực sự dừng. | B12, B13, B14 |
@@ -216,3 +217,15 @@ khởi động lại worker trước khi dọn container. Kiểm chứng runtime
 container vẫn giữ tài nguyên an toàn, chờ cơ chế tự xử lý lần chạy hết quyền
 ở B15; triển khai Linux trên các máy khác nhau và nghiệm thu sản phẩm đầy đủ
 vẫn thuộc các chặng sau.
+
+## Bàn giao B12
+
+B12 đã được Task Review duyệt theo xác nhận của user ngày 25/09/2026.
+[Hướng dẫn CLI](docs/cli.md) và [evidence B12](docs/evidence/B12-cli.md) ghi cách
+dùng lệnh, bảo vệ token, kiểm tra quyền, gửi lại yêu cầu và tải kết quả đúng nội dung.
+Luồng từ CLI đến container CPU thật đã được kiểm thử trên Docker Desktop Linux VM;
+chưa thay bằng chứng triển khai Linux độc lập, phục hồi đầy đủ, GPU hoặc tải lớn.
+Các lệnh template, xem lần chạy/điểm lưu/log/progress và admin job/worker/allocation/
+fairness/recovery còn chờ backend và kiểm thử tích hợp tương ứng trước khi cung cấp.
+B13 và B14 là hai nhánh tiếp theo; B15 bổ sung điều khiển và phục hồi công việc,
+B16 bổ sung sweep và các workload AI, còn Web UI và release tiếp tục theo PLAN.
