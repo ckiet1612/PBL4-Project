@@ -15,6 +15,7 @@ SUPPORTED_CLI_ROUTES = {
     ("GET", "/v1/jobs/{job_id}"),
     ("GET", "/v1/sessions/{session_id}"),
     ("GET", "/v1/jobs/{job_id}/events"),
+    ("GET", "/v1/jobs/{job_id}/checkpoints"),
     ("GET", "/v1/jobs/{job_id}/result"),
     ("GET", "/v1/admin/tenants"),
     ("POST", "/v1/admin/tenants"),
@@ -38,7 +39,6 @@ SUPPORTED_CLI_ROUTES = {
 EXCLUDED_CLI_ROUTES = {
     "/v1/templates",
     "/v1/jobs/{job_id}/attempts",
-    "/v1/jobs/{job_id}/checkpoints",
     "/v1/jobs/{job_id}/logs",
     "/v1/jobs/{job_id}/progress",
     "/v1/admin/jobs",

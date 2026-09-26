@@ -6,6 +6,8 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from .cpu_state import CpuState
+
 
 class CpuInputError(ValueError):
     pass
@@ -52,7 +54,16 @@ class CpuIterativeAdapter:
         modulus: int,
         spec_checksum: str,
         progress: Callable[[int, int], None] | None = None,
+        resume: CpuState | None = None,
+        observer: Callable[[int, int], None] | None = None,
+        observer_stride: int = 65_536,
     ) -> CpuResult:
+        """Run from step zero, or from a validated ``resume`` snapshot.
+
+        ``observer(step, accumulator)`` sees the start, every ``observer_stride``
+        steps and the end; it never changes the recurrence, so a resumed run is
+        byte-equal to an uninterrupted one.
+        """
         initial_value = self.validate_input(input_bytes)
         if (
             isinstance(iterations, bool)
@@ -70,13 +81,33 @@ class CpuIterativeAdapter:
             raise CpuInputError("modulus is outside the contract range")
         if not _CHECKSUM.fullmatch(spec_checksum):
             raise CpuInputError("spec_checksum is invalid")
+        if type(observer_stride) is not int or observer_stride < 1:
+            raise CpuInputError("observer_stride is invalid")
 
-        accumulator = (initial_value + seed) % modulus
-        for step in range(iterations):
-            accumulator = (accumulator * 1_664_525 + 1_013_904_223 + step) % modulus
-            if progress is not None:
-                progress(step + 1, iterations)
         input_checksum = "sha256:" + hashlib.sha256(input_bytes).hexdigest()
+        step, accumulator = 0, (initial_value + seed) % modulus
+        if resume is not None:
+            if (
+                type(resume.step) is not int
+                or type(resume.accumulator) is not int
+                or not 0 <= resume.step <= iterations
+                or not 0 <= resume.accumulator < modulus
+                or resume.input_checksum != input_checksum
+                or resume.spec_checksum != spec_checksum
+            ):
+                raise CpuInputError("resume state does not belong to this input and spec")
+            step, accumulator = resume.step, resume.accumulator
+        if observer is not None:
+            observer(step, accumulator)
+        while step < iterations:
+            stop = min(iterations, step + observer_stride) if observer is not None else iterations
+            for index in range(step, stop):
+                accumulator = (accumulator * 1_664_525 + 1_013_904_223 + index) % modulus
+                if progress is not None:
+                    progress(index + 1, iterations)
+            step = stop
+            if observer is not None:
+                observer(step, accumulator)
         result = {
             "iterations": iterations,
             "final_accumulator": accumulator,

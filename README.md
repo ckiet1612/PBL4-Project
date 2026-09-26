@@ -2,7 +2,7 @@
 
 Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho nhiều tenant trên một Linux server, phân phối CPU/RAM/GPU công bằng và tiếp tục job từ application checkpoint.
 
-**Trạng thái: B01–B12 đã được Task Review duyệt.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. B07 bổ sung filesystem artifact store, bounded upload, durable commit order, tenant counter/reservation và artifact REST API. B08 bổ sung submit atomic, idempotency replay/conflict, durable queue, quota/rate backpressure và REST job/session/event query. B09 bổ sung discovery/capability, Docker executor, journal/cleanup proof, trusted runner và image CPU deterministic; evidence gồm unit/protocol/fault tests và mười một scenario executor/runner trên Docker Desktop Linux VM. B10 bổ sung worker local, bootstrap/singleton, heartbeat, reconciliation/adoption, lease renewal, replay bền vững và Compose bootstrap; đã có evidence API/PostgreSQL và worker kill/restart với runner thật trên Docker Desktop Linux VM. B11 bổ sung coordinator leadership, policy-based allocation/dispatch, worker claim/start, CPU result upload và fenced result/release; luồng CPU hai tenant, mất response sau commit và restart trước cleanup đã được kiểm thử trên Docker Desktop Linux VM. B12 cung cấp product CLI REST-only cho config, token, artifact, core job/session/event/result và admin identity/policy/audit; command surface chỉ đăng ký route đã wire và giới hạn backend hiện tại được ghi tại [CLI guide](docs/cli.md) và [B12 evidence](docs/evidence/B12-cli.md). Triển khai bare Linux, portability hai máy, checkpoint recovery hoàn chỉnh, Web UI nghiệp vụ, GPU và release acceptance vẫn thuộc các chặng sau; các thông số hiệu năng ngoài evidence đã ghi vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
+**Trạng thái: B01–B14 đã được Task Review duyệt.** B04 có policy thuần weighted dominant resource-time, aging, reservation và evidence simulator lớp D. B05 cung cấp PostgreSQL schema/migration/constraint và transaction helpers. B06 bổ sung API thật cho identity, browser session, CLI token, SYSTEM_ADMIN, tenant/membership, versioned policy, bootstrap worker và audit. B07 bổ sung filesystem artifact store, bounded upload, durable commit order, tenant counter/reservation và artifact REST API. B08 bổ sung submit atomic, idempotency replay/conflict, durable queue, quota/rate backpressure và REST job/session/event query. B09 bổ sung discovery/capability, Docker executor, journal/cleanup proof, trusted runner và image CPU deterministic; evidence gồm unit/protocol/fault tests và mười một scenario executor/runner trên Docker Desktop Linux VM. B10 bổ sung worker local, bootstrap/singleton, heartbeat, reconciliation/adoption, lease renewal, replay bền vững và Compose bootstrap; đã có evidence API/PostgreSQL và worker kill/restart với runner thật trên Docker Desktop Linux VM. B11 bổ sung coordinator leadership, policy-based allocation/dispatch, worker claim/start, CPU result upload và fenced result/release; luồng CPU hai tenant, mất response sau commit và restart trước cleanup đã được kiểm thử trên Docker Desktop Linux VM. B12 cung cấp product CLI REST-only cho config, token, artifact, core job/session/event/result và admin identity/policy/audit; command surface chỉ đăng ký route đã wire và giới hạn backend hiện tại được ghi tại [CLI guide](docs/cli.md) và [B12 evidence](docs/evidence/B12-cli.md). B13 đưa weighted fairness, hard quota, aging, reservation và ledger vào coordinator thật; evidence gồm queue 100.000 Job trên PostgreSQL 17. B14 bổ sung CPU checkpoint/restore: reserve/publish checkpoint có fence, chọn checkpoint lúc claim với đánh dấu `CORRUPT` và fallback, retry có restore sau khi container crash, cùng API/CLI xem danh sách checkpoint; sáu scenario Docker thật cho kết quả giống từng byte với run không bị ngắt. Triển khai bare Linux, portability hai máy, recovery đầy đủ (cancel/pause/reaper, B15), workload AI (B16), Web UI nghiệp vụ, GPU và release acceptance vẫn thuộc các chặng sau; các thông số hiệu năng ngoài evidence đã ghi vẫn là mục tiêu nghiệm thu, chưa phải kết quả.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -34,6 +34,8 @@ Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho 
 | [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md) | HTTP/PostgreSQL, CPU end-to-end hai tenant, replay, cleanup và giới hạn kiểm chứng |
 | [CLI guide](docs/cli.md) | B12 CLI `nexa`, config/profile, token, upload/submit/query/download, admin và giới hạn command hiện tại |
 | [B12 evidence](docs/evidence/B12-cli.md) | CLI/API/PostgreSQL, response-loss replay, luồng CLI đến Docker CPU result và giới hạn kiểm chứng |
+| [B13 evidence](docs/evidence/B13-production-fairness.md) | Queue 100.000 Job, query plan, ledger cadence, weighted fairness, reservation trace, fault DB và gate matrix |
+| [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md) | Checkpoint reserve/publish, restore selection/fallback, retry promotion, Docker S1–S6 timeline/checksum, findings và acceptance matrix |
 | [Contracts](docs/contracts.md) | Điểm vào contract `1.0.0-b01`: OpenAPI `/v1`, domain/state, internal interfaces, workload/checkpoint và concurrency/recovery |
 | [Invariants](docs/invariants.md) | Tenant/resource accounting, concurrency, fencing, checkpoint, recovery, security |
 | [Acceptance](docs/acceptance.md) | Gate ID, điều kiện pass, evidence, môi trường; testing/benchmark objectives |
@@ -264,9 +266,56 @@ Finding B13-R13 của Task Review vòng 1 đã được Task Review vòng 2 ch�
 
 **B13 đã được Task Review duyệt theo xác nhận của user ngày 26/09/2026**, trong phạm vi implementation và evidence nêu trên. Báo cáo triển khai được lập trước xác nhận này có thể còn ghi chờ review. Phê duyệt B13 không thay nghiệm thu tải B22 (100 accepted/s trong 15 phút, soak 8 giờ), bare Linux, portability, GPU hoặc release.
 
+## B14 CPU checkpoint/restore
+
+B14 cho workload CPU `cpu-iterative` lưu checkpoint định kỳ và chạy tiếp từ checkpoint hợp lệ mới nhất sau khi container crash:
+
+- **Reserve/publish có fence.** Worker reserve `checkpoint_id` + sequence đơn điệu theo Job; mất response thì replay trả lại đúng cặp. Publish kiểm authority/fence/lease theo DB time. Manifest là RFC 8785 canonical với schema đóng; provenance và compatibility được kiểm từng trường; file phải là artifact đã commit cùng tenant/attempt. Lỗi manifest xác định trả 422 và reservation chuyển `REJECTED`; sequence không bao giờ dùng lại.
+- **Restore selection lúc claim.** Blob, checksum và provenance được kiểm ngoài transaction; lựa chọn được ghi bất biến vào `execution_context`. Bản hỏng bị đánh dấu `CORRUPT` một chiều qua bảng insert-only `checkpoint_corruptions` (migration `20260926_0018`, `schema_v15`), rồi hệ thống thử bản cũ hơn. Khi hết bản hợp lệ:
+  - Job `restart_safe` chạy lại từ input, kèm event `CHECKPOINT_FALLBACK_TO_INPUT`;
+  - Job không `restart_safe` kết thúc `FAILED` có reason, không chạy lại âm thầm.
+- **Retry có restore.** Cleanup chuyển `RECOVERING → RETRY_WAIT` khi còn retry budget và có checkpoint đã commit hoặc template `restart_safe`. Coordinator leader promote `RETRY_WAIT → QUEUED` đúng một lần, theo batch có giới hạn. Reaper hết lease, cancel/pause và ma trận recovery đầy đủ thuộc B15.
+- **Worker/runner.** Checkpoint cycle được ghi journal (reserve → chụp trạng thái tại ranh giới step → upload → bind → finalize → publish). Adoption sau worker restart không tạo reservation hay artifact trùng. Adapter resume đúng cursor `(step, accumulator)`. File restore được mount read-only, hardening B09 giữ nguyên.
+- **Xem danh sách checkpoint.** `GET /v1/jobs/{job_id}/checkpoints` (keyset ≤100, có hiển thị `CORRUPT`) và lệnh `nexa job checkpoints`. B14 không xóa hay prune checkpoint; GC thuộc B19.
+
+[Evidence B14](docs/evidence/B14-cpu-checkpoint-restore.md) chạy trên Docker Desktop Linux VM (linux/arm64) với PostgreSQL 17:
+
+- **Image.** Image CPU mới `nexa/cpu-iterative@sha256:e0e6222eb899498c447eeee9f44ac053a62af271da2d1b95316b09117a999b6f` và image worker mới, build local, không push.
+- **Sáu scenario Docker S1–S6:**
+  - chạy liền mạch;
+  - kill container sau checkpoint thứ hai;
+  - làm hỏng checkpoint mới nhất;
+  - làm hỏng mọi checkpoint rồi fallback về input;
+  - kill ở nhiều thời điểm compute;
+  - SIGKILL worker khi reservation còn mở.
+
+  Trong cùng một lần chạy, kết quả R1–R6 giống R0 từng byte. Checksum giữa các lần chạy khác nhau vì `spec_checksum` chứa `input_artifact_id` của từng lần chạy.
+- **Kiểm thử:**
+  - 43 test PostgreSQL của B14 pass;
+  - suite PostgreSQL đầy đủ 1238 passed, 16 skipped;
+  - suite mặc định 900 passed, 354 skipped;
+  - regression Docker B09/B10/B11 trên image mới 14 passed, 1 skipped (test B10 chỉ chạy trên Linux host).
+- **Chưa chạy.** Chưa ai dùng `docker inspect` để xem cấu hình thật của container checkpoint có mount restore, nên dòng ACC-25 tương ứng là `not-run`; phần này mới có unit test.
+
+Task Review vòng 1 không duyệt vì các finding B14-R01, R02, R06, R08, R09. Vòng 2 sửa hết, rồi Task Review chạy lại độc lập PostgreSQL và Docker S1–S6 và đóng mọi finding chặn. Finding không chặn còn mở:
+
+- **B14-R03:** `listJobEvents` trả `created_at` với 6 chữ số thập phân. Lỗi thuộc B08.
+- **B14-R04:** contract cần làm rõ trường hợp mọi checkpoint đều không tương thích với worker nhận việc.
+- **B14-R05:** file `input.json` tải dở sau khi worker crash vẫn được tin. Lỗi thuộc B11/B15.
+- **B14-R10:** checkpoint đua với runner đang dừng bị gắn nhãn `CHECKPOINT_PROTOCOL_ERROR`.
+- **B14-R11:** một câu trong [worker agent](docs/worker-agent.md) chưa đúng với trường hợp Job không `restart_safe`.
+- **Hai ghi chú:**
+  - Biến thể còn lại của R08: phản hồi 2xx không phải object khi reserve/publish checkpoint. Lỗi tự hết khi replay callback.
+  - Blob `not_found` bị đánh `CORRUPT` ngay cả khi storage được mount muộn.
+- **B13-R12:** vẫn mở.
+
+Test realtime benchmark của B13 từng flaky một lần khi chạy ngay sau Docker test; lần chạy lại thì pass.
+
+**B14 đã được Task Review duyệt theo xác nhận của user ngày 26/09/2026**, trong phạm vi implementation và evidence nêu trên. Evidence và tài liệu được lập trước xác nhận này có thể còn ghi chờ review. Chưa có template seed nào checkpointable. Muốn dùng checkpoint, admin phải đăng ký template version có `checkpointable = true` và digest image B14. Phê duyệt B14 không thay ACC-22 đầy đủ (B15), PyTorch/sweep/inference (B16), GC và reference protection (B19), tải B22, bare Linux, portability, GPU hoặc release.
+
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B13 đã được duyệt (B13 theo xác nhận của user ngày 26/09/2026). Chặng tiếp theo là **B14 — CPU checkpoint/restore**, đã đủ dependency B11. B15 cần B12, B13 và B14 đều hoàn thành; hiện chỉ còn chờ B14. Evidence container B10–B13 hiện giới hạn ở Docker Desktop Linux VM; các gate bare-Linux/portability/release vẫn thuộc các chặng sau. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B14 đã được duyệt (B13 và B14 theo xác nhận của user ngày 26/09/2026). Chặng tiếp theo là **B15 — Cancel, pause/resume, retry, recovery**; B15 đã đủ điều kiện vì B12, B13 và B14 đều hoàn thành. Evidence container B10–B14 hiện giới hạn ở Docker Desktop Linux VM; các gate bare-Linux/portability/release vẫn thuộc các chặng sau. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run chưa được quan sát. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 

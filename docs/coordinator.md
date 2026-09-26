@@ -106,6 +106,27 @@ transactions run with `SET LOCAL jit = off`: the 100-tenant batched queue
 statement crosses the JIT cost thresholds, and compilation took about 1.1 s per
 execution against about 75 ms of execution. See
 [B13 evidence](evidence/B13-production-fairness.md)
-for measured limits and open scale/cadence work. GPU, checkpoint restore,
-cancellation/reaper automation, bare-Linux portability and release acceptance
-remain later gates.
+for measured limits and open scale/cadence work. GPU, cancellation/reaper
+automation, bare-Linux portability and release acceptance remain later gates.
+
+B14 adds the minimal retry promotion that CPU checkpoint recovery needs, and
+nothing more. Cleanup (API side) opens a `retry_schedules` row only for an
+`INFRASTRUCTURE` attempt failure with budget left, desired `RUNNING` and a
+restorable Job (a committed non-corrupt checkpoint or template `restart_safe`);
+see [database](database.md). The leader probes due schedules at most once per
+second from the tick. `promote_retries` then runs its own short transaction under
+the leadership and policy locks, takes the GLOBAL admission counter, and locks at
+most a bounded batch of due Jobs and their open schedules. A Job that is still
+`RETRY_WAIT`, desired `RUNNING`, without a recovery intent and whose schedule
+`ready_at` has passed in DB time moves to `QUEUED` with a fresh ready sequence,
+closes its schedule and appends `RETRY_READY/BACKOFF_ELAPSED`, all by
+compare-and-set on state/version. A Job that no current worker can host stays in
+`RETRY_WAIT` with `RETRY_BLOCKED` and a waiting reason. The coordinator does not
+choose the restore checkpoint: the claim of the next attempt verifies candidates
+newest-first and records the choice in the attempt's immutable execution context.
+Restore events (`CHECKPOINT_CORRUPT`, `CHECKPOINT_INCOMPATIBLE`,
+`CHECKPOINT_RESTORE_SELECTED`, `CHECKPOINT_FALLBACK_TO_INPUT`,
+`CHECKPOINT_RESTORE_UNAVAILABLE`) advance the Job event sequence with an audit row
+but, like claim acknowledgment itself, never change the Job version.
+Lease expiry, the reaper, pause/cancel interplay and old-claim recovery stay in
+B15. See [B14 evidence](evidence/B14-cpu-checkpoint-restore.md).

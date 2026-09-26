@@ -103,8 +103,19 @@ uses the durable observation plus confirmed absence to return the same exact
 proof. Repeated cleanup is safe. Proof creation never releases allocation,
 quota or ledger state; B10/B11/B15 own server reconciliation and release.
 
-`signal_checkpoint()` remains a typed unsupported boundary. B14 owns checkpoint
-reservation, persistence, restore, provenance and fallback.
+`signal_checkpoint()` stays a typed `UNSUPPORTED` error by design: a B14
+checkpoint is requested only as `REQUEST_CHECKPOINT` over the fenced runner
+control channel after a server reservation, never by a Docker signal.
+`checkpoint_supported(image_digest)` reads the labels of the pinned image once
+per process and returns true only for `io.nexa.runner.checkpoint=cpu-state-v1`.
+Launches of older images carry no checkpoint block. A restore adds one
+more exact read-only input mount, `/input/restore-state.json`, from the
+attempt's private staging directory, plus `--resume-state`. The fixed path is
+part of the launch contract and is rejected if changed. Other mounts,
+UIDs, tmpfs bounds, network, capabilities, seccomp and restart policy `no` are
+unchanged. `inspect(identity)` returns the Docker exit code and `OOMKilled` of
+an exact identity, and the worker uses it to prove a workload container exited
+without a runner terminal frame (see [worker agent](worker-agent.md)).
 
 ## Evidence boundary
 

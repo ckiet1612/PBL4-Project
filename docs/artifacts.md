@@ -82,5 +82,24 @@ endpoints recheck membership/ownership on every request. Content always transpor
 `X-Artifact-Media-Type`, checksum ETag, and supports one well-formed byte range with
 `206`/`Content-Range`; malformed, multi-range and out-of-range requests are rejected.
 
-Checkpoint/result publication, worker authority/fencing, reference reachability,
-orphan sweep and production GC are downstream B10/B11/B14/B19 responsibilities.
+Result publication and worker authority/fencing are B10/B11 responsibilities.
+Reference reachability, orphan sweep and production GC remain B19.
+
+## CPU checkpoint artifacts (B14)
+
+Checkpoint bytes use the worker attempt upload path, never the tenant upload
+endpoint above. Only kinds `CHECKPOINT_FILE` and `CHECKPOINT_MANIFEST` with
+`application/json` are accepted, for a checkpoint reservation that is still
+`RESERVED` under live authority. Each upload goes through the same bounded
+staging, checksum, fsync, atomic rename, directory fsync and metadata commit as
+above. Publish commits the `checkpoints` row and its references (owner
+`CHECKPOINT`: the manifest as `CHECKPOINT_MANIFEST/manifest`, each file as
+`CHECKPOINT_FILE/<logical_name>`) in one transaction, only after every blob is
+committed. A crash or rejection before that leaves unreferenced orphans that
+can never be restored. Restore reads blobs through the attempt's execution graph
+and verifies size and checksum against the committed metadata. A mismatch marks
+the checkpoint corrupt (insert-only `checkpoint_corruptions`) and never rewrites
+or deletes the blob. No B14 path deletes, prunes or overwrites a committed
+checkpoint artifact, so every committed checkpoint, and therefore at least the two
+newest, stays referenced. Operational GC that must honour these references is
+B19. Checkpoint content is never written to logs, events or error bodies.

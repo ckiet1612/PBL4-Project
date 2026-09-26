@@ -149,6 +149,12 @@ class WorkerApiClient:
     def complete(self, attempt_id: str, callback_id: str, body: dict) -> dict:
         return self._attempt_callback(attempt_id, callback_id, "complete", body)
 
+    def reserve_checkpoint(self, attempt_id: str, callback_id: str, body: dict) -> dict:
+        return self._attempt_callback(attempt_id, callback_id, "checkpoint-reservations", body)
+
+    def publish_checkpoint(self, attempt_id: str, callback_id: str, body: dict) -> dict:
+        return self._attempt_callback(attempt_id, callback_id, "checkpoints", body)
+
     def _attempt_callback(self, attempt_id, callback_id, suffix, body):
         UUID(attempt_id)
         return self.request(
@@ -252,9 +258,16 @@ class WorkerApiClient:
         except httpx.HTTPError:
             raise WorkerTransportError("worker API upload unavailable") from None
         self._check_response(response)
+        # Every defect in a committed answer is a ValueError; callers fail closed on it.
         artifact = response.json()
-        for field in ("kind", "media_type", "size_bytes", "checksum"):
-            if artifact[field] != descriptor[field]:
-                raise ValueError("attempt upload response binding mismatch")
+        if (
+            not isinstance(artifact, dict)
+            or any(
+                artifact.get(field) != descriptor[field]
+                for field in ("kind", "media_type", "size_bytes", "checksum")
+            )
+            or not isinstance(artifact.get("artifact_id"), str)
+        ):
+            raise ValueError("attempt upload response binding mismatch")
         UUID(artifact["artifact_id"])
         return artifact

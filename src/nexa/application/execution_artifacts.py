@@ -31,11 +31,14 @@ class WorkerUploadPrincipal:
 class AttemptArtifactService(ArtifactService):
     _upload_operation = "workerUploadAttemptArtifact"
 
-    def __init__(self, base, worker, credential, authority):
+    def __init__(self, base, worker, credential, authority, kind=None):
         super().__init__(base.session_factory, base.settings, base.identity, base.store)
         self.worker = worker
         self.credential = credential
         self.authority = authority
+        # Checkpoint bytes are accepted only inside a RESERVED checkpoint window
+        # and result bytes only outside it, so one upload cannot straddle both.
+        self.kind = kind
         self._upload_provenance = {}
 
     def _upload_request_scope(self):
@@ -127,13 +130,14 @@ class AttemptArtifactService(ArtifactService):
             code="state_conflict", status=409, message="Upload replay lacks adoption lineage"
         )
 
-    @staticmethod
-    def _upload_metadata(kind, media_type):
+    def _upload_metadata(self, kind, media_type):
         allowed = {
             "RESULT_FILE": {"application/vnd.nexa.cpu-iterative-result+json", "application/json"},
             "RESULT_MANIFEST": {"application/json"},
+            "CHECKPOINT_FILE": {"application/json"},
+            "CHECKPOINT_MANIFEST": {"application/json"},
         }
-        if media_type not in allowed.get(kind, set()):
+        if kind != self.kind or media_type not in allowed.get(kind, set()):
             raise ArtifactError(
                 "validation_failed", "Artifact kind or media is unavailable for CPU execution"
             )
@@ -151,7 +155,8 @@ class AttemptArtifactService(ArtifactService):
             session, self.authority, worker_id=self.authority.worker_id
         )
         self.worker._live_authority(job, attempt, lease, allocation, clock_timestamp(session))
-        if job["tenant_id"] != tenant_id or (require_running and attempt["state"] != "RUNNING"):
+        phase = "CHECKPOINTING" if str(self.kind).startswith("CHECKPOINT_") else "RUNNING"
+        if job["tenant_id"] != tenant_id or (require_running and attempt["state"] != phase):
             raise ApplicationError(
                 code="state_conflict", status=409, message="Upload execution scope mismatch"
             )

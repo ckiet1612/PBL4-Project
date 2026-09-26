@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from nexa.api.dependencies import parse_json_request, resolve_principal, services
 from nexa.api.http import strong_etag
 from nexa.api.schemas import (
+    CheckpointPage,
     ErrorResponse,
     EventPage,
     Job,
@@ -212,3 +213,31 @@ async def list_job_events(
         after_sequence=after_sequence,
         page_size=page_size,
     )
+
+
+@router.get(
+    "/jobs/{job_id}/checkpoints",
+    operation_id="listJobCheckpoints",
+    response_model=CheckpointPage,
+    responses=_error_responses(400, 401, 403, 404, 500, 503),
+    openapi_extra={"security": _READ_SECURITY},
+)
+async def list_job_checkpoints(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+    cursor: Annotated[str | None, Query(min_length=16, max_length=2048)] = None,
+    page_size: int = Query(default=50, ge=1, le=100),
+) -> JSONResponse:
+    principal = await run_in_threadpool(resolve_principal, request, mutation=False)
+    body = await run_in_threadpool(
+        _job_service(request).list_checkpoints,
+        principal,
+        tenant_id=tenant_id,
+        job_id=job_id,
+        cursor=cursor,
+        page_size=page_size,
+    )
+    # Return the service wire body as-is: re-validating through the response model
+    # would re-render created_at with microseconds instead of the contract's milliseconds.
+    return JSONResponse(body)

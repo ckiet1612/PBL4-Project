@@ -1,0 +1,319 @@
+{
+  "task": "B14",
+  "recorded_at": "2026-09-26 round 2 (after review round 1), times +07",
+  "source": "final working tree after the round-2 fixes (B14-R01, R06, R07, R08, R09)",
+  "round2": {
+    "environment": {
+      "docker_engine": "29.8.0 linux/arm64, kernel 7.0.12-linuxkit (Docker Desktop restarted by the user)",
+      "postgres": "PostgreSQL 17.11 in nexa_b13_pg on 127.0.0.1:15439",
+      "databases": [
+        "nexa_b05_test_b14 (suites)",
+        "nexa_b05_test_b14docker (Docker scenarios)"
+      ],
+      "database_url_variable": "NEXA_TEST_DATABASE_URL only; NEXA_DATABASE_URL unset",
+      "caddy_pids": "nexa_b10_smoke3-caddy-1 between 1000 and 1307 PIDs during round 2 (not stopped or changed)"
+    },
+    "runs": [
+      {
+        "step": "lastfailed",
+        "command": "PYTHONPATH=src:. uv run --no-sync pytest -q --run-postgres --lf -p no:randomly",
+        "start": "20:07:23",
+        "end": "20:08:48",
+        "passed": 58,
+        "skipped": 1,
+        "failed": 0,
+        "errors": 0,
+        "duration_s": 81.9,
+        "skipped_note": "opt-in B14 Docker test, run separately below",
+        "pytest_cache": "kept",
+        "status": "pass"
+      },
+      {
+        "step": "cpu_image_build",
+        "start": "20:09:27",
+        "end": "20:09:29",
+        "digest": "sha256:e0e6222eb899498c447eeee9f44ac053a62af271da2d1b95316b09117a999b6f",
+        "status": "pass"
+      },
+      {
+        "step": "worker_image_build",
+        "start": "20:09:37",
+        "end": "20:09:45",
+        "image_id": "sha256:c55c25da63cd2debffebff97008522364c292d348ee4c267305f97318a308b42",
+        "status": "pass"
+      },
+      {
+        "step": "postgres_b14",
+        "files": [
+          "tests/integration/test_checkpoint_b14.py (18)",
+          "tests/integration/test_checkpoint_restore_b14.py (9)",
+          "tests/integration/test_checkpoint_corruption_b14.py (2)",
+          "tests/integration/test_retry_b14.py (12)",
+          "tests/integration/test_migrations.py B14 items (2)"
+        ],
+        "start": "20:12:55",
+        "end": "20:13:44",
+        "passed": 43,
+        "failed": 0,
+        "duration_s": 47.16,
+        "status": "pass"
+      },
+      {
+        "step": "docker_s1_s6",
+        "test": "tests/docker/test_b14_checkpoint_restore.py::test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption",
+        "start": "20:21:30",
+        "end": "20:31:07",
+        "passed": 1,
+        "duration_s": 568.5,
+        "timeline": "raw/B14-docker-timeline.json",
+        "status": "pass"
+      },
+      {
+        "step": "docker_regression",
+        "scope": "tests/docker with the B14 test deselected, new images",
+        "start": "20:32:26",
+        "end": "20:36:16",
+        "passed": 14,
+        "skipped": 1,
+        "deselected": 1,
+        "duration_s": 228.56,
+        "skipped_note": "test_b10_worker_restart.py needs NEXA_B10_RUNTIME_EVIDENCE=1 and a Linux host; this host is macOS",
+        "status": "pass"
+      },
+      {
+        "step": "ruff",
+        "commands": [
+          "uv run --no-sync ruff check .",
+          "uv run --no-sync ruff format --check ."
+        ],
+        "time": "20:37",
+        "result": "All checks passed!; 377 files already formatted",
+        "status": "pass"
+      },
+      {
+        "step": "default_suite",
+        "command": "uv run --no-sync pytest -q -p no:cacheprovider",
+        "start": "20:37:21",
+        "end": "20:37:55",
+        "passed": 900,
+        "skipped": 354,
+        "failed": 0,
+        "duration_s": 32.12,
+        "status": "pass"
+      },
+      {
+        "step": "full_postgres",
+        "command": "uv run --no-sync pytest -q --run-postgres -p no:randomly -p no:cacheprovider",
+        "start": "20:38:09",
+        "end": "20:45:49",
+        "passed": 1238,
+        "skipped": 16,
+        "failed": 0,
+        "duration_s": 457.82,
+        "skipped_breakdown": {
+          "B09 real executor/runner (opt-in Docker)": 11,
+          "B10 worker restart (opt-in Docker)": 1,
+          "B11 Docker vertical/IPC (opt-in)": 3,
+          "B14 Docker checkpoint (opt-in)": 1
+        },
+        "status": "pass"
+      },
+      {
+        "step": "uv_sync",
+        "command": "uv sync --frozen --all-groups --no-editable",
+        "time": "20:46:47",
+        "result": "Audited 41 packages",
+        "status": "pass"
+      },
+      {
+        "step": "rerun_after_doc_edits",
+        "commands": [
+          "uv run --no-sync ruff check .",
+          "uv run --no-sync ruff format --check .",
+          "uv run --no-sync pytest -q -p no:cacheprovider",
+          "git diff --check"
+        ],
+        "start": "20:54:16",
+        "end": "20:54:50",
+        "passed": 900,
+        "skipped": 354,
+        "failed": 0,
+        "duration_s": 32.51,
+        "result": "ruff clean; 377 files formatted; git diff --check no output",
+        "status": "pass"
+      }
+    ],
+    "mutation_checks": {
+      "B14-R01": "1 failed",
+      "B14-R06": "2 of 4 failed",
+      "B14-R08": "5 failed",
+      "B14-R09": "1 failed",
+      "note": "each mutation was reverted; trusted_runner.py restored byte for byte (cmp) at 20:41:41"
+    },
+    "image_source_check": "SHA-256 of the 121 .py files in both images equals src/nexa",
+    "lastfailed_items": "the 59 entries under round1.unconverged"
+  },
+  "round1": {
+    "source": "final working tree (after self-review fixes); superseded by round2",
+    "default_suite": {
+      "command": "uv run --no-sync pytest -q",
+      "passed": 885,
+      "skipped": 353,
+      "failed": 0
+    },
+    "postgres_suite": {
+      "command": "uv run --no-sync pytest -q --run-postgres (guarded NEXA_TEST_DATABASE_URL, DB nexa_b05_test_b14, PG 17.11 on 127.0.0.1:15439)",
+      "rounds": [
+        {
+          "round": 0,
+          "command": "full suite",
+          "passed": 1090,
+          "skipped": 15,
+          "failed": 50,
+          "errors": 83,
+          "duration_s": 292.36
+        },
+        {
+          "round": 1,
+          "command": "--lf -p no:randomly",
+          "passed": 74,
+          "failed": 22,
+          "errors": 37,
+          "duration_s": 107.59
+        },
+        {
+          "rounds": "2-6",
+          "command": "--lf -p no:randomly",
+          "passed": 0,
+          "errors": 59,
+          "note": "every test errors at connection setup"
+        }
+      ],
+      "totals": {
+        "passed": 1164,
+        "skipped": 15,
+        "blocked": 59,
+        "failed_on_assertion": 0
+      },
+      "failure_cause": "all failures/errors are connection setup errors (SSL negotiation / server fork failure); none is an assertion",
+      "probe": {
+        "interval_s": 60,
+        "tries": 30,
+        "first": "17:02:22+07:00",
+        "last": "17:31:45+07:00",
+        "result": "all failed"
+      },
+      "postgres_log_after_probe": {
+        "window_min": 2,
+        "could_not_fork_lines": 120
+      },
+      "blocked_by": "B14-R02: Docker VM PID exhaustion, nexa_b10_smoke3-caddy-1 at 30865 PIDs",
+      "user_step": "stop/restart nexa_b10_smoke3-caddy-1 or restart Docker Desktop, then rerun: uv run --no-sync pytest -q --run-postgres --lf -p no:randomly"
+    },
+    "unconverged_by_file": {
+      "tests/integration/test_checkpoint_b14.py": 8,
+      "tests/integration/test_coordinator_b13.py": 7,
+      "tests/integration/test_constraints_artifacts.py": 4,
+      "tests/integration/test_identity_service.py": 4,
+      "tests/integration/test_migrations.py": 4,
+      "tests/integration/test_admin_identity.py": 3,
+      "tests/integration/test_cleanup_b11.py": 3,
+      "tests/integration/test_fairness_persistence.py": 3,
+      "tests/api/test_http_contract.py": 2,
+      "tests/integration/test_admin_races.py": 2,
+      "tests/integration/test_checkpoint_restore_b14.py": 2,
+      "tests/integration/test_coordinator_b11.py": 2,
+      "tests/integration/test_retry_b14.py": 2,
+      "tests/api/test_artifacts_b07.py": 1,
+      "tests/benchmarks/test_b13_runtime_fairness.py": 1,
+      "tests/docker/test_b14_checkpoint_restore.py": 1,
+      "tests/integration/test_cli_b12_vertical.py": 1,
+      "tests/integration/test_constraints_authority_gpu.py": 1,
+      "tests/integration/test_constraints_identity_jobs.py": 1,
+      "tests/integration/test_constraints_ownership.py": 1,
+      "tests/integration/test_execution_closure_b11.py": 1,
+      "tests/integration/test_execution_review_b11.py": 1,
+      "tests/integration/test_jobs_b08.py": 1,
+      "tests/integration/test_policy_service.py": 1,
+      "tests/integration/test_transactions.py": 1,
+      "tests/integration/test_worker_api_b10.py": 1
+    },
+    "unconverged_b14": [
+      "tests/docker/test_b14_checkpoint_restore.py::test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption",
+      "tests/integration/test_checkpoint_b14.py::test_adopted_open_cycle_publishes_under_the_new_authority_only",
+      "tests/integration/test_checkpoint_b14.py::test_deterministic_manifest_defect_rejects_reservation_and_never_reuses_sequence",
+      "tests/integration/test_checkpoint_b14.py::test_each_publish_defect_is_rejected_durably[foreign-manifest-CHECKPOINT_MANIFEST_INVALID]",
+      "tests/integration/test_checkpoint_b14.py::test_every_published_checkpoint_stays_referenced_and_unreclaimable",
+      "tests/integration/test_checkpoint_b14.py::test_publish_commits_the_complete_graph_once_and_replays",
+      "tests/integration/test_checkpoint_b14.py::test_reserve_allocates_a_job_locked_sequence_and_replays_exactly",
+      "tests/integration/test_checkpoint_b14.py::test_reserve_rejects_an_expired_lease",
+      "tests/integration/test_checkpoint_b14.py::test_reserve_requires_live_exact_authority_and_a_checkpointable_template",
+      "tests/integration/test_checkpoint_restore_b14.py::test_corrupt_checkpoints_are_marked_once_and_older_is_restored",
+      "tests/integration/test_checkpoint_restore_b14.py::test_no_valid_checkpoint_falls_back_to_input_only_when_restart_safe",
+      "tests/integration/test_retry_b14.py::test_cleanup_retries_when_a_committed_checkpoint_or_restart_safe[False]",
+      "tests/integration/test_retry_b14.py::test_retry_waits_for_ready_at_and_live_leadership"
+    ],
+    "unconverged": [
+      "tests/api/test_artifacts_b07.py::test_artifact_openapi_declares_binary_upload_and_range_download",
+      "tests/api/test_http_contract.py::test_admin_tenant_and_policy_routes_enforce_etag",
+      "tests/api/test_http_contract.py::test_transaction_retry_exhaustion_maps_to_retryable_dependency_failure",
+      "tests/benchmarks/test_b13_runtime_fairness.py::test_realtime_cohort_keeps_queued_demand_and_records_three_windows",
+      "tests/docker/test_b14_checkpoint_restore.py::test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption",
+      "tests/integration/test_admin_identity.py::test_last_enabled_system_admin_is_serialized_and_credentials_are_revoked",
+      "tests/integration/test_admin_identity.py::test_tenant_membership_and_policy_are_created_without_implicit_membership",
+      "tests/integration/test_admin_identity.py::test_tenant_update_replays_before_etag_and_audit_filter_is_actor_bound",
+      "tests/integration/test_admin_races.py::test_last_admin_and_worker_same_key_races_preserve_invariants",
+      "tests/integration/test_admin_races.py::test_two_different_first_admin_requests_create_exactly_one_admin",
+      "tests/integration/test_checkpoint_b14.py::test_adopted_open_cycle_publishes_under_the_new_authority_only",
+      "tests/integration/test_checkpoint_b14.py::test_deterministic_manifest_defect_rejects_reservation_and_never_reuses_sequence",
+      "tests/integration/test_checkpoint_b14.py::test_each_publish_defect_is_rejected_durably[foreign-manifest-CHECKPOINT_MANIFEST_INVALID]",
+      "tests/integration/test_checkpoint_b14.py::test_every_published_checkpoint_stays_referenced_and_unreclaimable",
+      "tests/integration/test_checkpoint_b14.py::test_publish_commits_the_complete_graph_once_and_replays",
+      "tests/integration/test_checkpoint_b14.py::test_reserve_allocates_a_job_locked_sequence_and_replays_exactly",
+      "tests/integration/test_checkpoint_b14.py::test_reserve_rejects_an_expired_lease",
+      "tests/integration/test_checkpoint_b14.py::test_reserve_requires_live_exact_authority_and_a_checkpointable_template",
+      "tests/integration/test_checkpoint_restore_b14.py::test_corrupt_checkpoints_are_marked_once_and_older_is_restored",
+      "tests/integration/test_checkpoint_restore_b14.py::test_no_valid_checkpoint_falls_back_to_input_only_when_restart_safe",
+      "tests/integration/test_cleanup_b11.py::test_failure_then_cleanup_replays_without_double_release[0-INFRASTRUCTURE]",
+      "tests/integration/test_cleanup_b11.py::test_rejected_late_start_binds_observed_container_then_releases_exact_proof",
+      "tests/integration/test_cleanup_b11.py::test_terminal_cleanup_after_incarnation_change_uses_original_grant",
+      "tests/integration/test_cli_b12_vertical.py::test_product_cli_http_postgres_vertical_and_authorization",
+      "tests/integration/test_constraints_artifacts.py::test_checkpoint_sequence_is_unique_across_attempts",
+      "tests/integration/test_constraints_artifacts.py::test_chunk_and_log_checksums_must_match_their_artifacts",
+      "tests/integration/test_constraints_artifacts.py::test_only_committed_artifacts_can_be_referenced_by_reference_chunk_or_log",
+      "tests/integration/test_constraints_artifacts.py::test_recognized_checkpoint_and_result_reservations_cannot_be_abandoned",
+      "tests/integration/test_constraints_authority_gpu.py::test_created_attempt_grant_already_consumes_current_job_authority",
+      "tests/integration/test_constraints_identity_jobs.py::test_tenant_commit_requires_membership_set_even_when_empty",
+      "tests/integration/test_constraints_ownership.py::test_allocation_ledger_tenant_must_match_allocation_on_insert_and_update",
+      "tests/integration/test_coordinator_b11.py::test_seventeenth_high_priority_job_is_in_bounded_window",
+      "tests/integration/test_coordinator_b11.py::test_two_holders_takeover_and_stale_epoch",
+      "tests/integration/test_coordinator_b13.py::test_accounting_detects_real_db_time_regression",
+      "tests/integration/test_coordinator_b13.py::test_block_and_resume_between_ticks_resets_reservation_age[TENANT]",
+      "tests/integration/test_coordinator_b13.py::test_multiple_submitter_resume_preserves_age_order_and_cursor",
+      "tests/integration/test_coordinator_b13.py::test_new_high_priority_job_invalidates_dispatch_proposal",
+      "tests/integration/test_coordinator_b13.py::test_null_eligible_age_never_enters_oldest_or_resumed_window[False]",
+      "tests/integration/test_coordinator_b13.py::test_null_eligible_age_never_enters_oldest_or_resumed_window[True]",
+      "tests/integration/test_coordinator_b13.py::test_user_concurrency_block_does_not_rewrite_queued_jobs",
+      "tests/integration/test_execution_closure_b11.py::test_http_graph_result_recognition_cleanup_and_replay",
+      "tests/integration/test_execution_review_b11.py::test_callback_locks_policy_before_worker_foreign_key",
+      "tests/integration/test_fairness_persistence.py::test_database_rejects_adjusted_exponent_above_python_decimal_domain",
+      "tests/integration/test_fairness_persistence.py::test_decimal_scores_weights_and_virtual_floor_round_trip_exactly",
+      "tests/integration/test_fairness_persistence.py::test_tenant_policy_persists_independent_outstanding_limits",
+      "tests/integration/test_identity_service.py::test_cli_token_list_requires_the_exact_tokens_write_scope",
+      "tests/integration/test_identity_service.py::test_idle_expired_browser_principal_cannot_commit_a_later_mutation",
+      "tests/integration/test_identity_service.py::test_initialize_cannot_bind_deployment_identity_while_write_frozen",
+      "tests/integration/test_identity_service.py::test_worker_credential_expiry_is_checked_after_row_lock",
+      "tests/integration/test_jobs_b08.py::test_concurrent_same_key_commits_one_job_and_replays_one_snapshot",
+      "tests/integration/test_migrations.py::test_b05_to_b06_upgrade_preserves_existing_identity_rows",
+      "tests/integration/test_migrations.py::test_b13_quota_headroom_upgrade_restores_held_age_and_downgrade_folds_it_back",
+      "tests/integration/test_migrations.py::test_b13_upgrade_replays_legacy_null_age_without_resetting_valid_age",
+      "tests/integration/test_migrations.py::test_two_migration_runners_serialize_on_the_advisory_lock",
+      "tests/integration/test_policy_service.py::test_global_mode_transitions_are_ordered_and_fail_closed_without_proof",
+      "tests/integration/test_retry_b14.py::test_cleanup_retries_when_a_committed_checkpoint_or_restart_safe[False]",
+      "tests/integration/test_retry_b14.py::test_retry_waits_for_ready_at_and_live_leadership",
+      "tests/integration/test_transactions.py::test_lock_rows_uses_stable_id_order",
+      "tests/integration/test_worker_api_b10.py::test_invalid_runtime_or_reserve_cannot_make_worker_ready[host-reserve-missing]"
+    ],
+    "unconverged_b14_note": "12 PostgreSQL items plus the fixture of the opt-in Docker test (tests/docker), which connects before it skips"
+  }
+}

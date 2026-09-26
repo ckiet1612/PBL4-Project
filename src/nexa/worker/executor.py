@@ -26,6 +26,8 @@ from .models import (
 )
 
 _PROCESS_CLOCK_DOMAIN = f"process:{os.getpid()}:{time.monotonic_ns()}"
+CHECKPOINT_RUNNER_LABEL = "io.nexa.runner.checkpoint"
+CHECKPOINT_RUNNER_VALUE = "cpu-state-v1"
 
 
 def _now() -> str:
@@ -59,6 +61,7 @@ class DockerExecutor:
         self.monotonic = monotonic
         self.clock_domain = clock_domain or _detect_clock_domain()
         self.installation_id = installation_id
+        self._checkpoint_capability: dict[str, bool] = {}
 
     def prepare(self, request: StartExecution) -> PreparedExecution:
         attempt_id = request.context.authority.attempt_id
@@ -276,7 +279,26 @@ class DockerExecutor:
 
     def signal_checkpoint(self, identity: ContainerIdentity, reason: str, deadline: float) -> None:
         del identity, reason, deadline
-        raise ExecutorError(ExecutorErrorCode.UNSUPPORTED, "checkpoint lifecycle belongs to B14")
+        # B14 checkpoints travel as REQUEST_CHECKPOINT over the fenced runner
+        # control channel after a server reservation; Docker signals never do.
+        raise ExecutorError(
+            ExecutorErrorCode.UNSUPPORTED, "checkpoint requests use the runner control channel"
+        )
+
+    def checkpoint_supported(self, image_digest: str) -> bool:
+        """True only when the pinned image declares the B14 CPU state runner label."""
+        image = _pinned_image_ref(self.image_ref, image_digest)
+        cached = self._checkpoint_capability.get(image)
+        if cached is None:
+            try:
+                labels = self.docker.image_labels(image, timeout_seconds=5.0)
+            except RuntimeError as exc:
+                raise ExecutorError(
+                    ExecutorErrorCode.INSPECTION_UNAVAILABLE, "image inspection failed"
+                ) from exc
+            cached = labels.get(CHECKPOINT_RUNNER_LABEL) == CHECKPOINT_RUNNER_VALUE
+            self._checkpoint_capability[image] = cached
+        return cached
 
     def inspect(self, identity: ContainerIdentity) -> ContainerObservation:
         payload = self._inspect_identity(identity, 5)
@@ -543,6 +565,27 @@ class DockerExecutor:
                     "image_digest": request.context.image_digest,
                 },
             }
+            checkpoint = request.checkpoint
+            if checkpoint is not None:
+                # Version 2 is written only for a label-verified checkpoint-capable runner.
+                restore = checkpoint.restore
+                launch_spec.update(
+                    schema_version=2,
+                    checkpoint={
+                        "state_path": checkpoint.state_path,
+                        "compatibility": checkpoint.compatibility(request.context.architecture),
+                    },
+                    restore=None
+                    if restore is None
+                    else {
+                        "path": restore.path,
+                        "checkpoint_id": restore.checkpoint_id,
+                        "checkpoint_sequence": restore.checkpoint_sequence,
+                        "step": restore.step,
+                        "accumulator": restore.accumulator,
+                        "state_checksum": restore.state_checksum,
+                    },
+                )
             _write_immutable_json(control_dir / "launch-spec.json", launch_spec)
         return control_dir
 
@@ -662,7 +705,7 @@ def _detect_clock_domain() -> str:
 
 
 def _execution_binding(request: StartExecution) -> dict[str, object]:
-    return {
+    binding: dict[str, object] = {
         "context": asdict(request.context),
         "allocation": asdict(request.allocation),
         "startup_nonce": request.startup_nonce,
@@ -676,6 +719,10 @@ def _execution_binding(request: StartExecution) -> dict[str, object]:
             asdict(request.cpu_workload) if request.cpu_workload is not None else None
         ),
     }
+    if request.checkpoint is not None:
+        # Absent for non-checkpoint launches so B09-B13 journal bindings stay byte-identical.
+        binding["checkpoint"] = asdict(request.checkpoint)
+    return binding
 
 
 def _supervisor_command(request: StartExecution) -> tuple[str, ...]:
@@ -706,7 +753,18 @@ def _supervisor_command(request: StartExecution) -> tuple[str, ...]:
         str(workload.modulus),
         "--spec-checksum",
         workload.spec_checksum,
+        *_checkpoint_arguments(request),
     )
+
+
+def _checkpoint_arguments(request: StartExecution) -> tuple[str, ...]:
+    checkpoint = request.checkpoint
+    if checkpoint is None:
+        return ()
+    arguments = ("--state-output", checkpoint.state_path)
+    if checkpoint.restore is not None:
+        arguments += ("--resume-state", checkpoint.restore.path)
+    return arguments
 
 
 def _identity_labels(request: StartExecution) -> dict[str, str]:

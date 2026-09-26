@@ -1,0 +1,102 @@
+{
+  "task": "B14",
+  "recorded_at": "2026-09-26 round 2 (after review round 1)",
+  "docker_context": "desktop-linux",
+  "docker_engine": "29.8.0 linux/arm64 (Docker Desktop, kernel 7.0.12-linuxkit, 8 CPU, 4106604544 B RAM)",
+  "cpu_image": {
+    "status": "built from the final source",
+    "tag": "nexa/cpu-iterative:b14",
+    "image_id": "sha256:e0e6222eb899498c447eeee9f44ac053a62af271da2d1b95316b09117a999b6f",
+    "repo_digest": "nexa/cpu-iterative@sha256:e0e6222eb899498c447eeee9f44ac053a62af271da2d1b95316b09117a999b6f",
+    "os": "linux",
+    "architecture": "arm64",
+    "user": "1000:1000",
+    "entrypoint": [
+      "python",
+      "-m",
+      "nexa.workloads.trusted_runner"
+    ],
+    "image_size_bytes": 207207858,
+    "image_size_note": "docker image inspect .Size on engine 29.8.0; round 1 reported 44398487 on engine 29.5.3, the two values are not comparable",
+    "created": "2026-09-26T13:09:28.875699711Z",
+    "built_local": "2026-09-26 20:09:27-20:09:29 +07",
+    "base_image": "python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9",
+    "labels": {
+      "io.nexa.adapter.id": "cpu.iterative",
+      "io.nexa.adapter.version": "1.0.0",
+      "io.nexa.framework": "NEXA_CPU",
+      "io.nexa.framework.version": "1.0.0",
+      "io.nexa.runner": "trusted-runner-v1",
+      "io.nexa.runner.checkpoint": "cpu-state-v1",
+      "org.opencontainers.image.architecture": "linux/arm64"
+    },
+    "build_command": "BASE_IMAGE_REF=python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 IMAGE_REF=nexa/cpu-iterative:b14 IMAGE_ARCH=linux/arm64 scripts/b09_build_image.sh",
+    "build_warning": "InvalidDefaultArgInFrom (BASE_IMAGE_REF has no default; the script always passes it)",
+    "source_check": "SHA-256 of the 121 .py files under /opt/nexa/nexa equals src/nexa in the working tree (checked 20:42 +07 and again at the end of round 2)",
+    "used_by": [
+      "tests/docker/test_b14_checkpoint_restore.py S1-S6 (pass)",
+      "B09/B10/B11 Docker regression (pass)"
+    ],
+    "pushed": false
+  },
+  "worker_image": {
+    "status": "built from the final source",
+    "tag": "nexa/b14-worker:local",
+    "image_id": "sha256:c55c25da63cd2debffebff97008522364c292d348ee4c267305f97318a308b42",
+    "repo_digest": "nexa/b14-worker@sha256:c55c25da63cd2debffebff97008522364c292d348ee4c267305f97318a308b42",
+    "os": "linux",
+    "architecture": "arm64",
+    "cmd": [
+      "nexa-worker"
+    ],
+    "working_dir": "/opt/nexa",
+    "python_version": "3.12.14",
+    "image_size_bytes": 427690280,
+    "created": "2026-09-26T13:09:42.287064092Z",
+    "built_local": "2026-09-26 20:09:37-20:09:45 +07",
+    "build_command": "docker build --pull=false -f deploy/b10/Dockerfile -t nexa/b14-worker:local .",
+    "source_check": "SHA-256 of the 121 .py files under /opt/nexa/.venv/lib/python3.12/site-packages/nexa equals src/nexa in the working tree",
+    "pushed": false
+  },
+  "previous_cpu_image": {
+    "tag": "nexa/cpu-iterative:local",
+    "repo_digest": "nexa/cpu-iterative@sha256:341d943487940cb67f9e5ef61c2334593d8eab99619fc0f977e4f28a6d0e8e9a",
+    "checkpoint_label": null
+  },
+  "round1_history": {
+    "stale_cpu_image": {
+      "status": "stale (round 1); replaced by cpu_image in round 2, not used as evidence",
+      "tag": "nexa/cpu-iterative:b14",
+      "image_id": "sha256:e1ae46e237f1ff2c8d4db1d8f2e92f40bffa3c062c14ff2b78c611b4b9d94c3d",
+      "repo_digest": "nexa/cpu-iterative@sha256:e1ae46e237f1ff2c8d4db1d8f2e92f40bffa3c062c14ff2b78c611b4b9d94c3d",
+      "os": "linux",
+      "architecture": "arm64",
+      "user": "1000:1000",
+      "entrypoint": [
+        "python",
+        "-m",
+        "nexa.workloads.trusted_runner"
+      ],
+      "image_size_bytes": 44398487,
+      "created": "2026-09-26T08:43:48.793725844Z",
+      "base_image": "python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9",
+      "checkpoint_label": {
+        "io.nexa.runner.checkpoint": "cpu-state-v1"
+      },
+      "build_command": "BASE_IMAGE_REF=python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 IMAGE_REF=nexa/cpu-iterative:b14 IMAGE_ARCH=linux/arm64 scripts/b09_build_image.sh",
+      "source_note": "COPY src/nexa layer taken from the working tree at build time. After the build, self-review changed src/nexa/workloads/cpu_state.py (O_NONBLOCK state-file open, imported by the runner) and worker-only modules; this digest therefore predates the final runner source and is not acceptance evidence. A rebuild (blocked, same cause as worker_image) yields a new digest that must replace this one.",
+      "pushed": false
+    },
+    "worker_image": {
+      "status": "blocked (round 1); resolved in round 2 after the Docker Desktop restart",
+      "tag": "nexa/b14-worker:local",
+      "build_command": "docker build --pull=false -f deploy/b10/Dockerfile -t nexa/b14-worker:local .",
+      "attempts": 3,
+      "error": "fork/exec /usr/bin/runc: resource temporarily unavailable",
+      "cause": "Docker VM PID exhaustion: container nexa_b10_smoke3-caddy-1 holds 30865 PIDs (docker stats); not stopped because nexa_b10_* containers are outside this task's authority",
+      "user_step": "stop/restart nexa_b10_smoke3-caddy-1 or restart Docker Desktop, then rebuild both images and run tests/docker",
+      "pushed": false,
+      "recheck": "2026-09-26 after self-review fixes: nexa_b10_smoke3-caddy-1 still 30865 PIDs"
+    }
+  }
+}

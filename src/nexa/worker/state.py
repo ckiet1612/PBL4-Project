@@ -239,6 +239,28 @@ class PendingOperationStore:
             del operations[callback_id]
             self._commit(operations)
 
+    def discard_failed_renewal(
+        self,
+        callback_id: str,
+        *,
+        attempt_id: str,
+        failure_acknowledged: bool,
+        cleanup_verified: bool,
+    ) -> None:
+        """Discard a renewal only after its attempt's failure ACK and exact cleanup."""
+        if not failure_acknowledged or not cleanup_verified:
+            raise ValueError("failure acknowledgment and verified cleanup are required")
+        with self._lock:
+            current = self._operations[callback_id]
+            if (
+                current["operation"] != "renew"
+                or current["payload"].get("attempt_id") != attempt_id
+            ):
+                raise ValueError("failed renewal identity mismatch")
+            operations = dict(self._operations)
+            del operations[callback_id]
+            self._commit(operations)
+
     def discard_superseded_authority(
         self, callback_id: str, *, current_worker_incarnation_id: str
     ) -> None:

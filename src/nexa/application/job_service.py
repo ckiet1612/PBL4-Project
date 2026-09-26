@@ -29,6 +29,8 @@ from nexa.infrastructure.persistence.schema import (
     artifact_references,
     artifacts,
     audit_records,
+    checkpoint_corruptions,
+    checkpoints,
     events,
     gpu_devices,
     job_specs,
@@ -1293,6 +1295,112 @@ class JobService:
             )
 
         return run_transaction(self.session_factory, operation)
+
+    def list_checkpoints(
+        self,
+        principal: Principal,
+        *,
+        tenant_id: UUID,
+        job_id: UUID,
+        cursor: str | None,
+        page_size: int,
+    ) -> dict[str, Any]:
+        if not 1 <= page_size <= 100:
+            raise ApplicationError(
+                code="validation_failed", status=422, message="Page size must be between 1 and 100"
+            )
+
+        def operation(session: Session) -> dict[str, Any]:
+            live = self._authorize(session, principal, tenant_id, write=False)
+            now = transaction_timestamp(session)
+            exists = session.execute(
+                select(jobs.c.job_id).where(jobs.c.tenant_id == tenant_id, jobs.c.job_id == job_id)
+            ).scalar_one_or_none()
+            if exists is None:
+                raise ApplicationError(
+                    code="resource_not_found", status=404, message="Job was not found"
+                )
+            binding = {
+                "actor_id": str(live.user_id),
+                "tenant_id": str(tenant_id),
+                "operation_id": "listJobCheckpoints",
+                "job_id": str(job_id),
+            }
+            # Only published rows exist in checkpoints; reservations, staging and
+            # orphan uploads live elsewhere and are never joined here.
+            statement = (
+                select(
+                    checkpoints.c.checkpoint_id,
+                    checkpoints.c.job_id,
+                    checkpoints.c.attempt_id,
+                    checkpoints.c.sequence,
+                    checkpoints.c.manifest_artifact_id,
+                    checkpoints.c.manifest_checksum,
+                    checkpoints.c.created_at,
+                    checkpoint_corruptions.c.checkpoint_id.is_not(None).label("corrupt"),
+                )
+                .outerjoin(
+                    checkpoint_corruptions,
+                    and_(
+                        checkpoint_corruptions.c.tenant_id == checkpoints.c.tenant_id,
+                        checkpoint_corruptions.c.checkpoint_id == checkpoints.c.checkpoint_id,
+                    ),
+                )
+                .where(checkpoints.c.tenant_id == tenant_id, checkpoints.c.job_id == job_id)
+            )
+            if cursor:
+                before = self._decode_sequence_cursor(cursor, binding=binding, now=now)
+                statement = statement.where(checkpoints.c.sequence < before)
+            rows = (
+                session.execute(
+                    statement.order_by(checkpoints.c.sequence.desc()).limit(page_size + 1)
+                )
+                .mappings()
+                .all()
+            )
+            visible = rows[:page_size]
+            next_cursor = None
+            if len(rows) > page_size and visible:
+                next_cursor = self._cursor(now).encode(
+                    binding=binding, position={"sequence": str(visible[-1]["sequence"])}
+                )
+            return json_wire_value(
+                {
+                    "items": [
+                        {
+                            "checkpoint_id": row["checkpoint_id"],
+                            "job_id": row["job_id"],
+                            "attempt_id": row["attempt_id"],
+                            "sequence": row["sequence"],
+                            "manifest_artifact_id": row["manifest_artifact_id"],
+                            "manifest_checksum": row["manifest_checksum"],
+                            "state": "CORRUPT" if row["corrupt"] else "COMMITTED",
+                            "created_at": row["created_at"],
+                        }
+                        for row in visible
+                    ],
+                    "page": {"next_cursor": next_cursor, "page_size": page_size},
+                }
+            )
+
+        return run_transaction(self.session_factory, operation)
+
+    def _decode_sequence_cursor(
+        self, cursor: str, *, binding: dict[str, str], now: datetime
+    ) -> int:
+        try:
+            position = self._cursor(now).decode(cursor, expected_binding=binding)
+            text = position["sequence"]
+            if set(position) != {"sequence"} or not text.isascii() or not text.isdigit():
+                raise ValueError("cursor position is invalid")
+            sequence = int(text)
+            if sequence < 2:
+                raise ValueError("cursor position is invalid")
+            return sequence
+        except (CursorError, KeyError, ValueError, TypeError):
+            raise ApplicationError(
+                code="invalid_cursor", status=400, message="The pagination cursor is invalid"
+            ) from None
 
 
 __all__ = ["JobOperationResult", "JobService"]

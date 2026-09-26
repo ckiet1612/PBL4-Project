@@ -9,13 +9,13 @@ def checksum(value):
     return "sha256:" + hashlib.sha256(rfc8785.dumps(value)).hexdigest()
 
 
-def descriptor_key(attempt_id, callback_id, sequence, descriptor):
+def descriptor_key(attempt_id, callback_id, sequence, descriptor, *, purpose="RESULT"):
     return hashlib.sha256(
         rfc8785.dumps(
             {
                 "version": 1,
                 "attempt_id": attempt_id,
-                "purpose": "RESULT",
+                "purpose": purpose,
                 "reservation_callback_id": callback_id,
                 "source_message_sequence": sequence,
                 "staging_name": descriptor["staging_name"],
@@ -81,7 +81,10 @@ class ResultFlow:
                     attempt_id,
                     lambda local: {
                         **local,
-                        "active_reservations": {"checkpoint": None, "result": reservation},
+                        "active_reservations": {
+                            **(local.get("active_reservations") or {"checkpoint": None}),
+                            "result": reservation,
+                        },
                     },
                 )
             self.control(
@@ -136,6 +139,12 @@ class ResultFlow:
             return
         if envelope["type"] != "RESULT_READY":
             raise ValueError("unsupported result frame")
+        sent = state.get("completion_request")
+        if sent is not None:
+            # A sent completion replays its exact request; the stopped container's
+            # output need not be readable again.
+            self._complete(attempt_id, authority, state["completion_callback_id"], sent)
+            return
         binding, raw = self._upload(attempt_id, sequence, payload["manifest"])
         manifest = json.loads(raw)
         if (
@@ -150,18 +159,18 @@ class ResultFlow:
         state = self._load(attempt_id)
         if state.get("completed"):
             return
+        request = {"result_manifest_artifact_id": binding["artifact_id"], "manifest": manifest}
         callback = state.get("completion_callback_id")
         if callback is None:
             callback = str(new_uuid7())
-            self._save(attempt_id, completion_callback_id=callback)
+        self._save(attempt_id, completion_callback_id=callback, completion_request=request)
+        self._complete(attempt_id, authority, callback, request)
+
+    def _complete(self, attempt_id, authority, callback, request):
+        from dataclasses import asdict
+
         ack = self.client.complete(
-            attempt_id,
-            callback,
-            {
-                "authority": asdict(authority),
-                "result_manifest_artifact_id": binding["artifact_id"],
-                "manifest": manifest,
-            },
+            attempt_id, callback, {"authority": asdict(authority), **request}
         )
         if ack.get("accepted") is not True:
             raise ValueError("completion was not accepted")

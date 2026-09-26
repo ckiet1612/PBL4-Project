@@ -69,6 +69,12 @@ EXPECTED_B11_OPERATIONS = {
     "workerCompleteAttempt",
 }
 
+EXPECTED_B14_OPERATIONS = {
+    "listJobCheckpoints",
+    "workerReserveCheckpoint",
+    "workerPublishCheckpoint",
+}
+
 _DUMMY_ID = "018f05c4-a922-7d0d-9f55-f9084a72d0f9"
 ADMIN_OPERATION_CASES = (
     ("GET", "/v1/admin/tenants", None, 200, 403),
@@ -139,6 +145,7 @@ def test_b06_through_b11_operation_ids_are_registered(migrated_postgres_engine, 
         | EXPECTED_B08_OPERATIONS
         | EXPECTED_B10_OPERATIONS
         | EXPECTED_B11_OPERATIONS
+        | EXPECTED_B14_OPERATIONS
     )
 
 

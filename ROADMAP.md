@@ -25,10 +25,11 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - **B11 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 24/09/2026.** Đã nối hàng chờ với coordinator, cấp tài nguyên, giao việc cho worker, chạy workload CPU, nhận kết quả có kiểm tra quyền và trả tài nguyên sau cleanup đúng định danh. Luồng upload → submit → dispatch → runner → tải kết quả cho hai tenant, mất response sau commit và restart trước cleanup đã được kiểm thử trên Docker Desktop Linux VM. Checkpoint/recovery đầy đủ, triển khai bare Linux, hai máy khác nhau, GPU và release vẫn thuộc các chặng sau.
 - **B12 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 25/09/2026.** Đã có CLI `nexa` để cấu hình kết nối, quản lý token, tải tệp lên, gửi việc, xem công việc/phiên xử lý/sự kiện, tải kết quả và quản trị danh tính/giới hạn/lịch sử thao tác qua API chung. Đã kiểm thử quyền của hai nhóm người dùng, gửi lại yêu cầu khi mất phản hồi và luồng CLI → chạy CPU → tải kết quả trên Docker Desktop Linux VM. Chỉ đăng ký các lệnh có backend tương ứng; phần còn thiếu được ghi tại [CLI guide](docs/cli.md) và [B12 evidence](docs/evidence/B12-cli.md). Phê duyệt này không thay nghiệm thu đầy đủ của sản phẩm; job controls thuộc B15, các chức năng và gate còn lại tiếp tục theo PLAN.
 - **B13 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 26/09/2026.** Cách chia tài nguyên công bằng đã chạy trong coordinator thật: mỗi nhóm không vượt giới hạn được phép, việc chờ lâu được tăng ưu tiên, việc lớn được giữ chỗ, và sổ ghi tài nguyên đang giữ được cập nhật tối đa mỗi 250 ms qua một luồng riêng, khởi động lại không làm mất hay tính trùng. Lỗi của Task Review vòng 1 (B13-R13: ở giới hạn mặc định, mỗi lần cấp/trả tài nguyên làm hệ thống xét lại cả hàng chờ nên giao việc rất chậm) đã được sửa và đóng ở vòng 2 sau khi Task Review chạy lại độc lập. Kiểm thử trên PostgreSQL 17 (Docker Desktop Linux VM): 100.000 công việc nộp qua API trong một lần chạy, hàng chờ 100.000 việc chỉ đọc qua index, khoảng cách ghi sổ tối đa 498,1 ms trong hai lần chạy 720 giây, chỉ số công bằng Jain tối thiểu 0,9994 qua ba lần chạy ở giới hạn mặc định, việc lớn được giữ chỗ sau 121 giây và lỗi DB tiêm vào có rollback/catch-up. **Còn mở B13-R12** (lỗi gốc từ B05: lệnh thống kê và khôi phục bảng sổ công bằng của PostgreSQL bị lỗi vì các hàm Decimal gọi nhau không ghi rõ schema); không ảnh hưởng gate của B13, đang chờ user quyết định cách xử lý và liên quan trực tiếp đến sao lưu/khôi phục ở B21. Phê duyệt này không thay nghiệm thu tải B22, bare Linux, GPU hay release. Xem [B13 evidence](docs/evidence/B13-production-fairness.md).
+- **B14 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 26/09/2026.** Công việc CPU giờ tự lưu tiến độ định kỳ. Khi container bị tắt đột ngột, hệ thống chờ một khoảng ngắn, xếp việc vào hàng chờ lại và chạy tiếp từ lần lưu hợp lệ mới nhất. Mọi lần lưu đều được kiểm tra quyền, nguồn gốc và tính tương thích. Lần lưu bị hỏng được đánh dấu để không bao giờ dùng lại, và hệ thống chuyển sang lần lưu cũ hơn. Khi không còn lần lưu hợp lệ, việc được phép chạy lại từ đầu thì chạy lại và có ghi sự kiện; việc không được phép thì dừng hẳn và báo lý do. Người dùng xem danh sách lần lưu qua API và lệnh `nexa job checkpoints`. Có sáu tình huống kiểm thử với container thật trên Docker Desktop Linux VM: tắt container ở nhiều thời điểm, làm hỏng lần lưu mới nhất, làm hỏng tất cả lần lưu và tắt worker khi đang lưu dở. Mọi kết quả đều giống từng byte với lần chạy không bị ngắt. Task Review vòng 1 không duyệt vì còn năm lỗi chặn. Vòng 2 đã sửa hết, và Task Review chạy lại độc lập kiểm thử PostgreSQL lẫn Docker trước khi duyệt. Còn một số lỗi nhỏ không chặn (B14-R03/R04/R05/R10/R11 và hai ghi chú), liệt kê trong [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md) và mục Bàn giao B14 bên dưới. Phê duyệt này không thay phần phục hồi đầy đủ của B15, các workload AI của B16, việc dọn dữ liệu cũ của B19, tải B22, bare Linux, GPU hay release.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12 và ngày 26/09/2026 đã duyệt B13. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B13 ở đây đã được cập nhật theo xác nhận mới nhất của user.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12 và ngày 26/09/2026 đã duyệt B13 và B14. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B14 ở đây đã được cập nhật theo xác nhận mới nhất của user.
 
-Chặng tiếp theo là **B14 — CPU checkpoint/restore**, đã đủ điều kiện từ B11. B15 cần B12, B13 và B14 đều hoàn thành; B12 và B13 đã xong nên B15 chỉ còn chờ B14.
+Chặng tiếp theo là **B15 — Cancel, pause/resume, retry, recovery**. B15 đã đủ điều kiện vì B12, B13 và B14 đều hoàn thành.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -94,7 +95,7 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B11 | Coordinator, allocation, dispatch, fenced result | Đã hoàn thành và được duyệt: nối hàng chờ với bộ phận điều phối, cấp tài nguyên, giao việc cho worker, nhận kết quả CPU có kiểm tra quyền và trả tài nguyên sau cleanup đúng định danh. Đã kiểm thử trên Docker Desktop Linux VM. | B04, B08, B10 |
 | B12 | CLI | Đã hoàn thành và được duyệt trong phạm vi lệnh có backend: tải tệp lên, gửi việc, xem tình trạng/sự kiện, lấy kết quả và quản trị danh tính/giới hạn. Đã kiểm thử luồng CPU qua CLI trên Docker Desktop Linux VM; các lệnh hủy/tạm dừng/chạy tiếp/thử lại được bổ sung ở B15. | B11 |
 | B13 | Fairness production, quota, ledger | Đã hoàn thành và được duyệt: cách chia công bằng chạy trong hệ thống thật, giữ đúng giới hạn mỗi nhóm và ghi lại tài nguyên đã cấp cùng thời gian giữ; khởi động lại không làm mất sổ ghi này. Đã kiểm thử với hàng chờ 100.000 việc trên Docker Desktop Linux VM. Lỗi B13-R12 có gốc từ B05 còn mở, chờ user quyết định. | B11 |
-| B14 | CPU checkpoint/restore | Cho công việc lưu tiến độ giữa chừng, chạy tiếp từ lần lưu hợp lệ gần nhất và kiểm tra kết quả giống khi chạy không bị ngắt. | B11 |
+| B14 | CPU checkpoint/restore | Đã hoàn thành và được duyệt: công việc CPU lưu tiến độ giữa chừng, chạy tiếp từ lần lưu hợp lệ gần nhất, bỏ qua lần lưu hỏng và cho kết quả giống từng byte với khi chạy không bị ngắt. Đã kiểm thử sáu tình huống container thật trên Docker Desktop Linux VM. Hủy/tạm dừng và phục hồi đầy đủ thuộc B15; workload AI thuộc B16. | B11 |
 | B15 | Cancel, pause/resume, retry, recovery | Hoàn thiện hủy, tạm dừng, chạy tiếp và thử lại. Khi gặp lỗi, khôi phục từ điểm lưu; chỉ cấp lại tài nguyên khi lần chạy cũ đã thực sự dừng. | B12, B13, B14 |
 | B16 | PyTorch, sweep, chunk inference | Thêm các mẫu việc AI được cho phép: dạy một mô hình nhỏ, thử nhiều bộ cài đặt và dùng mô hình xử lý dữ liệu từng phần. Kiểm tra chúng lưu tiến độ và chạy tiếp đúng. | B15 |
 | B17 | Web UI cho user | Tạo trang web để người dùng đăng nhập, gửi việc, xem tiến độ, hủy hoặc tạm dừng/chạy tiếp và tải kết quả. | B12, B16 |
@@ -242,3 +243,34 @@ Finding B13-R13 của Task Review vòng 1 đã được sửa và đóng ở vò
 Kiểm chứng runtime giới hạn ở Docker Desktop Linux VM; không suy ra đạt tải B22,
 Linux độc lập, GPU hay release acceptance. B14 là chặng tiếp theo; B15 bắt đầu khi
 B14 được duyệt.
+
+## Bàn giao B14
+
+B14 đã được Task Review duyệt theo xác nhận của user ngày 26/09/2026.
+[Evidence B14](docs/evidence/B14-cpu-checkpoint-restore.md) ghi lại:
+
+- Image CPU mới `nexa/cpu-iterative@sha256:e0e6222eb899498c447eeee9f44ac053a62af271da2d1b95316b09117a999b6f`
+  và image worker mới. Cả hai build local, không đẩy lên registry.
+- Migration `20260926_0018` thêm bảng ghi lần lưu bị hỏng. Bảng chỉ cho thêm dòng,
+  không cho sửa hay xóa.
+- Sáu tình huống Docker S1–S6, kết quả giống từng byte với lần chạy không bị ngắt.
+- Kiểm thử PostgreSQL và Docker, được Task Review chạy lại độc lập.
+
+Muốn dùng checkpoint, admin phải đăng ký một template version có `checkpointable = true`
+và digest image B14. Template có sẵn chưa bật checkpoint.
+
+Các lỗi không chặn còn mở:
+
+- B14-R03: thời gian trong `listJobEvents` có 6 chữ số thập phân, contract yêu cầu 3. Lỗi này thuộc B08.
+- B14-R04: cần làm rõ contract khi mọi lần lưu đều không tương thích với worker nhận việc.
+- B14-R05: sau khi worker crash, file input tải dở vẫn bị coi là hợp lệ. Lỗi này thuộc B11/B15.
+- B14-R10: khi lưu tiến độ trùng lúc runner đang dừng, lỗi bị gắn sai nhãn.
+- B14-R11: một câu trong [worker agent](docs/worker-agent.md) chưa đúng với việc không được chạy lại từ đầu.
+- Hai ghi chú của Task Review:
+  - một biến thể nhỏ còn lại của R08, tự hết khi gửi lại yêu cầu;
+  - lần lưu bị đánh dấu hỏng khi không tìm thấy blob, kể cả trường hợp ổ lưu trữ được gắn muộn.
+- B13-R12 vẫn mở.
+
+Kiểm chứng runtime giới hạn ở Docker Desktop Linux VM. Chưa có evidence cho phần
+phục hồi đầy đủ ACC-22 (B15), PyTorch/sweep/inference (B16), dọn dữ liệu cũ (B19),
+tải lớn (B22), Linux độc lập, GPU hay release. B15 là chặng tiếp theo.

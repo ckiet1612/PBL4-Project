@@ -17,6 +17,8 @@ from typing import Protocol
 MAX_COMMAND_OUTPUT_BYTES = 1024 * 1024
 _CONTAINER_ID_LENGTH = 64
 _CONTROL_SOCKET_PATH = "/run/nexa/control.sock"
+# Runner-closed checkpoint copies; the live workload snapshot is never read.
+_CHECKPOINT_OUTPUT = re.compile(r"^checkpoint-[1-9][0-9]{0,15}-(?:state|manifest)\.json$")
 
 
 class DockerContainerNotFound(RuntimeError):
@@ -236,6 +238,23 @@ class DockerCli:
             raise RuntimeError("Docker inspect identity mismatch")
         return DockerInspection(container_id, payload)
 
+    def image_labels(self, image_ref: str, *, timeout_seconds: float) -> dict[str, str]:
+        if "@sha256:" not in image_ref or image_ref.startswith("-"):
+            raise ValueError("image label inspection requires a digest-pinned reference")
+        code, stdout, _ = self.backend.run(
+            ("docker", "image", "inspect", image_ref), timeout_seconds
+        )
+        if code != 0:
+            raise RuntimeError(f"Docker image inspect failed with code {code}")
+        try:
+            entries = json.loads(stdout.decode("utf-8", "strict"))
+            labels = entries[0]["Config"]["Labels"] or {}
+        except (UnicodeDecodeError, json.JSONDecodeError, IndexError, TypeError, KeyError) as exc:
+            raise RuntimeError("Docker image inspect returned invalid JSON") from exc
+        if not isinstance(labels, dict):
+            raise RuntimeError("Docker image labels are invalid")
+        return {str(key): str(value) for key, value in labels.items()}
+
     def find_by_labels(self, labels: dict[str, str], *, timeout_seconds: float) -> tuple[str, ...]:
         argv = ["docker", "ps", "--all", "--no-trunc", "--quiet"]
         for key, value in sorted(labels.items()):
@@ -263,7 +282,9 @@ class DockerCli:
 
         _validate_container_id(container_id)
         name = descriptor["staging_name"]
-        if name not in {"result.json", "result-manifest.json"}:
+        if name not in {"result.json", "result-manifest.json"} and not _CHECKPOINT_OUTPUT.fullmatch(
+            name
+        ):
             raise ValueError("unsupported CPU output staging name")
         size = descriptor["size_bytes"]
         if not isinstance(size, int) or isinstance(size, bool) or not 0 <= size <= 512 * 1024:

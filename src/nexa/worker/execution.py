@@ -1,12 +1,21 @@
 """CPU dispatch and result orchestration layered over B09/B10 lifecycle primitives."""
 
+import hashlib
 from contextlib import nullcontext, suppress
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from nexa.infrastructure.persistence.ids import new_uuid7
 
+from .checkpoint_flow import CheckpointFlow, CheckpointProtocolError
 from .client import WorkerApiError
-from .dispatch import execution_request
+from .dispatch import (
+    RestoreUnavailable,
+    checkpoint_launch,
+    execution_request,
+    verify_restore_manifest,
+    verify_restore_state,
+)
+from .docker_client import DockerContainerNotFound
 from .errors import ExecutorError, ExecutorErrorCode
 from .models import Authority
 from .protocol import (
@@ -19,9 +28,43 @@ from .protocol import (
 from .result_flow import ResultFlow
 from .runner_control import RunnerControl, RunnerControlError
 
+_CHECKPOINT_FRAMES = {"CHECKPOINT_FILES_READY", "CHECKPOINT_READY"}
+# Runner FAILED reasons forwarded verbatim; any other runner text stays internal.
+_FORWARDED_FAILURES = {("INCOMPATIBLE", "CHECKPOINT_RESTORE_UNAVAILABLE")}
+
+
+def _matches_descriptor(path, descriptor):
+    if path.stat().st_size != descriptor["size_bytes"]:
+        return False
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() == descriptor["checksum"]
+
+
+def container_exit_failure(exited):
+    """Classify a workload container that stopped without a runner terminal frame."""
+    if exited["oom_killed"]:
+        return "OOM", "CONTAINER_OOM"
+    if exited["exit_code"] == 0:
+        # The runner exits 0 only after a terminal frame this worker never saw.
+        return "INTERNAL", "RUNNER_PROTOCOL_ERROR"
+    return "INFRASTRUCTURE", "RUNNER_UNAVAILABLE"
+
+
+class RunnerControlRejected(RunnerControlError):
+    """The runner answered a control frame with a definite rejection."""
+
+    def __init__(self, code):
+        super().__init__(f"runner rejected control: {code}")
+        self.code = code
+
+
+class AuthorityControlPending(RunnerControlError):
+    """A deadline operation owns the next control sequence; retry later."""
+
 
 class WorkerExecutionMixin:
-    def _pending_callback(self, operation, attempt_id, body):
+    def _pending_callback(self, operation, attempt_id, body, **details):
+        # ``details`` are local facts journaled with the first send; a replay
+        # keeps the original values.
         for callback, record in self.state.operations.items():
             if (
                 record["operation"] == operation
@@ -32,7 +75,9 @@ class WorkerExecutionMixin:
                 return callback, record
         callback = str(new_uuid7())
         record = self.state.begin(
-            callback, operation=operation, payload={"attempt_id": attempt_id, "body": body}
+            callback,
+            operation=operation,
+            payload={"attempt_id": attempt_id, "body": body, **details},
         )
         return callback, record
 
@@ -49,7 +94,10 @@ class WorkerExecutionMixin:
         if self.executor is None:
             raise RuntimeError("dispatch requires configured executor")
         callback, pending = self._pending_callback(
-            "claim", attempt_id, {"authority": asdict(authority)}
+            "claim",
+            attempt_id,
+            {"authority": asdict(authority)},
+            offered_checkpoint=isinstance(offer.get("checkpoint"), dict),
         )
         first_claim_send = self.state.first_send(callback)
         claim = pending["acknowledgment"]
@@ -66,13 +114,46 @@ class WorkerExecutionMixin:
         if directory.is_symlink() or directory.parent.is_symlink():
             raise ValueError("input staging directory is a symlink")
         source = directory / "input.json"
-        request = execution_request(context, source, self.provider.discover().architecture)
+        architecture = self.provider.discover().architecture
+        # Nothing is journaled before prepare, so a pre-launch failure can
+        # tombstone against the launch-free request.
+        request = execution_request({**context, "restore_checkpoint": None}, source, architecture)
         artifact = context["input_artifacts"][0]
         start_callback = None
         identity = None
         try:
             if self.monotonic_ns() >= first_claim_send + 30_000_000_000:
                 raise TimeoutError("claim startup budget elapsed")
+            try:
+                if (
+                    context["restore_checkpoint"] is None
+                    and pending["payload"].get("offered_checkpoint") is True
+                    and context["template_snapshot"].get("restart_safe") is not True
+                ):
+                    # The Job has checkpoint state but the claim found none
+                    # restorable; input replay is not allowed for this template.
+                    raise RestoreUnavailable("claim froze no restore for a checkpointed Job")
+                launch, restore_file = self._checkpoint_launch(
+                    authority, context, directory, architecture
+                )
+            except RestoreUnavailable:
+                # Never fall back to a from-zero run: the claim froze a restore.
+                if self._execution_failed(
+                    attempt_id,
+                    request=request,
+                    failure_class="INCOMPATIBLE",
+                    reason_code="CHECKPOINT_RESTORE_UNAVAILABLE",
+                ):
+                    self._retire_fenced_startup(attempt_id)
+                return
+            request = execution_request(
+                context,
+                source,
+                architecture,
+                checkpoint=launch,
+                restore_file=restore_file,
+                restore_source=directory / "restore-state.json",
+            )
             if not source.exists():
                 self.client.download_execution(authority, artifact, source)
             # Executor performs descriptor verification on every prepare/start replay.
@@ -160,6 +241,28 @@ class WorkerExecutionMixin:
             )
             raise
 
+    def _checkpoint_launch(self, authority, context, directory, architecture):
+        """Return (launch, restore file view); both are checked before any Docker work."""
+        image_capable = context["template_snapshot"].get(
+            "checkpointable"
+        ) is True and self.executor.checkpoint_supported(context["image_digest"])
+        launch = checkpoint_launch(context, image_capable=image_capable)
+        if context["restore_checkpoint"] is None:
+            return launch, None
+        restore_file, cursor = verify_restore_manifest(context, architecture, launch)
+        target = directory / "restore-state.json"
+        try:
+            if target.exists() and not _matches_descriptor(target, restore_file):
+                # A worker killed mid-download leaves a partial private file.
+                target.unlink()
+            if not target.exists():
+                self.client.download_execution(authority, restore_file, target)
+            raw = target.read_bytes()
+        except ValueError as exc:
+            raise RestoreUnavailable("restore state bytes are unavailable") from exc
+        verify_restore_state(raw, context=context, cursor=cursor)
+        return replace(launch, restore=cursor), restore_file
+
     def _retire_fenced_startup(self, attempt_id):
         # Called only after the server has revoked the attempt and accepted
         # exact stopped-container cleanup. A denied start has no 200 response
@@ -195,7 +298,7 @@ class WorkerExecutionMixin:
                 )
             )
         if not ack["accepted"]:
-            raise RunnerControlError("runner result control was not accepted")
+            raise RunnerControlRejected(ack.get("code"))
 
     def _flush_result_controls(self, attempt_id):
         """Called under the attempt lock before renewal can allocate a sequence."""
@@ -225,7 +328,7 @@ class WorkerExecutionMixin:
                 and record["payload"].get("attempt_id") == attempt_id
                 for record in self.state.operations.values()
             ):
-                raise RunnerControlError("authority control is pending")
+                raise AuthorityControlPending("authority control is pending")
             self._flush_result_controls(attempt_id)
             record = self.journal.load(attempt_id)
             state = record.runner_state or {}
@@ -271,47 +374,155 @@ class WorkerExecutionMixin:
         flow = ResultFlow(
             self.journal, self.client, self._read_result_output, self._send_result_control
         )
+        checkpoints = CheckpointFlow(
+            self.journal,
+            self.client,
+            self._read_result_output,
+            self._send_result_control,
+            monotonic_ns=self.monotonic_ns,
+            next_due=self._checkpoint_due,
+        )
+        first_error = None
         for attempt_id in tuple(self._adopted):
+            try:
+                self._result_attempt(attempt_id, flow, checkpoints)
+            except (OSError, TimeoutError, WorkerApiError, RunnerControlError, RuntimeError) as exc:
+                if self._observe_container_exit(attempt_id) is not None:
+                    continue
+                # One unreachable attempt must not stall another attempt's cycle.
+                if first_error is None:
+                    first_error = exc
+        if first_error is not None:
+            raise first_error
+
+    def _observe_container_exit(self, attempt_id):
+        """Persist a Docker-proven stop of the bound workload container.
+
+        Returns None while the container runs or cannot be inspected, so a
+        transient relay failure never ends a healthy attempt.
+        """
+        if self.executor is None or not self.journal.exists(attempt_id):
+            return None
+        with self.journal.lock(attempt_id):
             record = self.journal.load(attempt_id)
             state = record.runner_state or {}
-            if state.get("result_flow", {}).get("completed"):
-                self._discard_completed_renewals(attempt_id)
-                if record.container is not None and self._stop_orphan(record.container):
-                    self._adopted.pop(attempt_id, None)
-                    self._containers.pop(record.container.container_id, None)
-                continue
-            envelope = state.get("pending_execution_message")
-            if envelope is None:
-                continue
-            if envelope["type"] in {"FAILED", "STOPPED"}:
-                self._execution_failed(
-                    attempt_id, failure_class="INTERNAL", reason_code="WORKLOAD_EXIT_NONZERO"
-                )
-                continue
+            if state.get("container_exit") is not None:
+                return state["container_exit"]
+            if record.container is None:
+                return None
             try:
-                flow.process(attempt_id, envelope)
-            except ValueError:
-                # Invalid result bytes/protocol must not leave a live allocation
-                # waiting forever for a message that can never be acknowledged.
-                self._execution_failed(
-                    attempt_id, failure_class="INTERNAL", reason_code="INVALID_RESULT"
-                )
-                continue
+                observation = self.executor.inspect(record.container)
+            except (ExecutorError, DockerContainerNotFound):
+                return None
+            if observation.running:
+                return None
+            code = observation.exit_code
+            exited = {
+                "exit_code": code if isinstance(code, int) and -1 <= code <= 255 else None,
+                "oom_killed": observation.oom_killed,
+                "observed_at": observation.observed_at,
+            }
+            self.journal.update_runner_state(
+                attempt_id, lambda local: {**local, "container_exit": exited}
+            )
+            return exited
 
-            def commit(local, envelope=envelope):
-                sequences = SequenceState.from_snapshot(
-                    local.get("message_sequences", {"highest": 0, "payload_hashes": {}})
-                )
-                effect = canonical_envelope_effect(envelope)
-                if sequences.classify(envelope["message_sequence"], effect) == "ACCEPTED":
-                    sequences.commit(envelope["message_sequence"], effect)
-                return {
-                    **local,
-                    "message_sequences": sequences.snapshot(),
-                    "pending_execution_message": None,
-                }
+    def _result_attempt(self, attempt_id, flow, checkpoints):
+        record = self.journal.load(attempt_id)
+        state = record.runner_state or {}
+        if state.get("result_flow", {}).get("completed"):
+            self._discard_completed_renewals(attempt_id)
+            if record.container is not None and self._stop_orphan(record.container):
+                self._adopted.pop(attempt_id, None)
+                self._containers.pop(record.container.container_id, None)
+            return
+        envelope = state.get("pending_execution_message")
+        exited = state.get("container_exit")
+        if (
+            exited is not None
+            and state.get("result_flow", {}).get("completion_callback_id") is None
+            and (envelope is None or envelope["type"] not in {"FAILED", "STOPPED"})
+        ):
+            # No runner is left to answer; a sent completion is replayed instead.
+            failure_class, reason_code = container_exit_failure(exited)
+            self._execution_failed(
+                attempt_id, failure_class=failure_class, reason_code=reason_code, exited=exited
+            )
+            return
+        if envelope is None:
+            deferred = state.get("deferred_result_prepare")
+            if deferred is not None and not checkpoints.cycle_open(attempt_id):
+                if self._process_result(attempt_id, flow, deferred):
+                    self.journal.update_runner_state(
+                        attempt_id, lambda local: {**local, "deferred_result_prepare": None}
+                    )
+                return
+            self._checkpoint_step(attempt_id, lambda: checkpoints.tick(attempt_id))
+            return
+        if envelope["type"] in {"FAILED", "STOPPED"}:
+            payload = envelope["payload"] if envelope["type"] == "FAILED" else {}
+            reason = (payload.get("failure_class"), payload.get("reason_code"))
+            failure_class, reason_code = (
+                reason if reason in _FORWARDED_FAILURES else ("INTERNAL", "WORKLOAD_EXIT_NONZERO")
+            )
+            self._execution_failed(attempt_id, failure_class=failure_class, reason_code=reason_code)
+            return
+        if envelope["type"] in _CHECKPOINT_FRAMES:
+            if not self._checkpoint_step(
+                attempt_id, lambda: checkpoints.process(attempt_id, envelope)
+            ):
+                return
+        elif envelope["type"] == "RESULT_PREPARE" and checkpoints.cycle_open(attempt_id):
+            # The server refuses a result reservation while CHECKPOINTING and
+            # the runner still owes this cycle's frames after RESULT_PREPARE.
+            self.journal.update_runner_state(
+                attempt_id, lambda local: {**local, "deferred_result_prepare": dict(envelope)}
+            )
+        elif not self._process_result(attempt_id, flow, envelope):
+            return
 
-            self.journal.update_runner_state(attempt_id, commit)
+        def commit(local, envelope=envelope):
+            sequences = SequenceState.from_snapshot(
+                local.get("message_sequences", {"highest": 0, "payload_hashes": {}})
+            )
+            effect = canonical_envelope_effect(envelope)
+            if sequences.classify(envelope["message_sequence"], effect) == "ACCEPTED":
+                sequences.commit(envelope["message_sequence"], effect)
+            return {
+                **local,
+                "message_sequences": sequences.snapshot(),
+                "pending_execution_message": None,
+            }
+
+        self.journal.update_runner_state(attempt_id, commit)
+
+    def _process_result(self, attempt_id, flow, envelope):
+        try:
+            flow.process(attempt_id, envelope)
+        except ValueError:
+            # Invalid result bytes/protocol must not leave a live allocation
+            # waiting forever for a message that can never be acknowledged.
+            self._execution_failed(
+                attempt_id, failure_class="INTERNAL", reason_code="INVALID_RESULT"
+            )
+            return False
+        return True
+
+    def _checkpoint_step(self, attempt_id, step):
+        """Run one checkpoint step; a definite protocol defect fails the attempt closed."""
+        try:
+            step()
+        except AuthorityControlPending:
+            return False
+        except (CheckpointProtocolError, RunnerControlRejected) as exc:
+            if isinstance(exc, RunnerControlRejected) and exc.code != "INVALID":
+                raise
+            # The failure callback also ends the server reservation (ABANDONED).
+            self._execution_failed(
+                attempt_id, failure_class="INTERNAL", reason_code="CHECKPOINT_PROTOCOL_ERROR"
+            )
+            return False
+        return True
 
     def _execution_failed(
         self,
@@ -320,6 +531,7 @@ class WorkerExecutionMixin:
         request=None,
         failure_class="INFRASTRUCTURE",
         reason_code="STARTUP_FAILED",
+        exited=None,
     ):
         """Failure linearization precedes identity-only proof-based cleanup."""
         record = self.journal.load(attempt_id) if self.journal.exists(attempt_id) else None
@@ -356,17 +568,23 @@ class WorkerExecutionMixin:
                 from datetime import UTC, datetime
 
                 authority = record.authority
+                # Without a Docker-proven exit the runner is still presumed alive.
+                exited = exited or {
+                    "exit_code": None,
+                    "oom_killed": False,
+                    "observed_at": datetime.now(UTC)
+                    .isoformat(timespec="milliseconds")
+                    .replace("+00:00", "Z"),
+                }
                 observation = {
                     "observation_type": "CONTAINER",
                     "container": {
                         "container_id": identity.container_id,
                         "runtime_identity_digest": identity.runtime_identity_digest,
                     },
-                    "observed_at": datetime.now(UTC)
-                    .isoformat(timespec="milliseconds")
-                    .replace("+00:00", "Z"),
-                    "exit_code": None,
-                    "oom_killed": False,
+                    "observed_at": exited["observed_at"],
+                    "exit_code": exited["exit_code"],
+                    "oom_killed": exited["oom_killed"],
                     "runtime_limit_reached": False,
                 }
             body = {

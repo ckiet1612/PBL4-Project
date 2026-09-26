@@ -120,9 +120,48 @@ bytes. It copies server-returned artifact IDs into the manifest and never
 invents a committed identity.
 
 B09 does not call reservation/upload/publish APIs and does not claim that a
-local result is a succeeded Job. B11 owns those fenced transactions. Checkpoint
-controls remain an explicit unsupported boundary until B14 implements
-checkpoint persistence, restore and fallback.
+local result is a succeeded Job. B11 owns those fenced transactions.
+
+## CPU checkpoint boundary (B14)
+
+Checkpoint controls are accepted only when the launch spec carries a checkpoint
+block. The worker adds it for a `checkpointable` template on an image labelled
+`io.nexa.runner.checkpoint=cpu-state-v1`; otherwise the controls stay a protocol
+error, as in B09. With the block present, the entrypoint writes a closed
+canonical snapshot `{schema_version, step, accumulator, input_checksum,
+spec_checksum}` to `/output/state.json`. It writes at start, at most once per
+second on the 65,536-step observer stride, and at the final step, always by
+temp file, fsync and atomic replace. The workload never sees the checkpoint
+reservation or manifest.
+
+```text
+REQUEST_CHECKPOINT -> CHECKPOINT_FILES_READY -> BIND_ARTIFACT_BATCH(CHECKPOINT)
+-> FINALIZE_CHECKPOINT_MANIFEST -> CHECKPOINT_READY
+```
+
+`REQUEST_CHECKPOINT` is refused for pause (B15), before the workload starts,
+after the result is reserved, past its frozen monotonic deadline, while a
+previous cycle is incomplete, or when the sequence does not advance. The runner
+reads the live snapshot as a regular non-symlink file of at most 4 KiB and
+validates it against the spec and input checksums. It rejects a cursor below
+the one already committed. It then copies the bytes to a read-only (0440)
+`checkpoint-<sequence>-state.json` (logical name `state.json`, kind
+`CHECKPOINT_FILE`), so later snapshot rewrites cannot change them. After the
+bindings match that descriptor, the runner writes the canonical manifest
+(provenance, compatibility, cursor, files and embedded `manifest_checksum`) as
+0440 and emits `CHECKPOINT_READY`. If the workload finishes while a cycle is
+open, `RESULT_PREPARE` is deferred until `CHECKPOINT_READY`, because the server
+refuses a result reservation for a checkpointing attempt. The pending cycle,
+descriptor and bindings are part of the persisted runner state and replay
+byte-identically after a controller reconnect.
+
+On restore, the worker mounts the verified state read-only at
+`/input/restore-state.json`. The runner re-checks its checksum, step and
+accumulator against the launch spec before `START`, and the entrypoint decodes it
+again against the input it reads. The adapter resumes from step `k` with
+`a(k+1) = (a(k) * 1664525 + 1013904223 + k) mod m`, so the resumed result bytes
+equal an uninterrupted run. Result format, UIDs, mounts and all B09 hardening
+are unchanged.
 
 ## Verified boundary
 

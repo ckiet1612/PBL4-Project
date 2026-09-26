@@ -135,3 +135,50 @@ def test_job_result_download_reads_result_then_artifact_content(monkeypatch, tmp
         "/v1/artifacts/a1/content",
     ]
     assert destination.read_bytes() == b"{}"
+
+
+def test_job_checkpoints_reads_the_owned_job_page(monkeypatch):
+    requests = []
+    item = {
+        "checkpoint_id": "018f0d60-7b6a-7a61-9d82-1aa39c4f30b7",
+        "job_id": "018f0d60-7b6a-7a62-9d82-1aa39c4f30b7",
+        "attempt_id": "018f0d60-7b6a-7a63-9d82-1aa39c4f30b7",
+        "sequence": 2,
+        "manifest_artifact_id": "018f0d60-7b6a-7a64-9d82-1aa39c4f30b7",
+        "manifest_checksum": "sha256:" + "a" * 64,
+        "state": "CORRUPT",
+        "created_at": "2026-09-26T00:00:00Z",
+    }
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={"items": [item], "page": {"next_cursor": None, "page_size": 100}},
+            request=request,
+        )
+
+    _patch_client(monkeypatch, respond)
+    result = CliRunner().invoke(
+        app,
+        [
+            "--output",
+            "json",
+            "job",
+            "checkpoints",
+            item["job_id"],
+            "--cursor",
+            "opaque-cursor-value",
+            "--page-size",
+            "101",
+            "--tenant",
+            "018f0d60-7b6a-7a65-9d82-1aa39c4f30b7",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    (request,) = requests
+    assert request.method == "GET"
+    assert request.url.path == f"/v1/jobs/{item['job_id']}/checkpoints"
+    assert dict(request.url.params) == {"cursor": "opaque-cursor-value", "page_size": "100"}
+    assert request.headers["X-Nexa-Tenant-Id"] == "018f0d60-7b6a-7a65-9d82-1aa39c4f30b7"
+    assert json.loads(result.output)["items"] == [item]

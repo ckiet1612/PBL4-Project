@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from nexa.infrastructure.persistence.ids import new_uuid7
 
 from .capabilities import ResourceProvider, inventory_to_json
+from .checkpoint_flow import reconcile_adoption
 from .client import WorkerApiClient, WorkerApiError
 from .docker_client import DockerCli, DockerContainerNotFound, DockerControlChannel
 from .errors import ExecutorError
@@ -91,6 +92,7 @@ class WorkerAgent(WorkerExecutionMixin):
             "ipc": 0.25,
         }
         self._adopted: dict[str, Authority] = {}
+        self._checkpoint_due: dict[str, int] = {}
         self._containers: dict[str, ContainerIdentity] = {}
         self._replayable_claims: set[str] = set()
         self._reconcile_complete = False
@@ -122,6 +124,7 @@ class WorkerAgent(WorkerExecutionMixin):
             "ipc": 0.25,
         }
         agent._adopted = {}
+        agent._checkpoint_due = {}
         agent._containers = {}
         agent._replayable_claims = set()
         agent._reconcile_complete = False
@@ -443,6 +446,13 @@ class WorkerAgent(WorkerExecutionMixin):
         return attempt_id, False, False
 
     def _adopt(self, item: dict, record: JournalRecord, identity: ContainerIdentity) -> bool:
+        # An unacknowledged result/checkpoint control owns the next sequence;
+        # deliver (or replay as DUPLICATE) it before adoption allocates one.
+        try:
+            self._flush_result_controls(record.attempt_id)
+        except RunnerControlError:
+            return False
+        record = self.journal.load(record.attempt_id)
         callback_id = str(new_uuid7())
         body = {
             "prior_authority": asdict(record.authority),
@@ -465,12 +475,9 @@ class WorkerAgent(WorkerExecutionMixin):
             or new_authority.job_fence != record.authority.job_fence
         ):
             raise RuntimeError("adoption acknowledgment authority mismatch")
-        transferred = {
-            "checkpoint": acknowledgment.get("transferred_checkpoint_reservation"),
-            "result": acknowledgment.get("transferred_result_reservation"),
-        }
-        if not self._reservations_match(record, transferred):
-            raise RuntimeError("adoption reservation snapshot mismatch")
+        transferred = self._reconcile_reservations(
+            record.attempt_id, acknowledgment, record.authority
+        )
         sequence = self._next_control_sequence(record)
         self.state.acknowledge(callback_id, acknowledgment, control_sequence=sequence)
         self.journal.rebind_authority(
@@ -519,6 +526,7 @@ class WorkerAgent(WorkerExecutionMixin):
             if operation["operation"] == "adopt":
                 current = _authority(acknowledgment["authority"])
                 prior = _authority(operation["payload"]["body"]["prior_authority"])
+                self._reconcile_reservations(record.attempt_id, acknowledgment, prior)
                 self.journal.rebind_authority(
                     record.attempt_id,
                     prior_authority=prior,
@@ -556,6 +564,7 @@ class WorkerAgent(WorkerExecutionMixin):
         if operation["operation"] == "adopt":
             current = _authority(acknowledgment["authority"])
             prior = _authority(operation["payload"]["body"]["prior_authority"])
+            self._reconcile_reservations(record.attempt_id, acknowledgment, prior)
             self.journal.rebind_authority(
                 record.attempt_id,
                 prior_authority=prior,
@@ -596,13 +605,26 @@ class WorkerAgent(WorkerExecutionMixin):
             raise RuntimeError("pending authority incarnation is invalid")
         return value
 
-    @staticmethod
-    def _reservations_match(record: JournalRecord, transferred: dict[str, object]) -> bool:
-        runner_state = record.runner_state or {}
-        expected = runner_state.get("active_reservations")
-        if expected is None:
-            return transferred == {"checkpoint": None, "result": None}
-        return expected == transferred
+    def _reconcile_reservations(
+        self, attempt_id: str, acknowledgment: dict, prior: Authority
+    ) -> dict:
+        """Persist the journal explanation of the server's transferred reservations.
+
+        Runs only while the journal still holds the prior Authority: once rebound,
+        later checkpoint/result progress already supersedes this snapshot.
+        """
+        transferred = {
+            "checkpoint": acknowledgment.get("transferred_checkpoint_reservation"),
+            "result": acknowledgment.get("transferred_result_reservation"),
+        }
+        record = self.journal.load(attempt_id)
+        if record.authority != prior:
+            return transferred
+        reconciled = reconcile_adoption(record.runner_state, transferred)
+        if reconciled is None:
+            raise RuntimeError("adoption reservation snapshot mismatch")
+        self.journal.update_runner_state(attempt_id, lambda _local: reconciled)
+        return transferred
 
     @staticmethod
     def _next_control_sequence(record: JournalRecord) -> int:
@@ -747,6 +769,8 @@ class WorkerAgent(WorkerExecutionMixin):
         ):
             return False
         self.state.finish(callback_id)
+        if record["operation"] == "cleanup":
+            self._discard_failed_renewals(payload["attempt_id"])
         return True
 
     def _stop_orphan(self, identity: ContainerIdentity) -> bool:
@@ -859,6 +883,29 @@ class WorkerAgent(WorkerExecutionMixin):
             ):
                 self.state.discard_terminal_renewal(
                     callback_id, attempt_id=attempt_id, completion_ack=result["completion_ack"]
+                )
+
+    def _discard_failed_renewals(self, attempt_id: str) -> None:
+        """A renewal whose deadline never reached a dead runner ends with its attempt.
+
+        Called only after verified cleanup; the durable failure ACK proves the
+        server already revoked the lease the renewal was extending.
+        """
+        if self.journal is None or not self.journal.exists(attempt_id):
+            return
+        failure = (self.journal.load(attempt_id).runner_state or {}).get("failure_resolution")
+        if not failure or failure.get("acknowledged") is not True:
+            return
+        for callback_id, pending in self.state.operations.items():
+            if (
+                pending["operation"] == "renew"
+                and pending["payload"].get("attempt_id") == attempt_id
+            ):
+                self.state.discard_failed_renewal(
+                    callback_id,
+                    attempt_id=attempt_id,
+                    failure_acknowledged=True,
+                    cleanup_verified=True,
                 )
 
     def _restore_completion_receipt(self, attempt_id: str, item: dict) -> bool:
@@ -1117,6 +1164,7 @@ class WorkerAgent(WorkerExecutionMixin):
             self._dispatch_offer(response["offer"])
 
     def _ipc_once(self) -> None:
+        first_error = None
         for attempt_id in tuple(self._adopted):
             # The runner serves control connections one at a time. A receive
             # session must end before renewal/result can wait for its ACK.
@@ -1124,24 +1172,36 @@ class WorkerAgent(WorkerExecutionMixin):
                 record = self.journal.load(attempt_id)
                 if record.container is None:
                     continue
-                if (record.runner_state or {}).get("pending_execution_message") is not None:
-                    # ResultFlow must durably handle this frame before the
-                    # runner can advance to the next message sequence.
+                state = record.runner_state or {}
+                if (
+                    state.get("pending_execution_message") is not None
+                    or state.get("container_exit") is not None
+                ):
+                    # ResultFlow must durably handle this frame (or the proven
+                    # container exit) before the runner channel is reopened.
                     continue
-                channel = self.channel_factory(record.container.container_id)
-                manager = channel if hasattr(channel, "__enter__") else nullcontext(channel)
-                with manager as connection:
-                    RunnerControl(
-                        next_sequence=self._next_control_sequence(record)
-                    ).receive_messages(
-                        connection,
-                        lambda frame, current=attempt_id: self._record_runner_message(
-                            current, frame
-                        ),
-                        # docker exec relay startup is part of this budget; 100 ms
-                        # repeatedly closes a healthy channel before it connects.
-                        timeout_seconds=2.0,
-                    )
+                try:
+                    channel = self.channel_factory(record.container.container_id)
+                    manager = channel if hasattr(channel, "__enter__") else nullcontext(channel)
+                    with manager as connection:
+                        RunnerControl(
+                            next_sequence=self._next_control_sequence(record)
+                        ).receive_messages(
+                            connection,
+                            lambda frame, current=attempt_id: self._record_runner_message(
+                                current, frame
+                            ),
+                            # docker exec relay startup is part of this budget; 100 ms
+                            # repeatedly closes a healthy channel before it connects.
+                            timeout_seconds=2.0,
+                        )
+                except (OSError, RuntimeError, RunnerControlError) as exc:
+                    # A dead workload container is recorded for the result loop
+                    # to fail closed; any other channel error stays visible.
+                    if self._observe_container_exit(attempt_id) is None and first_error is None:
+                        first_error = exc
+        if first_error is not None:
+            raise first_error
 
     def _record_runner_message(self, attempt_id: str, envelope: dict[str, object]) -> str:
         outcome = "OUT_OF_ORDER"
@@ -1161,6 +1221,8 @@ class WorkerAgent(WorkerExecutionMixin):
                 "RESULT_PREPARE",
                 "RESULT_FILE_BATCH",
                 "RESULT_READY",
+                "CHECKPOINT_FILES_READY",
+                "CHECKPOINT_READY",
                 "FAILED",
                 "STOPPED",
             }:

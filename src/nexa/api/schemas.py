@@ -619,3 +619,29 @@ class CompleteRequest(StrictRequest):
     authority: Authority
     result_manifest_artifact_id: UuidV7
     manifest: dict
+
+
+class CheckpointPublishRequest(StrictRequest):
+    authority: Authority
+    manifest_artifact_id: UuidV7
+    manifest: dict
+
+
+class CheckpointRecord(BaseModel):
+    model_config = ConfigDict(title="CheckpointRecord", extra="forbid")
+
+    checkpoint_id: UuidV7
+    job_id: UuidV7
+    attempt_id: UuidV7
+    sequence: int = Field(ge=1)
+    manifest_artifact_id: UuidV7
+    manifest_checksum: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    state: Literal["COMMITTED", "REJECTED", "CORRUPT"]
+    created_at: datetime
+
+
+class CheckpointPage(BaseModel):
+    model_config = ConfigDict(title="CheckpointPage", extra="forbid")
+
+    items: list[CheckpointRecord] = Field(max_length=100)
+    page: PageInfo

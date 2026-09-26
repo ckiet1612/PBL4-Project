@@ -10,7 +10,8 @@ LABEL org.opencontainers.image.title="nexa-cpu-iterative" \
       io.nexa.adapter.version="1.0.0" \
       io.nexa.framework="NEXA_CPU" \
       io.nexa.framework.version="1.0.0" \
-      io.nexa.runner="trusted-runner-v1"
+      io.nexa.runner="trusted-runner-v1" \
+      io.nexa.runner.checkpoint="cpu-state-v1"
 
 ENV PYTHONPATH=/opt/nexa \
     PYTHONDONTWRITEBYTECODE=1 \

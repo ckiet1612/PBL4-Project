@@ -390,11 +390,39 @@ def validate_control_envelope(payload: object) -> dict[str, Any]:
         for field in ("completion_token", "reservation_callback_id", "result_id"):
             _uuid(body[field], field)
         _checksum(body["binding_set_checksum"], "binding_set_checksum")
-    elif message_type in {
-        "REQUEST_CHECKPOINT",
-        "FINALIZE_CHECKPOINT_MANIFEST",
-    }:
-        raise ProtocolError("checkpoint control is not implemented by B09")
+    elif message_type == "REQUEST_CHECKPOINT":
+        body = _closed(
+            body,
+            {
+                "reason",
+                "reservation_callback_id",
+                "checkpoint_id",
+                "checkpoint_sequence",
+                "checkpoint_deadline_monotonic_ns",
+            },
+            "checkpoint request",
+        )
+        if body["reason"] not in {"INTERVAL", "PAUSE", "RUNTIME_END"}:
+            raise ProtocolError("invalid checkpoint reason")
+        _uuid(body["reservation_callback_id"], "reservation_callback_id")
+        _uuid(body["checkpoint_id"], "checkpoint_id")
+        _int64(body["checkpoint_sequence"], "checkpoint_sequence", minimum=1)
+        _int64(body["checkpoint_deadline_monotonic_ns"], "checkpoint_deadline_monotonic_ns")
+    elif message_type == "FINALIZE_CHECKPOINT_MANIFEST":
+        body = _closed(
+            body,
+            {
+                "reservation_callback_id",
+                "checkpoint_id",
+                "checkpoint_sequence",
+                "binding_set_checksum",
+            },
+            "finalize checkpoint",
+        )
+        _uuid(body["reservation_callback_id"], "reservation_callback_id")
+        _uuid(body["checkpoint_id"], "checkpoint_id")
+        _int64(body["checkpoint_sequence"], "checkpoint_sequence", minimum=1)
+        _checksum(body["binding_set_checksum"], "binding_set_checksum")
     else:
         raise ProtocolError("unknown control type")
     return envelope

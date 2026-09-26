@@ -62,7 +62,7 @@ update` dùng `--password-stdin` khi đổi password. Khi tạo user bằng flag
 nexa config show|set-endpoint|set-tenant|use-profile
 nexa token list|create|revoke
 nexa artifact list|get|upload|download
-nexa job submit|list|get|session|events|result|result-download
+nexa job submit|list|get|session|events|checkpoints|result|result-download
 nexa admin tenant list|create|get|update
 nexa admin user list|create|get|update
 nexa admin membership list|upsert|delete
@@ -79,7 +79,7 @@ read. API còn kiểm tra active user, tenant role/membership, ownership và
 `SYSTEM_ADMIN` tương ứng.
 
 Các control job `cancel`, `pause`, `resume`, `retry` và sweep thuộc B15, không
-được thêm vào B12. Template, attempts, checkpoints, logs, progress và admin
+được thêm vào B12. Template, attempts, logs, progress và admin
 worker/allocation/fairness/recovery commands chưa được đăng ký vì FastAPI
 snapshot hiện chưa có route/service tương ứng; chúng chỉ được thêm lại sau khi
 backend wiring và API integration evidence tồn tại.
@@ -130,6 +130,13 @@ object đã decode không sửa field/đơn vị. `job result-download` đọc m
 result trước rồi tải manifest artifact qua operation artifact content. Event,
 log và page luôn bounded; CLI không gom lịch sử vô hạn trong bộ nhớ.
 
+B14 thêm `nexa job checkpoints JOB_ID [--cursor C] [--page-size N] [--tenant T]`
+(scope `jobs:read`), gọi `GET /v1/jobs/{job_id}/checkpoints`. Kết quả là trang
+metadata checkpoint `COMMITTED` hoặc `CORRUPT` theo `sequence` giảm dần: ID,
+attempt, sequence, manifest artifact/checksum, trạng thái và thời điểm tạo. Lệnh
+không trả reservation, staging hay nội dung checkpoint/cursor, và không có lệnh
+restore thủ công. Automatic recovery tự chọn checkpoint; manual retry thuộc B15.
+
 ## Output và exit codes
 
 Mặc định output human; dùng `--output json` cho JSON deterministic trên stdout.
@@ -154,5 +161,5 @@ artifact bytes hay server path.
 
 CLI này không chứng minh hoặc cung cấp B15 cancel/pause/resume/retry/recovery,
 scheduler fairness production, GPU, multi-server portability, load/soak/chaos,
-checkpoint recovery hoàn chỉnh, Web UI, bare-Linux acceptance hay release
+checkpoint recovery ngoài lệnh xem danh sách checkpoint của B14, Web UI, bare-Linux acceptance hay release
 `v1.0.0`. Những điều đó cần gate và evidence riêng theo PLAN.

@@ -223,6 +223,57 @@ def test_b13_quota_headroom_upgrade_restores_held_age_and_downgrade_folds_it_bac
         engine.dispose()
 
 
+def test_b14_checkpoint_corruption_upgrade_is_additive_and_downgrades(
+    clean_postgres_database: str,
+) -> None:
+    config = _config(clean_postgres_database)
+    command.upgrade(config, "20260925_0017")
+    engine = create_engine(clean_postgres_database)
+    try:
+        with engine.connect() as connection:
+            assert "checkpoint_corruptions" not in inspect(connection).get_table_names()
+        command.upgrade(config, "20260926_0018")
+        with engine.connect() as connection:
+            database = inspect(connection)
+            assert "checkpoint_corruptions" in database.get_table_names()
+            columns = database.get_columns("checkpoint_corruptions")
+            assert {column["name"] for column in columns} == {
+                "tenant_id",
+                "checkpoint_id",
+                "reason_code",
+                "detected_at",
+            }
+            triggers = set(
+                connection.execute(
+                    text(
+                        "SELECT tgname FROM pg_trigger "
+                        "WHERE tgrelid = 'checkpoint_corruptions'::regclass AND NOT tgisinternal"
+                    )
+                ).scalars()
+            )
+        assert triggers == {"trg_checkpoint_corruptions_immutable"}
+        command.downgrade(config, "20260925_0017")
+        with engine.connect() as connection:
+            assert "checkpoint_corruptions" not in inspect(connection).get_table_names()
+        command.upgrade(config, "head")
+    finally:
+        engine.dispose()
+
+
+def test_b14_offline_sql_creates_insert_only_corruption_table(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Offline SQL uses an explicit placeholder target; NEXA_DATABASE_URL stays unset.
+    command.upgrade(
+        _config("postgresql+psycopg://unused/unused"), "20260925_0017:20260926_0018", sql=True
+    )
+    output = capsys.readouterr().out
+
+    assert "CREATE TABLE checkpoint_corruptions" in output
+    assert "CREATE TRIGGER trg_checkpoint_corruptions_immutable" in output
+    assert "UPDATE alembic_version SET version_num='20260926_0018'" in output
+
+
 def test_explicit_migration_target_is_not_overridden_by_runtime_database_url(
     clean_postgres_database: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

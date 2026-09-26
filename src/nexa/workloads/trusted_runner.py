@@ -30,6 +30,43 @@ from nexa.worker.protocol import (
     validate_control_envelope,
     validate_envelope,
 )
+from nexa.workloads.cpu_state import CpuState, CpuStateError, decode_state, read_state_file
+
+CHECKPOINT_STATE_PATH = "/output/state.json"
+RESTORE_STATE_PATH = "/input/restore-state.json"
+_LAUNCH_SPEC_FIELDS = {
+    "schema_version",
+    "adapter_id",
+    "startup_nonce",
+    "input_path",
+    "output_path",
+    "result_logical_name",
+    "media_type",
+    "iterations",
+    "seed",
+    "modulus",
+    "spec_checksum",
+    "provenance",
+}
+_COMPATIBILITY_FIELDS = {
+    "architecture",
+    "device_type",
+    "framework",
+    "framework_version",
+    "cuda_version",
+    "minimum_driver_version",
+    "gpu_compute_capability",
+    "checkpointable",
+    "restart_safe",
+}
+_RESTORE_FIELDS = {
+    "path",
+    "checkpoint_id",
+    "checkpoint_sequence",
+    "step",
+    "accumulator",
+    "state_checksum",
+}
 
 
 class RunnerState(StrEnum):
@@ -55,6 +92,7 @@ class RunnerSupervisor:
         clock: Callable[[], float] = time.monotonic,
         log_limit_bytes: int = 1024 * 1024,
         launch_spec: dict[str, object] | None = None,
+        fs_root: str | Path = "/",
     ) -> None:
         if (
             startup_limit_seconds != 30
@@ -71,6 +109,8 @@ class RunnerSupervisor:
         self.log_limit_bytes = log_limit_bytes
         self.launch_spec = _validate_launch_spec(launch_spec) if launch_spec is not None else None
         self.state_path = Path(state_path) if state_path is not None else None
+        # Container paths in the launch spec resolve under this root (tests use a tmp dir).
+        self.fs_root = Path(fs_root)
         self.created_at = clock()
         self.state = RunnerState.WAITING_AUTHORITY
         self.authority_deadline: float | None = None
@@ -82,6 +122,7 @@ class RunnerSupervisor:
         self._last_progress_payload: dict[str, object] | None = None
         self._last_progress_envelope: dict[str, object] | None = None
         self._result: dict[str, object] | None = None
+        self._checkpoint: dict[str, object] | None = None
         self._stop_reason: str | None = None
         self.workload: subprocess.Popen[bytes] | None = None
         self.workload_process_group: int | None = None
@@ -212,10 +253,16 @@ class RunnerSupervisor:
             self.stop_workload(now=now, grace_seconds=grace)
         elif message_type == "PREPARE_RESULT":
             self._prepare_result(payload)
+        elif message_type == "BIND_ARTIFACT_BATCH" and payload["purpose"] == "CHECKPOINT":
+            self._bind_checkpoint_artifacts(payload)
         elif message_type == "BIND_ARTIFACT_BATCH":
             self._bind_result_artifacts(payload)
         elif message_type == "FINALIZE_RESULT_MANIFEST":
             self._finalize_result(payload)
+        elif message_type == "REQUEST_CHECKPOINT":
+            self._request_checkpoint(payload)
+        elif message_type == "FINALIZE_CHECKPOINT_MANIFEST":
+            self._finalize_checkpoint(payload)
         else:
             raise ProtocolError("unsupported control type")
 
@@ -261,7 +308,7 @@ class RunnerSupervisor:
         logical_name: str,
         media_type: str,
         provenance: dict[str, object],
-    ) -> dict[str, object]:
+    ) -> dict[str, object] | None:
         _uuid_v7(completion_token, "completion_token")
         _validate_result_provenance(provenance)
         source = Path(path)
@@ -280,30 +327,40 @@ class RunnerSupervisor:
             "checksum": "sha256:" + hashlib.sha256(body).hexdigest(),
         }
         _validate_staged_descriptor(descriptor)
-        if self._result is not None:
-            if self._result.get("completion_token") != completion_token:
-                raise ProtocolError("result completion token conflict")
-            pending = self._find_pending("RESULT_PREPARE")
-            if pending is None:
-                raise ProtocolError("result prepare state is inconsistent")
-            return pending
-        self._result = {
-            "completion_token": completion_token,
-            "descriptor": descriptor,
-            "descriptor_checksum": _checksum_json(descriptor),
-            "source_path": str(source),
-            "provenance": provenance,
-            "reservation_callback_id": None,
-            "result_id": None,
-            "batch_message_sequence": None,
-            "bindings": None,
-            "binding_set_checksum": None,
-            "manifest": None,
-        }
-        self.begin_result_handshake()
-        envelope = self._emit("RESULT_PREPARE", {"completion_token": completion_token})
-        self._persist()
-        return envelope
+        with self._lock:
+            if self._result is not None:
+                if self._result.get("completion_token") != completion_token:
+                    raise ProtocolError("result completion token conflict")
+                if self._result.get("prepare_deferred"):
+                    return None
+                pending = self._find_pending("RESULT_PREPARE")
+                if pending is None:
+                    raise ProtocolError("result prepare state is inconsistent")
+                return pending
+            # Messages are strictly ordered and the server refuses a result
+            # reservation while the attempt is CHECKPOINTING, so an open
+            # checkpoint cycle must reach CHECKPOINT_READY before RESULT_PREPARE.
+            deferred = self._checkpoint is not None and self._checkpoint["manifest"] is None
+            self._result = {
+                "completion_token": completion_token,
+                "descriptor": descriptor,
+                "descriptor_checksum": _checksum_json(descriptor),
+                "source_path": str(source),
+                "provenance": provenance,
+                "reservation_callback_id": None,
+                "result_id": None,
+                "batch_message_sequence": None,
+                "bindings": None,
+                "binding_set_checksum": None,
+                "manifest": None,
+                "prepare_deferred": deferred,
+            }
+            self.begin_result_handshake()
+            if deferred:
+                return None
+            envelope = self._emit("RESULT_PREPARE", {"completion_token": completion_token})
+            self._persist()
+            return envelope
 
     def _prepare_result(self, payload: dict[str, object]) -> None:
         if self._result is None:
@@ -342,35 +399,7 @@ class RunnerSupervisor:
         if payload["source_message_sequence"] != self._result.get("batch_message_sequence"):
             raise ProtocolError("binding source message mismatch")
         bindings = payload["bindings"]
-        assert isinstance(bindings, list)
-        descriptors = [self._result["descriptor"]]
-        if len(bindings) != len(descriptors):
-            raise ProtocolError("binding count does not match staged descriptors")
-        artifact_ids: set[str] = set()
-        logical_names: set[str] = set()
-        staging_names: set[str] = set()
-        for descriptor, binding in zip(descriptors, bindings, strict=True):
-            assert isinstance(descriptor, dict)
-            assert isinstance(binding, dict)
-            for field in (
-                "staging_name",
-                "logical_name",
-                "kind",
-                "media_type",
-                "size_bytes",
-                "checksum",
-            ):
-                if binding[field] != descriptor[field]:
-                    raise ProtocolError("binding does not match staged descriptor")
-            for field, seen in (
-                ("artifact_id", artifact_ids),
-                ("logical_name", logical_names),
-                ("staging_name", staging_names),
-            ):
-                value = str(binding[field])
-                if value in seen:
-                    raise ProtocolError(f"duplicate result {field}")
-                seen.add(value)
+        _match_bindings([self._result["descriptor"]], bindings, label="result")
         if self._result.get("bindings") is not None and self._result["bindings"] != bindings:
             raise ProtocolError("result binding conflict")
         self._result["bindings"] = bindings
@@ -432,6 +461,215 @@ class RunnerSupervisor:
                 "result_id": self._result["result_id"],
                 "manifest": descriptor,
             },
+        )
+
+    def _container_path(self, path: object) -> Path:
+        return self.fs_root / str(path).lstrip("/")
+
+    def _checkpoint_spec(self) -> dict[str, object]:
+        spec = self.launch_spec
+        if spec is None or spec["schema_version"] != 2:
+            raise ProtocolError("launch spec does not enable checkpoints")
+        return spec
+
+    def _decode_cpu_state(self, raw: bytes) -> CpuState:
+        spec = self._checkpoint_spec()
+        provenance = spec["provenance"]
+        assert isinstance(provenance, dict)
+        return decode_state(
+            raw,
+            iterations=int(spec["iterations"]),
+            modulus=int(spec["modulus"]),
+            input_checksum=str(provenance["input_checksum"]),
+            spec_checksum=str(spec["spec_checksum"]),
+        )
+
+    def _request_checkpoint(self, payload: dict[str, object]) -> None:
+        spec = self._checkpoint_spec()
+        if payload["reason"] == "PAUSE":
+            # Checkpoint-for-pause stops the workload; that transition is B15 scope.
+            raise ProtocolError("checkpoint for pause is not supported")
+        if self.state not in {RunnerState.RUNNING, RunnerState.RESULT_HANDSHAKE}:
+            raise ProtocolError("checkpoint requires a running workload")
+        if self.runtime_started_at is None:
+            raise ProtocolError("checkpoint requires a started workload")
+        if int(payload["checkpoint_deadline_monotonic_ns"]) / 1_000_000_000 <= self.clock():
+            raise ProtocolError("checkpoint deadline has passed")
+        identity = ("reservation_callback_id", "checkpoint_id", "checkpoint_sequence")
+        current = self._checkpoint
+        if current is not None:
+            if all(current[field] == payload[field] for field in identity):
+                # The same reservation replayed on a fresh sequence reuses its staging.
+                return
+            if current["manifest"] is None:
+                raise ProtocolError("previous checkpoint handshake is incomplete")
+            if int(payload["checkpoint_sequence"]) <= int(current["checkpoint_sequence"]):
+                raise ProtocolError("checkpoint sequence must advance")
+        if self._result is not None and self._result["reservation_callback_id"] is not None:
+            # The server refuses a checkpoint reservation beside an active result one.
+            raise ProtocolError("checkpoint request arrived after the result was reserved")
+        # A staged but unreserved result is fine: the worker defers the queued
+        # RESULT_PREPARE until this cycle publishes, and the final state is valid.
+        checkpoint = spec["checkpoint"]
+        assert isinstance(checkpoint, dict)
+        raw = read_state_file(self._container_path(checkpoint["state_path"]))
+        state = self._decode_cpu_state(raw)
+        restore = spec["restore"]
+        floor = max(
+            int(restore["step"]) if isinstance(restore, dict) else 0,
+            int(current["step"]) if current is not None else 0,
+        )
+        if state.step < floor:
+            raise ProtocolError("checkpoint state regressed below the committed cursor")
+        staging = self._container_path(spec["output_path"]).parent
+        if current is not None:
+            for descriptor in (current["descriptor"], current["manifest"]):
+                assert isinstance(descriptor, dict)
+                with suppress(FileNotFoundError):
+                    (staging / str(descriptor["staging_name"])).unlink()
+        sequence = int(payload["checkpoint_sequence"])
+        state_path = staging / f"checkpoint-{sequence}-state.json"
+        # A closed read-only copy: the workload keeps rewriting its live snapshot.
+        _atomic_write(state_path, raw, mode=0o440)
+        descriptor = {
+            "staging_name": state_path.name,
+            "logical_name": "state.json",
+            "kind": "CHECKPOINT_FILE",
+            "media_type": "application/json",
+            "size_bytes": len(raw),
+            "checksum": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        }
+        # Record before emit so one persisted snapshot holds both the message and its owner.
+        self._checkpoint = {
+            "reservation_callback_id": payload["reservation_callback_id"],
+            "checkpoint_id": payload["checkpoint_id"],
+            "checkpoint_sequence": sequence,
+            "step": state.step,
+            "accumulator": state.accumulator,
+            "descriptor": descriptor,
+            "batch_message_sequence": self._next_message_sequence,
+            "bindings": None,
+            "binding_set_checksum": None,
+            "manifest": None,
+        }
+        self._emit(
+            "CHECKPOINT_FILES_READY",
+            {
+                "reservation_callback_id": payload["reservation_callback_id"],
+                "checkpoint_id": payload["checkpoint_id"],
+                "checkpoint_sequence": sequence,
+                "batch_index": 0,
+                "batch_count": 1,
+                "artifacts": [descriptor],
+            },
+        )
+
+    def _bind_checkpoint_artifacts(self, payload: dict[str, object]) -> None:
+        record = self._checkpoint
+        if record is None:
+            raise ProtocolError("checkpoint is not requested")
+        if payload["reservation_callback_id"] != record["reservation_callback_id"]:
+            raise ProtocolError("binding reservation callback mismatch")
+        if payload["reserved_id"] != record["checkpoint_id"]:
+            raise ProtocolError("binding checkpoint identity mismatch")
+        if payload["source_message_sequence"] != record["batch_message_sequence"]:
+            raise ProtocolError("binding source message mismatch")
+        bindings = payload["bindings"]
+        _match_bindings([record["descriptor"]], bindings, label="checkpoint")
+        if record["bindings"] is not None and record["bindings"] != bindings:
+            raise ProtocolError("checkpoint binding conflict")
+        record["bindings"] = bindings
+        record["binding_set_checksum"] = _checksum_json(bindings)
+
+    def _finalize_checkpoint(self, payload: dict[str, object]) -> None:
+        spec = self._checkpoint_spec()
+        record = self._checkpoint
+        if record is None or record["bindings"] is None:
+            raise ProtocolError("checkpoint bindings are incomplete")
+        for field in ("reservation_callback_id", "checkpoint_id", "checkpoint_sequence"):
+            if payload[field] != record[field]:
+                raise ProtocolError(f"finalize {field} mismatch")
+        if payload["binding_set_checksum"] != record["binding_set_checksum"]:
+            raise ProtocolError("binding set checksum mismatch")
+        if record["manifest"] is not None:
+            return
+        bindings = record["bindings"]
+        checkpoint = spec["checkpoint"]
+        assert isinstance(bindings, list) and isinstance(checkpoint, dict)
+        step = int(record["step"])
+        manifest_without_checksum = {
+            "kind": "CHECKPOINT",
+            "schema_version": 1,
+            "checkpoint_id": record["checkpoint_id"],
+            "checkpoint_sequence": record["checkpoint_sequence"],
+            "created_at": datetime.now(UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z"),
+            "provenance": spec["provenance"],
+            "compatibility": checkpoint["compatibility"],
+            "cursor": {
+                "step": step,
+                "epoch": 0,
+                "item_cursor": step,
+                "accumulator": record["accumulator"],
+            },
+            "state_components": ["ACCUMULATOR"],
+            "files": [
+                {
+                    key: value
+                    for key, value in binding.items()
+                    if key not in {"staging_name", "kind"}
+                }
+                for binding in bindings
+            ],
+        }
+        manifest = {
+            **manifest_without_checksum,
+            "manifest_checksum": _checksum_json(manifest_without_checksum),
+        }
+        manifest_bytes = _canonical_json(manifest)
+        manifest_path = (
+            self._container_path(spec["output_path"]).parent
+            / f"checkpoint-{record['checkpoint_sequence']}-manifest.json"
+        )
+        _atomic_write(manifest_path, manifest_bytes, mode=0o440)
+        descriptor = {
+            "staging_name": manifest_path.name,
+            "logical_name": "checkpoint.manifest.json",
+            "kind": "CHECKPOINT_MANIFEST",
+            "media_type": "application/json",
+            "size_bytes": len(manifest_bytes),
+            "checksum": "sha256:" + hashlib.sha256(manifest_bytes).hexdigest(),
+        }
+        record["manifest"] = descriptor
+        self._emit(
+            "CHECKPOINT_READY",
+            {
+                "reservation_callback_id": record["reservation_callback_id"],
+                "checkpoint_id": record["checkpoint_id"],
+                "checkpoint_sequence": record["checkpoint_sequence"],
+                "manifest": descriptor,
+            },
+        )
+        result = self._result
+        if result is not None and result.get("prepare_deferred"):
+            result["prepare_deferred"] = False
+            self._emit("RESULT_PREPARE", {"completion_token": result["completion_token"]})
+
+    def _restore_state_is_valid(self) -> bool:
+        spec = self.launch_spec
+        restore = spec.get("restore") if spec is not None else None
+        if not isinstance(restore, dict):
+            return True
+        try:
+            raw = read_state_file(self._container_path(restore["path"]))
+            state = self._decode_cpu_state(raw)
+        except (CpuStateError, ProtocolError):
+            return False
+        return (
+            "sha256:" + hashlib.sha256(raw).hexdigest() == restore["state_checksum"]
+            and state.step == restore["step"]
+            and state.accumulator == restore["accumulator"]
         )
 
     def _emit(self, message_type: str, payload: dict[str, object]) -> dict[str, object]:
@@ -666,6 +904,21 @@ class RunnerSupervisor:
                 self.stop_workload(now=now, grace_seconds=0)
                 return
             spec = self.launch_spec
+            if not self._restore_state_is_valid():
+                # Worker verified the checkpoint too; a mismatch here never reaches compute.
+                self._emit(
+                    "FAILED",
+                    {
+                        "failure_class": "INCOMPATIBLE",
+                        "reason_code": "CHECKPOINT_RESTORE_UNAVAILABLE",
+                        "exit_code": None,
+                        "oom_killed": False,
+                        "runtime_limit_reached": False,
+                    },
+                )
+                self.request_stop("FAILURE", now=now)
+                self.stop_workload(now=now, grace_seconds=0)
+                return
             try:
                 pid = self.launch_workload(self._launch_command())
             except _StartupDeadlineExpired:
@@ -681,7 +934,10 @@ class RunnerSupervisor:
                     "started_monotonic_ns": int(self.clock() * 1_000_000_000),
                 },
             )
-            self.emit_progress(fraction=0.0, step=0)
+            # A resumed Attempt continues from the verified restored cursor.
+            restore = spec.get("restore")
+            step = int(restore["step"]) if isinstance(restore, dict) else 0
+            self.emit_progress(fraction=step / int(spec["iterations"]), step=step)
 
         def monitor() -> None:
             if self._supervisor_socket is not None:
@@ -722,7 +978,7 @@ class RunnerSupervisor:
         if self.launch_spec is None:
             raise RuntimeError("launch spec is absent")
         spec = self.launch_spec
-        return (
+        command: tuple[str, ...] = (
             "python",
             "-m",
             "nexa.workloads.cpu_entrypoint",
@@ -739,6 +995,15 @@ class RunnerSupervisor:
             "--spec-checksum",
             str(spec["spec_checksum"]),
         )
+        if spec["schema_version"] != 2:
+            return command
+        checkpoint = spec["checkpoint"]
+        restore = spec["restore"]
+        assert isinstance(checkpoint, dict)
+        command += ("--state-output", str(checkpoint["state_path"]))
+        if isinstance(restore, dict):
+            command += ("--resume-state", str(restore["path"]))
+        return command
 
     def _drain_log(self, stream) -> None:  # type: ignore[no-untyped-def]
         while True:
@@ -895,6 +1160,7 @@ class RunnerSupervisor:
                 "last_progress_payload": self._last_progress_payload,
                 "last_progress_envelope": self._last_progress_envelope,
                 "result": self._result,
+                "checkpoint": self._checkpoint,
                 "stop_reason": self._stop_reason,
             }
             _atomic_write(self.state_path, _canonical_json(payload), mode=0o600)
@@ -924,6 +1190,10 @@ class RunnerSupervisor:
             self._last_progress_payload = payload.get("last_progress_payload")
             self._last_progress_envelope = payload.get("last_progress_envelope")
             self._result = payload.get("result")
+            checkpoint = payload.get("checkpoint")
+            if checkpoint is not None and not isinstance(checkpoint, dict):
+                raise ValueError("checkpoint state is invalid")
+            self._checkpoint = checkpoint
             stop_reason = payload.get("stop_reason")
             self._stop_reason = str(stop_reason) if stop_reason is not None else None
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
@@ -1085,6 +1355,37 @@ def _checksum_json(value: object) -> str:
     return "sha256:" + hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
+def _match_bindings(descriptors: list[object], bindings: object, *, label: str) -> None:
+    assert isinstance(bindings, list)
+    if len(bindings) != len(descriptors):
+        raise ProtocolError("binding count does not match staged descriptors")
+    artifact_ids: set[str] = set()
+    logical_names: set[str] = set()
+    staging_names: set[str] = set()
+    for descriptor, binding in zip(descriptors, bindings, strict=True):
+        assert isinstance(descriptor, dict)
+        assert isinstance(binding, dict)
+        for field in (
+            "staging_name",
+            "logical_name",
+            "kind",
+            "media_type",
+            "size_bytes",
+            "checksum",
+        ):
+            if binding[field] != descriptor[field]:
+                raise ProtocolError("binding does not match staged descriptor")
+        for field, seen in (
+            ("artifact_id", artifact_ids),
+            ("logical_name", logical_names),
+            ("staging_name", staging_names),
+        ):
+            value = str(binding[field])
+            if value in seen:
+                raise ProtocolError(f"duplicate {label} {field}")
+            seen.add(value)
+
+
 def _atomic_write(path: Path, payload: bytes, *, mode: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -1092,8 +1393,9 @@ def _atomic_write(path: Path, payload: bytes, *, mode: int) -> None:
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(payload)
             handle.flush()
+            # Set the mode on the open descriptor, never by a re-resolved path.
+            os.fchmod(handle.fileno(), mode)
             os.fsync(handle.fileno())
-        os.chmod(temporary, mode)
         os.replace(temporary, path)
         directory_fd = os.open(path.parent, os.O_RDONLY)
         try:
@@ -1124,23 +1426,14 @@ def _new_uuid_v7() -> str:
 
 
 def _validate_launch_spec(value: object) -> dict[str, object]:
-    required = {
-        "schema_version",
-        "adapter_id",
-        "startup_nonce",
-        "input_path",
-        "output_path",
-        "result_logical_name",
-        "media_type",
-        "iterations",
-        "seed",
-        "modulus",
-        "spec_checksum",
-        "provenance",
-    }
-    if not isinstance(value, dict) or set(value) != required:
+    if not isinstance(value, dict):
         raise ProtocolError("launch spec fields are invalid")
-    if value["schema_version"] != 1 or value["adapter_id"] != "cpu.iterative":
+    version = value.get("schema_version")
+    # Version 2 adds checkpoint staging and optional restore; version 1 stays exact.
+    required = _LAUNCH_SPEC_FIELDS | ({"checkpoint", "restore"} if version == 2 else set())
+    if set(value) != required:
+        raise ProtocolError("launch spec fields are invalid")
+    if version not in {1, 2} or type(version) is not int or value["adapter_id"] != "cpu.iterative":
         raise ProtocolError("launch spec adapter is invalid")
     _uuid_v7(value["startup_nonce"], "startup_nonce")
     if value["input_path"] != "/input/input.json" or value["output_path"] != "/output/result.json":
@@ -1161,7 +1454,66 @@ def _validate_launch_spec(value: object) -> dict[str, object]:
     if not isinstance(checksum, str) or not checksum.startswith("sha256:") or len(checksum) != 71:
         raise ProtocolError("launch spec checksum is invalid")
     _validate_result_provenance(value["provenance"])
+    if version == 2:
+        _validate_checkpoint_launch(value)
     return value
+
+
+def _validate_checkpoint_launch(value: dict[str, object]) -> None:
+    provenance = value["provenance"]
+    assert isinstance(provenance, dict)
+    if value["spec_checksum"] != provenance["spec_checksum"]:
+        raise ProtocolError("launch spec checksum does not match provenance")
+    checkpoint = value["checkpoint"]
+    if (
+        not isinstance(checkpoint, dict)
+        or set(checkpoint) != {"state_path", "compatibility"}
+        or checkpoint["state_path"] != CHECKPOINT_STATE_PATH
+    ):
+        raise ProtocolError("launch spec checkpoint is invalid")
+    compatibility = checkpoint["compatibility"]
+    if (
+        not isinstance(compatibility, dict)
+        or set(compatibility) != _COMPATIBILITY_FIELDS
+        or compatibility["architecture"] not in {"linux/amd64", "linux/arm64"}
+        or compatibility["device_type"] != "CPU"
+        or compatibility["framework"] != "PYTHON"
+        or not isinstance(compatibility["framework_version"], str)
+        or not compatibility["framework_version"]
+        or any(
+            compatibility[field] is not None
+            for field in ("cuda_version", "minimum_driver_version", "gpu_compute_capability")
+        )
+        or compatibility["checkpointable"] is not True
+        or type(compatibility["restart_safe"]) is not bool
+    ):
+        raise ProtocolError("launch spec compatibility is invalid")
+    restore = value["restore"]
+    if restore is None:
+        return
+    if (
+        not isinstance(restore, dict)
+        or set(restore) != _RESTORE_FIELDS
+        or restore["path"] != RESTORE_STATE_PATH
+    ):
+        raise ProtocolError("launch spec restore is invalid")
+    _uuid_v7(restore["checkpoint_id"], "checkpoint_id")
+    for field, minimum, maximum in (
+        ("checkpoint_sequence", 1, 2**53 - 1),
+        ("step", 0, int(value["iterations"])),
+        ("accumulator", 0, int(value["modulus"]) - 1),
+    ):
+        item = restore[field]
+        if type(item) is not int or not minimum <= item <= maximum:
+            raise ProtocolError(f"launch spec restore {field} is invalid")
+    checksum = restore["state_checksum"]
+    if (
+        not isinstance(checksum, str)
+        or not checksum.startswith("sha256:")
+        or len(checksum) != 71
+        or any(char not in "0123456789abcdef" for char in checksum[7:])
+    ):
+        raise ProtocolError("launch spec restore checksum is invalid")
 
 
 def _validate_result_provenance(value: object) -> dict[str, object]:

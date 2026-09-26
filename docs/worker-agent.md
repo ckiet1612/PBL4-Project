@@ -1,4 +1,4 @@
-# B10/B11 worker agent: implementation boundary
+# B10/B11/B14 worker agent: implementation boundary
 
 This is the B10 worker implementation with scoped verification evidence; it is
 not an accepted production deployment. The REST API persists incarnation,
@@ -92,6 +92,63 @@ stops the locally bound container, but keeps the allocation unresolved rather
 than fabricating release.
 An operation's own completed `TimeoutError` is retried; a wait timeout retains
 the running operation until it finishes so retries cannot overlap.
+
+## B14 checkpoint cycle, restore and container exit
+
+B14 adds a checkpoint cycle for attempts whose launch spec carries a checkpoint
+block (template `checkpointable` and a runner image labelled
+`io.nexa.runner.checkpoint=cpu-state-v1`). `worker/checkpoint_flow.py` keeps the
+cycle in the journal (`runner_state.checkpoint_flow`) and records every server
+identity and byte binding before the next effect. In order: reserve callback ID,
+reservation, frozen `REQUEST_CHECKPOINT` control, file descriptors, per-file
+upload keys and artifact IDs, the binding and finalize controls, the manifest
+descriptor and artifact, and the publish callback ID. A crash at any step
+therefore replays the same checkpoint ID and sequence instead of reserving
+another. A cycle starts only on the monotonic interval (spec
+`checkpoint_interval_seconds`, clamped to 5-60 s). It also needs no pending runner
+frame, no result flow or deferred `RESULT_PREPARE`, no failure resolution, and
+progress below 1.0. A restarted worker waits one full interval before a new
+cycle but resumes an open one. Reserve `409` skips to the next interval, and
+`503` or a network error retries the same callback. Publish `422` means the
+server rejected that identity: checkpoints stop for the attempt while the workload keeps
+running. A runner protocol mismatch fails the attempt
+`INTERNAL/CHECKPOINT_PROTOCOL_ERROR`; the B11 fail path abandons the open
+reservation. Adoption accepts the server's transferred checkpoint reservation
+only when the journal explains it, and never replays the old publish callback
+under the new authority. Checkpoint, cursor and manifest bytes are never logged.
+
+For an attempt whose claim froze `execution_context.restore_checkpoint`, the
+worker re-verifies the manifest against that record, the job input and its
+architecture before any Docker work. It downloads only the listed state file
+through the attempt's execution graph into its private staging directory and
+checks it against the manifest cursor; a leftover file that does not match the
+descriptor size and checksum (a download cut short by a worker crash) is removed
+and fetched again. The executor then mounts it read-only at
+`/input/restore-state.json` and passes `--resume-state`; the entrypoint validates
+it again before resuming. If the frozen restore cannot be verified or
+downloaded, the attempt fails `INCOMPATIBLE/CHECKPOINT_RESTORE_UNAVAILABLE` and
+never silently restarts from the input. A claim without a restore record
+starts from the input. Launch selection runs inside the startup budget and its
+failure handling, so a configured image digest that differs from the context
+still fails the attempt with a no-container proof, as before B14.
+
+A workload container that exits without a runner terminal frame is detected
+when its control relay fails. The IPC and result loops then inspect the exact
+container identity; a relay error on a running container is not treated as
+an exit. The observed exit is journaled (`runner_state.container_exit`) and the
+attempt fails with a Docker-proven observation: `OOMKilled` becomes
+`OOM/CONTAINER_OOM`, and exit code 0 becomes `INTERNAL/RUNNER_PROTOCOL_ERROR`
+(the runner exits 0 only after a terminal frame that was lost). Any other exit
+becomes `INFRASTRUCTURE/RUNNER_UNAVAILABLE`, which can be retried. Cleanup then
+removes the exact stopped container and sends its stopped-container proof;
+nothing is stopped twice. An acknowledged renewal whose runner deadline could not
+be delivered to the dead container is discarded only after the failure is
+acknowledged and cleanup is verified, so readiness recovers without losing
+authority work. After a completion callback has been sent, a container exit
+does not fail the attempt; the completion is replayed from the request journaled
+with its callback ID, without reading the stopped container's output again. A dead container found
+after a worker restart that still has another incarnation's pending renewal
+remains unresolved for B15 recovery.
 
 ## Local Compose contract
 

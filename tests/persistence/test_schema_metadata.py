@@ -48,6 +48,7 @@ REQUIRED_TABLES = {
     "callback_receipts",
     "checkpoint_reservations",
     "checkpoints",
+    "checkpoint_corruptions",
     "checkpoint_references",
     "result_reservations",
     "results",

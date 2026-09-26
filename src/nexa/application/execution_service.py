@@ -8,6 +8,8 @@ from sqlalchemy import insert, select, update
 
 from nexa.api.schemas import Authority
 from nexa.application.artifact_service import ArtifactService
+from nexa.application.checkpoint_restore import CheckpointRestoreMixin, _not_corrupt
+from nexa.application.checkpoint_service import CheckpointMixin, checkpoint_record
 from nexa.application.errors import ApplicationError
 from nexa.application.execution_cleanup import (
     ExecutionCleanupMixin,
@@ -27,6 +29,7 @@ from nexa.infrastructure.persistence.schema import (
     attempt_authority_grants,
     attempt_leases,
     attempts,
+    checkpoints,
     job_specs,
     jobs,
     logical_sessions,
@@ -38,7 +41,9 @@ from nexa.infrastructure.persistence.schema import (
 from nexa.infrastructure.persistence.transactions import run_transaction
 
 
-class ExecutionService(ExecutionCleanupMixin, WorkerService):
+class ExecutionService(
+    CheckpointRestoreMixin, CheckpointMixin, ExecutionCleanupMixin, WorkerService
+):
     def __init__(self, *args, artifact_store=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.artifact_store = artifact_store
@@ -111,6 +116,18 @@ class ExecutionService(ExecutionCleanupMixin, WorkerService):
                         message="Dispatch input artifact is unavailable",
                         retry_after=1,
                     )
+                # The newest restorable checkpoint tells the worker that a Job
+                # which is not restart-safe must not start without a restore.
+                checkpoint = (
+                    session.execute(
+                        select(checkpoints)
+                        .where(checkpoints.c.job_id == row["job_id"], _not_corrupt())
+                        .order_by(checkpoints.c.sequence.desc())
+                        .limit(1)
+                    )
+                    .mappings()
+                    .first()
+                )
                 authority = {
                     "worker_id": row["worker_id"],
                     "worker_incarnation_id": row["worker_incarnation_id"],
@@ -124,7 +141,7 @@ class ExecutionService(ExecutionCleanupMixin, WorkerService):
                     "dispatch_coordinator_epoch": row["dispatch_coordinator_epoch"],
                     "spec": row["canonical_spec"],
                     "input_artifact": ArtifactService._view(artifact),
-                    "checkpoint": None,
+                    "checkpoint": None if checkpoint is None else checkpoint_record(checkpoint),
                     "startup_limit_seconds": 30,
                     "lease_duration_seconds": 45,
                 }
@@ -299,6 +316,12 @@ class ExecutionService(ExecutionCleanupMixin, WorkerService):
             templates,
         )
 
+        # Blob reads and one-way corruption marks happen before the claim
+        # transaction; claim only rechecks the snapshot and records the choice.
+        scan = self._prepare_restore(
+            credential=credential, authority=authority, callback_id=callback_id
+        )
+
         def operation(session):
             receipt, replay, rows = self._callback(
                 session,
@@ -385,6 +408,7 @@ class ExecutionService(ExecutionCleanupMixin, WorkerService):
                     capability_requirement=requirements,
                 )
                 item = self._reconciliation_item(session, allocation, now)
+                restore = self._restore_decision(session, job, authority, scan, now)
                 context = json_wire_value(
                     dict(
                         job_id=job["job_id"],
@@ -402,7 +426,7 @@ class ExecutionService(ExecutionCleanupMixin, WorkerService):
                         image_digest=template["image_digest"],
                         allocation=item["allocation"],
                         input_artifacts=[ArtifactService._view(row) for row in inputs],
-                        restore_checkpoint=None,
+                        restore_checkpoint=restore,
                         startup_nonce=attempt["startup_nonce"],
                         startup_limit_seconds=30,
                         lease_duration_seconds=45,
@@ -466,6 +490,19 @@ class ExecutionService(ExecutionCleanupMixin, WorkerService):
                     code="state_conflict",
                     status=409,
                     message="Attempt startup identity or budget is invalid",
+                )
+            context = attempt["execution_context"] or {}
+            if (
+                attempt["attempt_number"] > 1
+                and not context.get("template_snapshot", {}).get("restart_safe")
+                and context.get("restore_checkpoint") is None
+            ):
+                # Defense in depth: the worker fails this Attempt INCOMPATIBLE
+                # before Docker create; replaying input from step zero is never allowed.
+                raise ApplicationError(
+                    code="state_conflict",
+                    status=409,
+                    message="Checkpoint restore is required for this Attempt",
                 )
             session.execute(
                 insert(container_identities).values(

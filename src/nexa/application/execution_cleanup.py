@@ -3,7 +3,7 @@
 from datetime import timedelta
 from secrets import randbelow
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import exists, insert, select, update
 
 from nexa.application.errors import ApplicationError
 from nexa.application.json_codec import json_wire_value
@@ -26,8 +26,13 @@ _FAILURE_REASONS = {
     "TIMEOUT": {"RUNTIME_LIMIT_REACHED", "STARTUP_TIMEOUT"},
     "OOM": {"CONTAINER_OOM"},
     "INVALID_INPUT": {"INVALID_INPUT", "INPUT_CHECKSUM_MISMATCH"},
-    "INCOMPATIBLE": {"CAPABILITY_MISMATCH", "IMAGE_MISMATCH"},
-    "INTERNAL": {"WORKLOAD_EXIT_NONZERO", "RUNNER_PROTOCOL_ERROR", "INVALID_RESULT"},
+    "INCOMPATIBLE": {"CAPABILITY_MISMATCH", "IMAGE_MISMATCH", "CHECKPOINT_RESTORE_UNAVAILABLE"},
+    "INTERNAL": {
+        "WORKLOAD_EXIT_NONZERO",
+        "RUNNER_PROTOCOL_ERROR",
+        "INVALID_RESULT",
+        "CHECKPOINT_PROTOCOL_ERROR",
+    },
 }
 _TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED"}
 
@@ -114,9 +119,10 @@ def _adjust_counters(session, counters, now, *, outstanding=0, active=0):
         )
 
 
-def _event(session, job, worker_id, now, event_type, reason, **changes):
+def _event(session, job, worker_id, now, event_type, reason, *, keep_version=False, **changes):
+    """Append one Job event and audit row; ``keep_version`` leaves the If-Match version."""
     sequence = job["event_sequence"] + 1
-    version = job["version"] + 1
+    version = job["version"] if keep_version else job["version"] + 1
     session.execute(
         update(s.jobs)
         .where(s.jobs.c.job_id == job["job_id"])
@@ -345,7 +351,7 @@ class ExecutionCleanupMixin:
                     s.checkpoint_reservations.c.attempt_id == attempt_id,
                     s.checkpoint_reservations.c.state == "RESERVED",
                 )
-                .values(state="ABANDONED")
+                .values(state="ABANDONED", ended_at=now)
             )
             response = json_wire_value(
                 dict(
@@ -505,23 +511,47 @@ class ExecutionCleanupMixin:
                     .mappings()
                     .one()
                 )
+                # A later attempt may resume from a committed checkpoint. Claim
+                # re-verifies it; if none is usable the worker fails that attempt
+                # INCOMPATIBLE with a NoContainerProof before any Docker create.
+                restorable = spec["restart_safe"] or (
+                    session.execute(
+                        select(s.checkpoints.c.checkpoint_id)
+                        .where(
+                            s.checkpoints.c.job_id == ref,
+                            s.checkpoints.c.state == "COMMITTED",
+                            ~exists().where(
+                                s.checkpoint_corruptions.c.checkpoint_id
+                                == s.checkpoints.c.checkpoint_id
+                            ),
+                        )
+                        .limit(1)
+                    ).first()
+                    is not None
+                )
                 if (
                     attempt["failure_class"] == "INFRASTRUCTURE"
                     and job["retry_count"] < job["max_retries"]
-                    and spec["restart_safe"]
+                    and restorable
                     and job["desired_state"] == "RUNNING"
                 ):
                     next_state = "RETRY_WAIT"
                     retry = job["retry_count"] + 1
-                    changes["retry_count"] = retry
                     jitter_ms = randbelow(1001)
+                    ready_at = now + timedelta(
+                        seconds=min(30, 2 ** (retry - 1)), milliseconds=jitter_ms
+                    )
+                    changes.update(
+                        retry_count=retry,
+                        retry_ready_at=ready_at,
+                        waiting_reason="waiting_for_retry",
+                    )
                     session.execute(
                         insert(s.retry_schedules).values(
                             job_id=ref,
                             tenant_id=job["tenant_id"],
                             retry_number=retry,
-                            ready_at=now
-                            + timedelta(seconds=min(30, 2 ** (retry - 1)), milliseconds=jitter_ms),
+                            ready_at=ready_at,
                             jitter_milliseconds=jitter_ms,
                             reason="INFRASTRUCTURE",
                         )

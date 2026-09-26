@@ -1,15 +1,18 @@
 """Leadership is independent from worker incarnation and attempt authority."""
 
+import time
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
 from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.schema import coordinator_leadership
 from nexa.infrastructure.persistence.transactions import run_transaction
+
+_RETRY_PROBE_SECONDS = 1.0
 
 
 class LeadershipLost(RuntimeError):
@@ -22,6 +25,7 @@ class CoordinatorService:
         self.session_factory = session_factory
         self.holder_id = holder_id or new_uuid7()
         self.cursors = {}
+        self._retry_probe_at = 0.0
 
     @staticmethod
     def _timeouts(session):
@@ -177,6 +181,34 @@ class CoordinatorService:
         )
         return policy, worker, inventory
 
+    def promote_retries(self, epoch: int) -> int:
+        """Move due RETRY_WAIT jobs back to QUEUED under live leadership."""
+        from nexa.coordinator.retry import promote_due_locked, retry_due
+        from nexa.infrastructure.persistence import schema as s
+
+        def operation(session):
+            self._timeouts(session)
+            if not retry_due(session, func.clock_timestamp()):
+                return 0
+            self._leader(session, epoch)
+            policy = (
+                session.execute(
+                    select(s.policy_versions)
+                    .where(s.policy_versions.c.is_current.is_(True))
+                    .with_for_update()
+                )
+                .mappings()
+                .one()
+            )
+            now = self._leader(session, epoch)
+            if policy["operational_mode"] == "WRITE_FROZEN":
+                return 0
+            promoted = promote_due_locked(session, now=now, holder_id=self.holder_id)
+            self._leader(session, epoch)
+            return promoted
+
+        return run_transaction(self.session_factory, operation)
+
     def tick(self, epoch: int):
         from nexa.application.job_service import JobService
         from nexa.coordinator.accounting import account_locked, account_now_locked, epoch_ms
@@ -223,6 +255,10 @@ class CoordinatorService:
             self._leader(session, epoch)
             return snapshot, epoch_ms(now), reservation_replay_pending(session, snapshot)
 
+        # At most one retry probe per second keeps the idle tick path unchanged.
+        if time.monotonic() >= self._retry_probe_at:
+            self._retry_probe_at = time.monotonic() + _RETRY_PROBE_SECONDS
+            self.promote_retries(epoch)
         prepared = run_transaction(self.session_factory, snapshot_operation)
         if prepared is None:
             return NoDecision("worker_or_mode_unavailable")

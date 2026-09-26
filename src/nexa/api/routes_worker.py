@@ -17,6 +17,9 @@ from nexa.api.schemas import (
     AdoptRequest,
     AdoptResponse,
     AuthorityRequest,
+    CheckpointPublishRequest,
+    CheckpointRecord,
+    CheckpointReservationResponse,
     CompleteRequest,
     ErrorResponse,
     HeartbeatRequest,
@@ -250,6 +253,60 @@ async def reserve_result(
 
 
 @router.post(
+    "/attempts/{attempt_id}/checkpoint-reservations",
+    operation_id="workerReserveCheckpoint",
+    status_code=201,
+    response_model=CheckpointReservationResponse,
+    responses=_ERRORS,
+    openapi_extra={"security": _SECURITY},
+)
+async def reserve_checkpoint(
+    request: Request,
+    attempt_id: UuidV7,
+    callback_id: Annotated[UuidV7, Header(alias="X-Callback-Id")],
+) -> JSONResponse:
+    body, decoded = await parse_json_request(
+        request, AuthorityRequest, settings=services(request).settings
+    )
+    result = await run_in_threadpool(
+        _service(request).reserve_checkpoint,
+        credential=_credential(request),
+        attempt_id=attempt_id,
+        callback_id=callback_id,
+        payload_hash=jcs_request_hash(decoded),
+        authority=body.authority,
+    )
+    return JSONResponse(result, status_code=201)
+
+
+@router.post(
+    "/attempts/{attempt_id}/checkpoints",
+    operation_id="workerPublishCheckpoint",
+    status_code=201,
+    response_model=CheckpointRecord,
+    responses=_ERRORS,
+    openapi_extra={"security": _SECURITY},
+)
+async def publish_checkpoint(
+    request: Request,
+    attempt_id: UuidV7,
+    callback_id: Annotated[UuidV7, Header(alias="X-Callback-Id")],
+) -> JSONResponse:
+    body, decoded = await parse_json_request(
+        request, CheckpointPublishRequest, settings=services(request).settings
+    )
+    result = await run_in_threadpool(
+        _service(request).publish_checkpoint,
+        credential=_credential(request),
+        attempt_id=attempt_id,
+        callback_id=callback_id,
+        payload_hash=jcs_request_hash(decoded),
+        request=body,
+    )
+    return JSONResponse(result, status_code=201)
+
+
+@router.post(
     "/attempts/{attempt_id}/claim",
     operation_id="workerClaimAttempt",
     responses=_ERRORS,
@@ -343,7 +400,7 @@ async def upload_attempt_artifact(
         )
     authority = _header_authority(request, attempt_id)
     service = AttemptArtifactService(
-        services(request).artifact, _service(request), _credential(request), authority
+        services(request).artifact, _service(request), _credential(request), authority, kind
     )
     tenant = await run_in_threadpool(service.tenant_id)
     content_length = request.headers.get("content-length")

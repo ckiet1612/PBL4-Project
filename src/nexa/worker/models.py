@@ -193,6 +193,71 @@ class CpuWorkloadSpec:
             raise ValueError("CPU result logical name is fixed by the image contract")
 
 
+CHECKPOINT_STATE_PATH = "/output/state.json"
+RESTORE_STATE_PATH = "/input/restore-state.json"
+
+
+@dataclass(frozen=True, slots=True)
+class CheckpointRestore:
+    """Worker-verified restore cursor; bytes are mounted read-only at a fixed path."""
+
+    checkpoint_id: str
+    checkpoint_sequence: int
+    step: int
+    accumulator: int
+    state_checksum: Checksum
+    path: str = RESTORE_STATE_PATH
+
+    def __post_init__(self) -> None:
+        _uuid(self.checkpoint_id, "checkpoint_id")
+        _positive(self.checkpoint_sequence, "checkpoint_sequence")
+        for name in ("step", "accumulator"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+        _checksum(self.state_checksum, "state_checksum")
+        if self.path != RESTORE_STATE_PATH:
+            raise ValueError("restore path is fixed by the image contract")
+
+
+@dataclass(frozen=True, slots=True)
+class CpuCheckpointLaunch:
+    """Checkpoint capability of one CPU launch; absent for non-checkpointable images."""
+
+    framework_version: str
+    restart_safe: bool
+    interval_seconds: int = 30
+    restore: CheckpointRestore | None = None
+    state_path: str = CHECKPOINT_STATE_PATH
+
+    def __post_init__(self) -> None:
+        _semver(self.framework_version, "framework_version")
+        if type(self.restart_safe) is not bool:
+            raise ValueError("restart_safe must be a boolean")
+        if (
+            not isinstance(self.interval_seconds, int)
+            or isinstance(self.interval_seconds, bool)
+            or not 5 <= self.interval_seconds <= 60
+        ):
+            raise ValueError("checkpoint interval must be between 5 and 60 seconds")
+        if self.state_path != CHECKPOINT_STATE_PATH:
+            raise ValueError("checkpoint state path is fixed by the image contract")
+
+    def compatibility(self, architecture: Architecture) -> dict[str, object]:
+        # Identical to the server's expected_compatibility for a CPU template.
+        return {
+            "architecture": architecture,
+            "device_type": "CPU",
+            "framework": "PYTHON",
+            "framework_version": self.framework_version,
+            "cuda_version": None,
+            "minimum_driver_version": None,
+            "gpu_compute_capability": None,
+            "checkpointable": True,
+            "restart_safe": self.restart_safe,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class StartExecution:
     context: ExecutionContext
@@ -205,6 +270,7 @@ class StartExecution:
     startup_limit_seconds: int = 30
     input_mounts: tuple[InputMount, ...] = ()
     cpu_workload: CpuWorkloadSpec | None = None
+    checkpoint: CpuCheckpointLaunch | None = None
 
     def __post_init__(self) -> None:
         _uuid(self.startup_nonce, "startup_nonce")
@@ -231,6 +297,27 @@ class StartExecution:
             targets = {mount.target_path for mount in self.input_mounts}
             if self.cpu_workload.input_target_path not in targets:
                 raise ValueError("CPU workload input target is not mounted")
+        restore_mounts = [
+            mount for mount in self.input_mounts if mount.target_path == RESTORE_STATE_PATH
+        ]
+        if self.checkpoint is None:
+            if restore_mounts:
+                raise ValueError("restore state mount requires a checkpoint launch")
+            return
+        if self.cpu_workload is None:
+            raise ValueError("checkpoint launch requires the CPU workload spec")
+        restore = self.checkpoint.restore
+        if restore is None:
+            if restore_mounts:
+                raise ValueError("restore state mount requires a restore cursor")
+            return
+        if len(restore_mounts) != 1 or restore_mounts[0].content_checksum != restore.state_checksum:
+            raise ValueError("restore state mount does not match the restore cursor")
+        if (
+            restore.step > self.cpu_workload.iterations
+            or restore.accumulator >= self.cpu_workload.modulus
+        ):
+            raise ValueError("restore cursor is outside the job bounds")
 
 
 @dataclass(frozen=True, slots=True)

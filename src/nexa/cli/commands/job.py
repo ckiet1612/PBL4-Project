@@ -275,6 +275,17 @@ def register(group: typer.Typer) -> None:
         query["after_sequence"] = after_sequence
         _read(ctx, "GET", f"/v1/jobs/{job_id}/events", query=query, tenant=tenant)
 
+    @group.command("checkpoints")
+    def list_checkpoints(
+        ctx: Context,
+        job_id: Annotated[str, typer.Argument()],
+        cursor: Annotated[str | None, typer.Option("--cursor")] = None,
+        page_size: Annotated[int, typer.Option("--page-size")] = 50,
+        tenant: Annotated[str | None, typer.Option("--tenant")] = None,
+    ) -> None:
+        query = _query_page(ctx, cursor, page_size)
+        _read(ctx, "GET", f"/v1/jobs/{job_id}/checkpoints", query=query, tenant=tenant)
+
     @group.command("result")
     def get_result(
         ctx: Context,
