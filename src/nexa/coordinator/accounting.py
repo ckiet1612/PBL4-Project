@@ -2,16 +2,21 @@
 
 Call account_locked before any allocation, capacity or weight mutation, then
 rebase_locked afterwards in the same transaction. Neither function commits.
+The coordinator heartbeat (CoordinatorService.account) locks only ledger rows
+and charges through DB time read after those locks, so it never waits for a
+decision transaction that holds policy locks but has not locked ledger rows;
+account_now_locked applies the same boundary rule inside such a transaction.
 """
 
 from datetime import UTC, datetime
 from decimal import Decimal, localcontext
 
-from sqlalchemy import select, update
+from sqlalchemy import bindparam, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.infrastructure.persistence.locking import clock_timestamp
 
 
 def epoch_ms(value: datetime) -> int:
@@ -23,32 +28,26 @@ def _elapsed_seconds(start, end):
     return Decimal(epoch_ms(end) - epoch_ms(start)) / Decimal(1000)
 
 
-def _ledger_rows(session, now):
-    tenant_ids = (
+def lock_ledgers(session, now, *, ensure_state=True):
+    if ensure_state:
         session.execute(
-            select(s.tenant_policies.c.tenant_id)
-            .where(s.tenant_policies.c.is_current.is_(True))
-            .order_by(s.tenant_policies.c.tenant_id)
-        )
-        .scalars()
-        .all()
-    )
-    session.execute(
-        insert(s.fairness_state)
-        .values(singleton_key="local", virtual_floor=Decimal(0))
-        .on_conflict_do_nothing()
-    )
-    for tenant_id in tenant_ids:
-        session.execute(
-            insert(s.fairness_ledgers)
-            .values(
-                tenant_id=tenant_id,
-                virtual_score=Decimal(0),
-                accounted_through=now,
-                had_eligible_demand=False,
-            )
+            insert(s.fairness_state)
+            .values(singleton_key="local", virtual_floor=Decimal(0))
             .on_conflict_do_nothing()
         )
+    session.execute(
+        insert(s.fairness_ledgers)
+        .from_select(
+            ("tenant_id", "virtual_score", "accounted_through", "had_eligible_demand"),
+            select(
+                s.tenant_policies.c.tenant_id,
+                literal(Decimal(0), type_=s.fairness_ledgers.c.virtual_score.type),
+                literal(now),
+                literal(False),
+            ).where(s.tenant_policies.c.is_current.is_(True)),
+        )
+        .on_conflict_do_nothing(index_elements=(s.fairness_ledgers.c.tenant_id,))
+    )
     return (
         session.execute(
             select(s.fairness_ledgers).order_by(s.fairness_ledgers.c.tenant_id).with_for_update()
@@ -59,8 +58,29 @@ def _ledger_rows(session, now):
 
 
 def account_locked(session, now):
-    """Charge each interval once at the previously committed share and weight."""
-    ledgers = _ledger_rows(session, now)
+    """Charge each interval once at the previously committed share and weight.
+
+    The heartbeat may commit a boundary after this caller's policy-locked DB
+    time. Segments only change under those policy locks, so that overlap was
+    charged at the still-open segments and is refunded at the same share. A
+    boundary later than DB time read after the ledger locks is a regression.
+    """
+    charge_locked(session, lock_ledgers(session, now), now, strict=False)
+
+
+def account_now_locked(session):
+    """Charge through DB time read after the ledger row locks; return that time."""
+    ledgers = lock_ledgers(session, clock_timestamp(session))
+    boundary = clock_timestamp(session)
+    charge_locked(session, ledgers, boundary, strict=True)
+    return boundary
+
+
+def charge_locked(session, ledgers, now, *, strict):
+    if any(now < ledger["accounted_through"] for ledger in ledgers):
+        observed = now if strict else clock_timestamp(session)
+        if any(observed < ledger["accounted_through"] for ledger in ledgers):
+            raise RuntimeError("accounting DB time regressed")
     segments = (
         session.execute(
             select(s.allocation_ledger_segments)
@@ -73,14 +93,13 @@ def account_locked(session, now):
     )
     with localcontext() as context:
         context.prec = 50
+        ledger_updates = []
         for ledger in ledgers:
-            if now < ledger["accounted_through"]:
-                raise RuntimeError("accounting DB time regressed")
             owned = [segment for segment in segments if segment["tenant_id"] == ledger["tenant_id"]]
             charge = Decimal(0)
             if owned:
                 start = max(ledger["accounted_through"], owned[0]["started_at"])
-                if any(
+                if owned[0]["started_at"] > now or any(
                     segment["started_at"] != owned[0]["started_at"]
                     or segment["weight"] != owned[0]["weight"]
                     for segment in owned
@@ -102,15 +121,24 @@ def account_locked(session, now):
                         .where(s.allocation_ledger_segments.c.segment_id == segment["segment_id"])
                         .values(charged_amount=segment["charged_amount"] + amount)
                     )
+            ledger_updates.append(
+                {
+                    "b13_tenant_id": ledger["tenant_id"],
+                    "b13_score": ledger["virtual_score"] + charge,
+                    "b13_version": ledger["version"] + 1,
+                }
+            )
+        if ledger_updates:
             session.execute(
                 update(s.fairness_ledgers)
-                .where(s.fairness_ledgers.c.tenant_id == ledger["tenant_id"])
+                .where(s.fairness_ledgers.c.tenant_id == bindparam("b13_tenant_id"))
                 .values(
-                    virtual_score=ledger["virtual_score"] + charge,
+                    virtual_score=bindparam("b13_score"),
                     accounted_through=now,
-                    version=ledger["version"] + 1,
+                    version=bindparam("b13_version"),
                     updated_at=now,
-                )
+                ),
+                ledger_updates,
             )
 
 

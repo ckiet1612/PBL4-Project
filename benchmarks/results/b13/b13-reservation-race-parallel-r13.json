@@ -1,0 +1,321 @@
+[
+  {
+    "step": "initial_held_dispatch",
+    "db_time": "2026-09-25 20:08:11.611251+00:00",
+    "free_cpu_millis": 3000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": []
+  },
+  {
+    "step": "large_job_reserved",
+    "db_time": "2026-09-25 20:08:11.725425+00:00",
+    "free_cpu_millis": 3000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": null
+      }
+    ]
+  },
+  {
+    "step": "fitting_small_arrival_drained",
+    "db_time": "2026-09-25 20:08:11.788939+00:00",
+    "free_cpu_millis": 3000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:11.729206+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": null
+      }
+    ]
+  },
+  {
+    "step": "concurrent_cleanup_tick",
+    "decision": "DrainForReservation"
+  },
+  {
+    "step": "verified_cleanup_release",
+    "db_time": "2026-09-25 20:08:12.020645+00:00",
+    "free_cpu_millis": 6000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:11.729206+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": null
+      }
+    ]
+  },
+  {
+    "step": "protected_large_dispatch",
+    "db_time": "2026-09-25 20:08:12.176054+00:00",
+    "free_cpu_millis": 2000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:11.729206+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  },
+  {
+    "step": "small_arrival_after_protected_dispatch",
+    "db_time": "2026-09-25 20:08:12.183531+00:00",
+    "free_cpu_millis": 2000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:11.729206+00:00"
+      },
+      {
+        "job_id": "01a0da2e-c093-7f3c-a92d-fca8c40aa607",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:12.179740+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  },
+  {
+    "step": "small_before_dispatched_after_protection",
+    "db_time": "2026-09-25 20:08:12.327516+00:00",
+    "free_cpu_millis": 1000,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:11.729206+00:00"
+      },
+      {
+        "job_id": "01a0da2e-c093-7f3c-a92d-fca8c40aa607",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:12.179740+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "cpu_millis": 1000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  },
+  {
+    "step": "small_after_dispatched_after_protection",
+    "db_time": "2026-09-25 20:08:12.446817+00:00",
+    "free_cpu_millis": 0,
+    "jobs": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:08:11.409873+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:10.411862+00:00"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:11.729206+00:00"
+      },
+      {
+        "job_id": "01a0da2e-c093-7f3c-a92d-fca8c40aa607",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:12.179740+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2e-bd91-74fe-a25c-2585b622186a",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2e-bed1-7371-94a1-cc43be8e1f53",
+        "cpu_millis": 1000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2e-c093-7f3c-a92d-fca8c40aa607",
+        "cpu_millis": 1000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2e-bd84-77b4-8665-52a60842d32d",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  }
+]

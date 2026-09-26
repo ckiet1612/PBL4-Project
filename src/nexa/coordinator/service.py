@@ -27,6 +27,9 @@ class CoordinatorService:
     def _timeouts(session):
         session.execute(text("SET LOCAL lock_timeout = '1000ms'"))
         session.execute(text("SET LOCAL statement_timeout = '3000ms'"))
+        # Short indexed reads; a 100-tenant queue estimate crosses the JIT
+        # thresholds and compilation alone took ~1.1 s per statement.
+        session.execute(text("SET LOCAL jit = off"))
 
     def acquire(self) -> int | None:
         def operation(session):
@@ -86,6 +89,47 @@ class CoordinatorService:
         except LeadershipLost:
             return False
 
+    def account(self, epoch: int):
+        """Commit the ledger boundary without waiting for decision-path locks.
+
+        Only ledger/segment rows are locked. Every mutation of segment shares
+        holds policy locks and calls account_locked, which refunds any overlap
+        this heartbeat committed after that caller's DB time.
+        """
+        from nexa.coordinator.accounting import charge_locked, lock_ledgers
+        from nexa.infrastructure.persistence import schema as s
+
+        def operation(session):
+            self._timeouts(session)
+            self._live(session, epoch)
+            ledgers = lock_ledgers(session, clock_timestamp(session), ensure_state=False)
+            # Read after the ledger locks: a freeze charges under the same locks.
+            mode = session.execute(
+                select(s.policy_versions.c.operational_mode).where(
+                    s.policy_versions.c.is_current.is_(True)
+                )
+            ).scalar_one()
+            if mode == "WRITE_FROZEN":
+                return None
+            boundary = self._live(session, epoch)
+            charge_locked(session, ledgers, boundary, strict=True)
+            return boundary
+
+        return run_transaction(self.session_factory, operation)
+
+    def _live(self, session, epoch):
+        # Unlocked read so the heartbeat never queues behind a decision tick.
+        row = session.execute(select(coordinator_leadership)).mappings().one_or_none()
+        now = clock_timestamp(session)
+        if (
+            row is None
+            or row["holder_id"] != self.holder_id
+            or row["epoch"] != epoch
+            or row["lease_expires_at"] <= now
+        ):
+            raise LeadershipLost()
+        return now
+
     def _locks(self, session):
         from nexa.infrastructure.persistence import schema as s
 
@@ -135,9 +179,9 @@ class CoordinatorService:
 
     def tick(self, epoch: int):
         from nexa.application.job_service import JobService
-        from nexa.coordinator.accounting import account_locked, epoch_ms
+        from nexa.coordinator.accounting import account_locked, account_now_locked, epoch_ms
         from nexa.coordinator.dispatch import apply_decision
-        from nexa.coordinator.snapshot import read_snapshot
+        from nexa.coordinator.snapshot import persist_fairness_locked, read_snapshot
         from nexa.domain.scheduling import (
             CreateReservation,
             Dispatch,
@@ -148,6 +192,21 @@ class CoordinatorService:
         from nexa.infrastructure.persistence import schema as s
         from nexa.scheduler.policy import WeightedDominantResourceTimePolicy
 
+        def reservation_replay_pending(session, snapshot):
+            reservation = snapshot.active_reservation
+            return (
+                reservation is not None
+                and session.execute(
+                    select(s.queue_eligibility_events.c.event_id)
+                    .where(
+                        s.queue_eligibility_events.c.tenant_id == UUID(reservation.tenant_id),
+                        s.queue_eligibility_events.c.completed_at.is_(None),
+                    )
+                    .limit(1)
+                ).first()
+                is not None
+            )
+
         def snapshot_operation(session):
             self._timeouts(session)
             self._leader(session, epoch)
@@ -155,17 +214,21 @@ class CoordinatorService:
             now = self._leader(session, epoch)
             if policy["operational_mode"] == "WRITE_FROZEN":
                 return None
-            account_locked(session, now)
             if inventory is None or not JobService._worker_is_ready(dict(worker), now):
                 return None
             snapshot = read_snapshot(session, now, policy, worker, inventory, self.cursors)
+            # Ledger rows are locked only here, so the heartbeat never waits
+            # for the replay and candidate reads above.
+            persist_fairness_locked(session, snapshot, account_now_locked(session))
             self._leader(session, epoch)
-            return snapshot, epoch_ms(now)
+            return snapshot, epoch_ms(now), reservation_replay_pending(session, snapshot)
 
         prepared = run_transaction(self.session_factory, snapshot_operation)
         if prepared is None:
             return NoDecision("worker_or_mode_unavailable")
-        snapshot, now_ms = prepared
+        snapshot, now_ms, reservation_pending = prepared
+        if reservation_pending:
+            return NoDecision("reservation_eligibility_replay_pending")
         proposal = WeightedDominantResourceTimePolicy().decide(snapshot, now_ms)
         if isinstance(proposal, Err):
             raise RuntimeError(f"invalid policy proposal: {proposal.error}")
@@ -227,11 +290,18 @@ class CoordinatorService:
             now = self._leader(session, epoch)
             if not JobService._worker_is_ready(dict(worker), now):
                 return NoDecision("worker_changed")
-            account_locked(session, now)
-            fresh = read_snapshot(session, now, policy, worker, inventory, self.cursors)
+            fresh = read_snapshot(
+                session, now, policy, worker, inventory, self.cursors, replay_eligibility=False
+            )
+            if reservation_replay_pending(session, fresh):
+                return NoDecision("reservation_eligibility_replay_pending")
             checked = WeightedDominantResourceTimePolicy().decide(fresh, epoch_ms(now))
             if isinstance(checked, Err) or checked.value != decision:
                 return NoDecision("proposal_changed")
+            # Segment boundaries must equal allocation times, so charge through
+            # `now`; account_locked refunds any later heartbeat overlap.
+            account_locked(session, now)
+            persist_fairness_locked(session, fresh, now)
             apply_decision(
                 session,
                 decision,

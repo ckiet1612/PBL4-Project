@@ -1,4 +1,8 @@
-"""Bounded dispatch ticks and independent leadership renewal; no Docker access."""
+"""Bounded dispatch ticks, independent leadership renewal and ledger heartbeat.
+
+The ledger heartbeat commits at most every 250 ms in its own transaction, so
+ledger cadence does not depend on decision latency. No Docker access.
+"""
 
 import logging
 import time
@@ -32,8 +36,22 @@ def run(service, stop: Event) -> None:
                     _LOG.warning("coordinator_renew_unavailable")
                     return
 
+        def account(epoch=epoch, lost=lost, renewal_stop=renewal_stop):
+            while not renewal_stop.is_set() and not lost.is_set():
+                start = time.monotonic()
+                try:
+                    service.account(epoch)
+                except Exception:
+                    # Catch-up happens from the committed boundary after reacquire.
+                    lost.set()
+                    _LOG.warning("coordinator_accounting_unavailable")
+                    return
+                renewal_stop.wait(max(0, 0.25 - (time.monotonic() - start)))
+
         thread = Thread(target=renew, name="coordinator-renew", daemon=True)
         thread.start()
+        accounting = Thread(target=account, name="coordinator-accounting", daemon=True)
+        accounting.start()
         try:
             while not stop.is_set() and not lost.is_set():
                 start = time.monotonic()
@@ -47,5 +65,6 @@ def run(service, stop: Event) -> None:
         finally:
             renewal_stop.set()
             thread.join(timeout=4)
+            accounting.join(timeout=4)
         if not stop.is_set():
             stop.wait(1)

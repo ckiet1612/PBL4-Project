@@ -100,8 +100,11 @@ def test_signed_cursor_binds_actor_operation_filters_and_expiry() -> None:
     }
     with pytest.raises(CursorError, match="binding"):
         codec.decode(cursor, expected_binding={**binding, "actor": "user-2"})
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    last_index = alphabet.index(cursor[-1])
+    noncanonical_last = alphabet[(last_index & ~15) | ((last_index + 1) & 15)]
     with pytest.raises(CursorError, match="signature"):
-        codec.decode(cursor[:-1] + ("A" if cursor[-1] != "A" else "B"), expected_binding=binding)
+        codec.decode(cursor[:-1] + noncanonical_last, expected_binding=binding)
 
     expired = CursorCodec(
         b"c" * 32,

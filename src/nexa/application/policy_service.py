@@ -313,6 +313,10 @@ class PolicyService:
                     raise ApplicationError(
                         code="state_conflict", status=409, message=str(exc)
                     ) from exc
+                if new_mode is OperationalMode.WRITE_FROZEN:
+                    # The coordinator heartbeat reads the mode after locking
+                    # ledger rows; charging here orders it before the freeze.
+                    account_locked(session, clock_timestamp(session))
             new_version = current["policy_version"] + 1
             session.execute(
                 update(policy_versions)
@@ -637,6 +641,33 @@ class PolicyService:
                 .mappings()
                 .one()
             )
+            if tenant_counter is not None and (
+                current["tenant_active_limit"]
+                <= tenant_counter["active_attempts"]
+                < final["tenant_active_limit"]
+            ):
+                session.execute(
+                    update(admission_counters)
+                    .where(
+                        admission_counters.c.scope_type == "TENANT",
+                        admission_counters.c.scope_id == str(tenant_id),
+                    )
+                    .values(eligible_resumed_at=now)
+                )
+            for counter in user_counters:
+                if (
+                    current["user_active_limit"]
+                    <= counter["active_attempts"]
+                    < final["user_active_limit"]
+                ):
+                    session.execute(
+                        update(admission_counters)
+                        .where(
+                            admission_counters.c.scope_type == "USER",
+                            admission_counters.c.scope_id == counter["scope_id"],
+                        )
+                        .values(eligible_resumed_at=now)
+                    )
             rebase_locked(session, now)
             self._audit(
                 session,

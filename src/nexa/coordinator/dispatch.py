@@ -151,44 +151,6 @@ def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
         .values(state="DISPATCHING", job_fence=fence, waiting_reason=None)
     )
     _event(session, job, now, holder_id, "JOB_DISPATCHING", None)
-    limit = (
-        session.execute(
-            select(s.tenant_policies).where(
-                s.tenant_policies.c.tenant_id == job["tenant_id"],
-                s.tenant_policies.c.is_current.is_(True),
-            )
-        )
-        .mappings()
-        .one()
-    )
-    tenant_active = session.execute(
-        select(s.admission_counters.c.active_attempts).where(
-            s.admission_counters.c.scope_type == "TENANT",
-            s.admission_counters.c.scope_id == str(job["tenant_id"]),
-        )
-    ).scalar_one()
-    user_active = session.execute(
-        select(s.admission_counters.c.active_attempts).where(
-            s.admission_counters.c.scope_type == "USER",
-            s.admission_counters.c.scope_id == f"{job['tenant_id']}:{job['submitter_user_id']}",
-        )
-    ).scalar_one()
-    if tenant_active >= limit["tenant_active_limit"]:
-        session.execute(
-            update(s.jobs)
-            .where(s.jobs.c.tenant_id == job["tenant_id"], s.jobs.c.state == "QUEUED")
-            .values(eligible_since=None)
-        )
-    elif user_active >= limit["user_active_limit"]:
-        session.execute(
-            update(s.jobs)
-            .where(
-                s.jobs.c.tenant_id == job["tenant_id"],
-                s.jobs.c.submitter_user_id == job["submitter_user_id"],
-                s.jobs.c.state == "QUEUED",
-            )
-            .values(eligible_since=None)
-        )
     if decision.reservation_id:
         session.execute(
             update(s.reservations)

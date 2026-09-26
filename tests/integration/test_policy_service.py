@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
-from sqlalchemy import insert, update
+from sqlalchemy import insert, select, update
 
 from nexa.application.admin_service import AdminService
 from nexa.application.errors import ApplicationError
@@ -159,6 +159,61 @@ def test_tenant_policy_rejects_limits_below_committed_counter(
             request_hash="sha256:" + "d" * 64,
         )
     assert below_user_counter.value.status == 409
+
+
+def test_raising_active_limits_records_resume_boundary(migrated_postgres_engine, tmp_path):
+    identity, admin, policy, principal = _context(migrated_postgres_engine, tmp_path)
+    tenant = admin.create_tenant(
+        principal,
+        slug="resume-team",
+        display_name="Resume Team",
+        idempotency_key="create-tenant-resume",
+        request_hash="sha256:" + "a" * 64,
+    )
+    tenant_id = UUID(tenant["tenant_id"])
+    with migrated_postgres_engine.begin() as connection:
+        connection.execute(
+            insert(admission_counters).values(
+                scope_type="TENANT", scope_id=str(tenant_id), active_attempts=2
+            )
+        )
+        connection.execute(
+            insert(admission_counters).values(
+                scope_type="USER",
+                scope_id=f"{tenant_id}:{principal.user_id}",
+                active_attempts=1,
+            )
+        )
+
+    policy.update_tenant_policy(
+        principal,
+        tenant_id=tenant_id,
+        expected_version=1,
+        changes={"concurrent_attempt_limit": 3, "user_concurrent_attempt_limit": 2},
+        idempotency_key="raise-active-limit-resume",
+        request_hash="sha256:" + "b" * 64,
+    )
+    with migrated_postgres_engine.connect() as connection:
+        counters = {
+            row["scope_type"]: row
+            for row in connection.execute(
+                select(admission_counters).where(
+                    admission_counters.c.scope_id.like(f"{tenant_id}%")
+                )
+            ).mappings()
+        }
+        current = (
+            connection.execute(
+                select(tenant_policies).where(
+                    tenant_policies.c.tenant_id == tenant_id,
+                    tenant_policies.c.is_current.is_(True),
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert counters["TENANT"]["eligible_resumed_at"] == current["updated_at"]
+    assert counters["USER"]["eligible_resumed_at"] == current["updated_at"]
 
 
 def test_global_mode_transitions_are_ordered_and_fail_closed_without_proof(

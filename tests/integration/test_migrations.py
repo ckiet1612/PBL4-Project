@@ -11,10 +11,15 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import Column, Integer, Table, create_engine, inspect, text
+from sqlalchemy import Column, Integer, Table, create_engine, func, inspect, select, text, update
 from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
 
+from nexa.coordinator.eligibility import process_eligibility_batch
+from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.schema import metadata
+from tests.integration._factories import seed_authority, seed_job
+from tests.integration.test_coordinator_b11 import seed_dispatchable
 
 pytestmark = pytest.mark.postgres
 
@@ -63,6 +68,9 @@ def test_clean_repeat_downgrade_and_reupgrade(clean_postgres_database: str) -> N
             )
             assert "jobs" in inspect(connection).get_table_names()
             assert "auth_control" in inspect(connection).get_table_names()
+            assert "ix_jobs_b13_submitter_age" in {
+                index["name"] for index in inspect(connection).get_indexes("jobs")
+            }
         command.downgrade(config, "base")
         with engine.connect() as connection:
             assert "jobs" not in inspect(connection).get_table_names()
@@ -70,6 +78,147 @@ def test_clean_repeat_downgrade_and_reupgrade(clean_postgres_database: str) -> N
         with engine.connect() as connection:
             assert "jobs" in inspect(connection).get_table_names()
             assert "auth_control" in inspect(connection).get_table_names()
+            assert "ix_jobs_b13_submitter_age" in {
+                index["name"] for index in inspect(connection).get_indexes("jobs")
+            }
+    finally:
+        engine.dispose()
+
+
+def test_b13_upgrade_replays_legacy_null_age_without_resetting_valid_age(
+    clean_postgres_database: str,
+) -> None:
+    config = _config(clean_postgres_database)
+    command.upgrade(config, "20260925_0012")
+    engine = create_engine(clean_postgres_database)
+    try:
+        graph, _, ids = seed_dispatchable(engine, count=2)
+        with engine.begin() as connection:
+            blocked_id = seed_job(connection, graph, cpu_millis=7000)["job_id"]
+            old_age = connection.execute(select(func.clock_timestamp())).scalar_one() - timedelta(
+                seconds=180
+            )
+            connection.execute(
+                update(s.jobs).where(s.jobs.c.job_id == ids[0]).values(eligible_since=None)
+            )
+            connection.execute(
+                update(s.jobs).where(s.jobs.c.job_id == ids[1]).values(eligible_since=old_age)
+            )
+            connection.execute(
+                update(s.jobs).where(s.jobs.c.job_id == blocked_id).values(eligible_since=old_age)
+            )
+        upgraded_at = datetime.now(UTC)
+        command.upgrade(config, "head")
+        with Session(engine) as session:
+            now = session.execute(select(func.clock_timestamp())).scalar_one()
+            pending = process_eligibility_batch(session, now)
+            session.commit()
+        assert graph["tenant_id"] not in pending
+        with engine.connect() as connection:
+            ages = dict(
+                connection.execute(
+                    select(s.jobs.c.job_id, s.jobs.c.eligible_since).where(
+                        s.jobs.c.job_id.in_([*ids, blocked_id])
+                    )
+                ).all()
+            )
+        assert ages[ids[0]] >= upgraded_at
+        assert ages[ids[1]] == old_age
+        assert ages[blocked_id] is None
+        command.downgrade(config, "20260925_0013")
+        command.upgrade(config, "head")
+    finally:
+        engine.dispose()
+
+
+def test_b13_quota_headroom_upgrade_restores_held_age_and_downgrade_folds_it_back(
+    clean_postgres_database: str,
+) -> None:
+    config = _config(clean_postgres_database)
+    command.upgrade(config, "20260925_0016")
+    engine = create_engine(clean_postgres_database)
+
+    def ages(connection, job_ids):
+        return dict(
+            connection.execute(
+                select(s.jobs.c.job_id, s.jobs.c.eligible_since).where(s.jobs.c.job_id.in_(job_ids))
+            ).all()
+        )
+
+    def drain():
+        with Session(engine) as session:
+            while process_eligibility_batch(
+                session, session.execute(select(func.clock_timestamp())).scalar_one()
+            ):
+                pass
+            session.commit()
+
+    try:
+        graph, worker, ids = seed_dispatchable(engine, count=2)
+        with engine.begin() as connection:
+            old_age = connection.execute(select(func.clock_timestamp())).scalar_one() - timedelta(
+                seconds=90
+            )
+            small_id = seed_job(connection, graph, cpu_millis=400)["job_id"]
+            too_large_id = seed_job(connection, graph, cpu_millis=7000)["job_id"]
+            connection.execute(
+                update(s.jobs).where(s.jobs.c.job_id == small_id).values(eligible_since=old_age)
+            )
+            connection.execute(
+                update(s.jobs).where(s.jobs.c.job_id == too_large_id).values(eligible_since=None)
+            )
+            connection.execute(update(s.tenant_policies).values(cpu_limit_millis=1500))
+            connection.execute(
+                update(s.jobs).where(s.jobs.c.job_id == ids[0]).values(state="DISPATCHING")
+            )
+            seed_authority(connection, graph, {"job_id": ids[0]}, worker)
+        drain()
+        with engine.connect() as connection:
+            assert ages(connection, [ids[1]])[ids[1]] is None
+
+        upgraded_at = datetime.now(UTC)
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            steps = connection.execute(
+                select(s.quota_headroom_steps.c.upper_bound, s.quota_headroom_steps.c.resumed_at)
+                .where(s.quota_headroom_steps.c.resource == "cpu")
+                .order_by(s.quota_headroom_steps.c.upper_bound)
+            ).all()
+            sizes = dict(
+                connection.execute(
+                    select(s.queue_request_sizes.c.cpu_millis, s.queue_request_sizes.c.queued_jobs)
+                ).all()
+            )
+        assert steps == [(500, None)]
+        assert sizes == {400: 1, 1000: 1, 7000: 1}
+        drain()
+        with engine.connect() as connection:
+            upgraded = ages(connection, [ids[1], small_id, too_large_id])
+        assert upgraded[ids[1]] >= upgraded_at
+        assert upgraded[small_id] == old_age
+        assert upgraded[too_large_id] is None
+
+        command.downgrade(config, "20260925_0016")
+        drain()
+        with engine.connect() as connection:
+            downgraded = ages(connection, [ids[1], small_id, too_large_id])
+        assert downgraded == {ids[1]: None, small_id: old_age, too_large_id: None}
+
+        command.upgrade(config, "head")
+        drain()
+        with engine.begin() as connection:
+            connection.execute(
+                update(s.allocations).values(state="RELEASED", released_at=func.clock_timestamp())
+            )
+            released_at = connection.execute(select(func.clock_timestamp())).scalar_one()
+        command.downgrade(config, "20260925_0016")
+        drain()
+        with engine.connect() as connection:
+            released = ages(connection, [ids[1], small_id])
+        assert released[ids[1]] <= released_at
+        assert released[ids[1]] >= upgraded_at
+        assert released[small_id] == old_age
+        command.upgrade(config, "head")
     finally:
         engine.dispose()
 

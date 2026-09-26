@@ -248,9 +248,25 @@ B12 bổ sung CLI sản phẩm `nexa` gọi REST API chung cho cấu hình/profi
 
 **B12 đã được Task Review duyệt theo xác nhận của user ngày 25/09/2026**, trong phạm vi implementation và evidence nêu trên. [CLI guide](docs/cli.md) và báo cáo triển khai được lập trước xác nhận này có thể còn ghi chờ review. Các lệnh template, attempts/checkpoints/logs/progress, admin job/worker/allocation/fairness/recovery chưa được đăng ký vì backend tương ứng chưa có; việc bổ sung cần backend và evidence riêng. Job controls thuộc B15, sweep thuộc B16. Phê duyệt B12 không thay nghiệm thu bare Linux, checkpoint recovery đầy đủ, Web UI, GPU, tải lớn, portability hoặc release.
 
+## B13 fairness production, quota và ledger
+
+B13 đưa policy B04 (weighted dominant resource-time + hard quota + aging 60 giây + một reservation 120 giây) vào coordinator thật. Queue head/submitter được duy trì trong PostgreSQL; mỗi tenant chỉ lấy tối đa 16 normal candidates cộng một oldest qua index, min-heap tenant theo Decimal. Event eligibility chỉ phát sinh từ thay đổi admin (capacity, inventory, bật/tắt tenant) và được replay tối đa 64 Job mỗi tick. Headroom quota đang giữ là staircase theo tenant (migration `0017`), nên cấp phát/release không ghi lại dòng Job hay event (sửa finding B13-R13 của Task Review vòng 1). Ledger được một accounting heartbeat riêng commit tối đa mỗi 250 ms, charge cả allocation QUARANTINED, fail closed khi DB lỗi và catch-up từ mốc đã commit. Evidence trên source cuối, PostgreSQL 17.11 trong Docker Desktop Linux VM gồm:
+
+- 100.000 Job nộp qua production HTTP API trong một lần chạy, 0 lỗi; accepted ID, idempotency và counter đối chiếu được.
+- Query plan trên queue 100.000 Job không Seq Scan bảng `jobs`, tối đa 16 dòng mỗi loop; tick median 223,5 ms (drain), 448,8 ms (dispatch) và 478,6 ms ở quota mặc định 50%, mỗi quyết định và mỗi release ghi 1 dòng `jobs`, 0 event.
+- Tám phép đo cadence ledger commit, gồm hai lần 720 giây có rebuild 100 tenant, gap tối đa 498,1 ms.
+- Ba run weighted fairness ở quota mặc định 50% có Jain tối thiểu 0,9994, không tick nào bỏ trống capacity vì replay; ba run đối chứng 6.000m trọng số 1:2:4 có Jain tối thiểu 0,9845.
+- Trace reservation tạo sau 121,3 giây và hai thứ tự cleanup/tick.
+- Fault DB tiêm vào có rollback và catch-up.
+- Suite PostgreSQL 947 passed; Docker CPU vertical 2 passed.
+
+Finding B13-R13 của Task Review vòng 1 đã được Task Review vòng 2 chạy lại độc lập và đóng. Finding B13-R12 (hàm Decimal của B05 gọi nhau không qualify schema nên `ANALYZE`/autoanalyze `fairness_ledgers` lỗi và `pg_restore` cần workaround dưới `search_path` hạn chế của PostgreSQL 17) **vẫn mở**, ngoài phạm vi B13 và chờ user quyết định; nó liên quan trực tiếp đến backup/restore của B21. Task Review vòng 2 ghi thêm một nhận xét không chặn: khi replay event do thay đổi admin (inventory, policy, bật tenant), tenant đó tạm không được chọn cho tới khi replay xong; hành vi này đã có từ vòng 1, không phải regression. Xem [B13 evidence](docs/evidence/B13-production-fairness.md) để chạy lại và xem gate matrix.
+
+**B13 đã được Task Review duyệt theo xác nhận của user ngày 26/09/2026**, trong phạm vi implementation và evidence nêu trên. Báo cáo triển khai được lập trước xác nhận này có thể còn ghi chờ review. Phê duyệt B13 không thay nghiệm thu tải B22 (100 accepted/s trong 15 phút, soak 8 giờ), bare Linux, portability, GPU hoặc release.
+
 ## Thứ tự triển khai
 
-Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B12 đã được duyệt. Chặng tiếp theo là **B13 — Fairness production, quota, ledger**; B14 — CPU checkpoint/restore cũng đã đủ dependency B11 và có thể triển khai song song theo PLAN. B15 cần B12, B13 và B14 đều hoàn thành. Evidence container B10–B12 hiện giới hạn ở Docker Desktop Linux VM; các gate bare-Linux/portability/release vẫn thuộc các chặng sau. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
+Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B13 đã được duyệt (B13 theo xác nhận của user ngày 26/09/2026). Chặng tiếp theo là **B14 — CPU checkpoint/restore**, đã đủ dependency B11. B15 cần B12, B13 và B14 đều hoàn thành; hiện chỉ còn chờ B14. Evidence container B10–B13 hiện giới hạn ở Docker Desktop Linux VM; các gate bare-Linux/portability/release vẫn thuộc các chặng sau. B23 GPU có điều kiện; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
 [Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run chưa được quan sát. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, localcontext
+from heapq import heapify, heappop
 
 from nexa.domain.scheduling import (
     Candidate,
@@ -225,20 +226,26 @@ class WeightedDominantResourceTimePolicy:
                 )
             return Ok(DrainForReservation(reservation.reservation_id, candidate.job_id))
 
-        tenant_ids = [tenant_id for tenant_id, items in eligible_all.items() if items]
+        tenant_heap = []
         with localcontext() as context:
             context.prec = 50
             context.rounding = ROUND_HALF_EVEN
-            tenant_ids.sort(
-                key=lambda tenant_id: (
-                    ledgers[tenant_id].virtual_score,
-                    dominant_shares[tenant_id] / limits[tenant_id].weight,
-                    min(candidate.ready_sequence for candidate in eligible_all[tenant_id]),
-                    tenant_id,
+            for tenant_id, items in eligible_all.items():
+                if not items:
+                    continue
+                tenant_heap.append(
+                    (
+                        ledgers[tenant_id].virtual_score,
+                        dominant_shares[tenant_id] / limits[tenant_id].weight,
+                        min(candidate.ready_sequence for candidate in items),
+                        tenant_id,
+                    )
                 )
-            )
+        had_eligible_tenant = bool(tenant_heap)
+        heapify(tenant_heap)
 
-        for tenant_id in tenant_ids:
+        while tenant_heap:
+            _, _, _, tenant_id = heappop(tenant_heap)
             oldest = windows[tenant_id].oldest_eligible
             if (
                 oldest is not None
@@ -275,5 +282,7 @@ class WeightedDominantResourceTimePolicy:
                 )
             )
 
-        reason = "no_eligible_candidate" if not tenant_ids else "no_candidate_fits_free_resources"
+        reason = (
+            "no_candidate_fits_free_resources" if had_eligible_tenant else "no_eligible_candidate"
+        )
         return Ok(NoDecision(reason, _continuation_cursors(windows)))

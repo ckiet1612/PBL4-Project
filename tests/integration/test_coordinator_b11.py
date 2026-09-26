@@ -340,16 +340,29 @@ def test_seventeenth_high_priority_job_is_in_bounded_window(migrated_postgres_en
 
 def test_dispatch_stops_age_for_concurrency_blocked_jobs(migrated_postgres_engine):
     from nexa.coordinator.service import CoordinatorService
+    from nexa.domain.scheduling import NoDecision
     from nexa.infrastructure.persistence import schema as s
 
     _, _, ids = seed_dispatchable(migrated_postgres_engine, count=2)
     service = CoordinatorService(create_session_factory(migrated_postgres_engine))
-    service.tick(service.acquire())
+    epoch = service.acquire()
+    service.tick(epoch)
     with migrated_postgres_engine.connect() as connection:
         waiting = (
             connection.execute(select(s.jobs).where(s.jobs.c.state == "QUEUED")).mappings().one()
         )
-    assert waiting["eligible_since"] is None
+        counter = (
+            connection.execute(
+                select(s.admission_counters).where(s.admission_counters.c.scope_type == "USER")
+            )
+            .mappings()
+            .one()
+        )
+    assert waiting["eligible_since"] is not None
+    assert counter["active_attempts"] == 1
+    assert isinstance(service.tick(epoch), NoDecision)
+    with migrated_postgres_engine.connect() as connection:
+        assert connection.execute(select(s.reservations)).all() == []
 
 
 def test_dispatch_events_use_contract_names(migrated_postgres_engine):

@@ -1,0 +1,2141 @@
+[
+  {
+    "step": "initial_held_dispatch",
+    "db_time": "2026-09-25 20:06:00.679123+00:00",
+    "free_cpu_millis": 3000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": []
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:00.822496+00:00",
+    "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:05.998923+00:00",
+    "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:10.994990+00:00",
+    "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:15.955383+00:00",
+    "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:20.983361+00:00",
+    "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:26.035129+00:00",
+    "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:31.096508+00:00",
+    "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:36.006870+00:00",
+    "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:41.002360+00:00",
+    "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:45.996847+00:00",
+    "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:50.972879+00:00",
+    "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:06:56.018240+00:00",
+    "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:00.995065+00:00",
+    "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:05.967673+00:00",
+    "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:11.020570+00:00",
+    "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:15.997747+00:00",
+    "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:21.150699+00:00",
+    "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:26.021316+00:00",
+    "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:31.041822+00:00",
+    "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:35.977438+00:00",
+    "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:41.054376+00:00",
+    "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:46.014588+00:00",
+    "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:51.012968+00:00",
+    "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "small_arrival_before_reservation",
+    "db_time": "2026-09-25 20:07:56.042745+00:00",
+    "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+    "decision": "Dispatch"
+  },
+  {
+    "step": "large_job_reserved",
+    "db_time": "2026-09-25 20:08:01.936127+00:00",
+    "free_cpu_millis": 3000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": null
+      }
+    ]
+  },
+  {
+    "step": "fitting_small_arrival_drained",
+    "db_time": "2026-09-25 20:08:02.090955+00:00",
+    "free_cpu_millis": 3000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:01.946345+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": null
+      }
+    ]
+  },
+  {
+    "step": "verified_cleanup_release",
+    "db_time": "2026-09-25 20:08:02.200516+00:00",
+    "free_cpu_millis": 6000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:01.946345+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": null
+      }
+    ]
+  },
+  {
+    "step": "protected_large_dispatch",
+    "db_time": "2026-09-25 20:08:02.489839+00:00",
+    "free_cpu_millis": 2000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:01.946345+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  },
+  {
+    "step": "small_arrival_after_protected_dispatch",
+    "db_time": "2026-09-25 20:08:02.498920+00:00",
+    "free_cpu_millis": 2000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:01.946345+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9ac0-7ce6-badd-a672a60b6c0f",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:02.493852+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  },
+  {
+    "step": "small_before_dispatched_after_protection",
+    "db_time": "2026-09-25 20:08:02.641200+00:00",
+    "free_cpu_millis": 1000,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:01.946345+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9ac0-7ce6-badd-a672a60b6c0f",
+        "state": "QUEUED",
+        "eligible_since": "2026-09-25 20:08:02.493852+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "cpu_millis": 1000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  },
+  {
+    "step": "small_after_dispatched_after_protection",
+    "db_time": "2026-09-25 20:08:02.776344+00:00",
+    "free_cpu_millis": 0,
+    "jobs": [
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "state": "FAILED",
+        "eligible_since": "2026-09-25 20:06:00.439246+00:00"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:06:00.442609+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:01.946345+00:00"
+      },
+      {
+        "job_id": "01a0da2e-9ac0-7ce6-badd-a672a60b6c0f",
+        "state": "DISPATCHING",
+        "eligible_since": "2026-09-25 20:08:02.493852+00:00"
+      },
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:00.688724+00:00"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:05.723918+00:00"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:10.712556+00:00"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:15.705792+00:00"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:20.715802+00:00"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:25.713051+00:00"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:30.751833+00:00"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:35.721547+00:00"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:40.728023+00:00"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:45.713530+00:00"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:50.718012+00:00"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:06:55.725047+00:00"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:00.715324+00:00"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:05.706756+00:00"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:10.723238+00:00"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:15.779950+00:00"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:20.715114+00:00"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:25.725910+00:00"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:30.741429+00:00"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:35.710765+00:00"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:40.745770+00:00"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:45.717350+00:00"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:50.710673+00:00"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "state": "SUCCEEDED",
+        "eligible_since": "2026-09-25 20:07:55.725559+00:00"
+      }
+    ],
+    "allocations": [
+      {
+        "job_id": "01a0da2c-beef-78ec-8f90-28ad60f33d49",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-d289-71f9-a1f9-6948480ed7ed",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-e60f-7d52-b790-33050781f67e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-f993-79bf-b569-bff373b52849",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-0d22-7642-86ef-8396bf5e99b2",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-20a4-77f7-bc54-fcc3c3c20376",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-3449-774b-bc1d-11c2bd898556",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-47bb-7d8e-aa0c-58f6f69bfec9",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-5b47-7ed9-9ce6-c7c0761aa866",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-6eca-7d46-bcf6-18e12a0ec5fc",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-8250-71e6-8b42-9f84827fb92e",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-95dc-7c32-b5a9-44e28e0e8a67",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-a961-7656-a54e-fa90ac41ad31",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-bce7-7f80-bd1e-d16f6a330fdf",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-d075-73f5-92db-850c3da5e9cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-e41f-7faa-a3ee-a9699ef8539a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2d-f784-74e5-af57-4d6c96162a43",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-0b15-763d-b5e4-c44878e78a7b",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-1ea8-7ed9-9845-7aacfc674595",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-3217-7269-872d-eff1bac61497",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-45b9-75c9-8ad0-f59a26d77446",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-592a-7b33-a136-1c5ba80adfe4",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-6cb2-70a3-8887-c3ffe4c8d98a",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2e-8042-7f83-b3f8-55d2ac4a85cb",
+        "cpu_millis": 1000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bdf5-7226-96f8-6998b8ab2902",
+        "cpu_millis": 3000,
+        "state": "RELEASED"
+      },
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "cpu_millis": 4000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2e-9897-7af8-9ecd-bf007663987c",
+        "cpu_millis": 1000,
+        "state": "HELD"
+      },
+      {
+        "job_id": "01a0da2e-9ac0-7ce6-badd-a672a60b6c0f",
+        "cpu_millis": 1000,
+        "state": "HELD"
+      }
+    ],
+    "reservations": [
+      {
+        "job_id": "01a0da2c-bde1-7a52-b591-2a97840ccdc9",
+        "invalidation_reason": "dispatched"
+      }
+    ]
+  }
+]

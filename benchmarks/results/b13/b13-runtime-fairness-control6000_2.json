@@ -1,0 +1,4300 @@
+{
+  "evidence_layer": "P PostgreSQL production coordinator, direct-DB fixture completions; no API or Docker execution claim",
+  "timestamp_utc": "2026-09-25T20:17:30.571742+00:00",
+  "environment": {
+    "os": "macOS-27.0-arm64-arm-64bit",
+    "postgres_version_num": "170011",
+    "database_host": "127.0.0.1",
+    "database_port": 15439,
+    "database_name": "nexa_b05_test_b13fairness_control6000_2"
+  },
+  "fixture": {
+    "allocatable_cpu_millis": 3000,
+    "allocatable_memory_bytes": 12884901888,
+    "tenant_cpu_quota_millis": 6000,
+    "weights": "1,2,4",
+    "tenant_active_limit": 2,
+    "user_active_limit": 2,
+    "job_cpu_millis": 1000,
+    "job_memory_bytes": 1073741824,
+    "jobs_per_tenant": 1000
+  },
+  "provenance": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "8ebff3fc5382cad78719deaa2d5a6393f3107a44779bfef1a03d0a5f87c7873d",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "172961a61aac245237572fba8e40751077aa15ef71c66882df8388af126c30ae",
+      "benchmarks/b13/ledger_cadence.py": "9eb3699bb74327dadd5d8a70ddcfcbe0c5e0007cd10b6b65a7ad49dcdf3cc1ff",
+      "benchmarks/b13/queue_microbench.py": "758a35bfd04c723c941a219481fbd00022cd01962ef3b6502b4f4f9538d7c229",
+      "benchmarks/b13/runtime_fairness.py": "cd5b56b154ca07a5ffc1b0cf21a520132a776a750e533aaec6292c79225f2e79",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "migrations/versions/20260925_0010_b13_queue_submitters.py": "87c46499c03623457cbcfdbeb1077cabb9ac9e4f011a421cb67d8fbc7c23a78b",
+      "migrations/versions/20260925_0011_b13_concurrency_resume.py": "4229b7352d6ca254abe912201f157108b64298d781965b1fe75b1c90ba389d80",
+      "migrations/versions/20260925_0012_b13_retry_eligibility.py": "da8af1455516489593156d11cff27fbcf6a293823b1232de4a63c8f5155bbdf9",
+      "migrations/versions/20260925_0013_b13_eligibility_events.py": "c0e7530dcca08c084f5bcc4b1b955b7427c21ec0475ce5483aa8f904a2a04365",
+      "migrations/versions/20260925_0014_b13_tenant_eligibility.py": "b4f6b7e5296fc06da82c4ef249d8f5769cac314b2cf18d2ded7f785f580d5497",
+      "migrations/versions/20260925_0015_b13_priority_age_probe.py": "2165fbf92fefe054ac7156bf8ac24c830cbd8e02b65db383e10929399880d001",
+      "migrations/versions/20260925_0016_b13_submitter_age_probe.py": "c281e74418364a5884d352c66a54dd2f52ab369b3a4dd244af59f1a9b510c8dd",
+      "migrations/versions/20260925_0017_b13_quota_headroom.py": "2a458455ff5b50fa27021c96635aeb860a1d594537cb4992e8b649fcf08188d1",
+      "src/nexa/coordinator/eligibility.py": "945052aec9fc6e47c5e763c10332ebd19de2a6d7092dc725aed3692c6ddd7ff5",
+      "src/nexa/infrastructure/persistence/schema_v10.py": "662d18de8772d0e1d873e7503d9548e1cbaab397089c209d48e55836eff96242",
+      "src/nexa/infrastructure/persistence/schema_v11.py": "7ed571b903977828c39673e81af252f9bed064c58a8f778f343ae06e8d572854",
+      "src/nexa/infrastructure/persistence/schema_v12.py": "ae70a83d6564299b6146ac775cd82c7713668a608c3908ca41a6c42c89cb63f1",
+      "src/nexa/infrastructure/persistence/schema_v13.py": "626d29763d5f96c998902d2c70b85cb42b1ca8c77ec337405a49618bffcf3850",
+      "src/nexa/infrastructure/persistence/schema_v14.py": "703bf50e66bac08db7f5842e69dd983e7088667543ab236984d78a7501270997",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "src/nexa/infrastructure/persistence/schema_v9.py": "171a46cb59c37e0dd9cbc4fd684352baf246cc5ade2223bbb0653c7d0067870f",
+      "tests/benchmarks/test_b13_api_prefill.py": "7b835854e4abb88d87ad0b8caf2b156d67258fb49df332d46b8aa7b9945cd818",
+      "tests/benchmarks/test_b13_queue_microbench.py": "dc1edbb165882fda0a168981aaaff8cf9248aea4daef7a8ab9657e42b6c46248",
+      "tests/benchmarks/test_b13_runtime_fairness.py": "5f82f337b19f65ceb36bd5ecd2f50552c3f3b520ca12b542a01d6ec85c79d112",
+      "tests/integration/test_coordinator_b13.py": "a992ed5e02f9f8c8d915a66d57fffdc70a36b3e7b674d5b10db7ddee053e47a0"
+    }
+  },
+  "measurement": {
+    "started_db_utc": "2026-09-25T20:15:49.026386+00:00",
+    "warmup_seconds": 10.0,
+    "window_seconds": 30.0,
+    "execution_seconds": 1.0,
+    "weights": {
+      "01a0da35-ab0c-760c-a649-3cce9bfbaca9": "1",
+      "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f": "2",
+      "01a0da35-ab38-7b16-a514-5126846f9610": "4"
+    },
+    "queued_before": {
+      "01a0da35-ab0c-760c-a649-3cce9bfbaca9": 1000,
+      "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f": 1000,
+      "01a0da35-ab38-7b16-a514-5126846f9610": 1000
+    },
+    "queued_after": {
+      "01a0da35-ab0c-760c-a649-3cce9bfbaca9": 965,
+      "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f": 932,
+      "01a0da35-ab38-7b16-a514-5126846f9610": 887
+    },
+    "decision_counts": {
+      "Dispatch": 216,
+      "NoDecision": 149
+    },
+    "max_held_cpu_millis": 3000,
+    "fixture_completions": 213,
+    "no_decision_reasons": {
+      "no_candidate_fits_free_resources": 138,
+      "proposal_changed": 11
+    },
+    "idle_fit_ticks": [
+      {
+        "offset_ms": 33516.38412498869,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 33931.01870897226,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 1000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 52643.49279203452,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 59503.41445906088,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 74863.66575001739,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 80700.69504203275,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 82556.81950005237,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 84160.71483399719,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 86104.3497499777,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 87676.0818749899,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      },
+      {
+        "offset_ms": 93665.19295901526,
+        "reason": "proposal_changed",
+        "pending_eligibility_events": 0,
+        "held_cpu_millis": 2000,
+        "tenants_with_fitting_demand": 3
+      }
+    ],
+    "max_pending_eligibility_events": 0,
+    "eligibility_events_created": 0,
+    "jobs_row_updates": 645,
+    "jobs_row_updates_per_tick": 1.7671232876712328,
+    "jobs_row_updates_per_dispatch_or_completion": 1.5034965034965035,
+    "allocations": [
+      {
+        "allocation_id": "01a0da35-ba45-78de-af9c-4da969b282d7",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:49.263698+00:00",
+        "released_at": "2026-09-25 20:15:50.385284+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-bb22-756d-bab3-f1f112d4e79a",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:49.450556+00:00",
+        "released_at": "2026-09-25 20:15:50.786271+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-bbea-77f6-9370-da69bc7c68df",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:49.695062+00:00",
+        "released_at": "2026-09-25 20:15:50.879365+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-bf91-7438-b7f0-313e3bea072e",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:50.577699+00:00",
+        "released_at": "2026-09-25 20:15:52.015211+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-c2a3-798f-97bc-d74b51f33275",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:51.406523+00:00",
+        "released_at": "2026-09-25 20:15:52.541754+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-c304-7efd-aa60-76d26c472bb9",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:51.524963+00:00",
+        "released_at": "2026-09-25 20:15:52.850925+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-c5ad-7933-97d3-f4d42ff9f2e3",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:52.181141+00:00",
+        "released_at": "2026-09-25 20:15:53.385748+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-c7ef-77a4-8b68-1487e354eddc",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:52.724337+00:00",
+        "released_at": "2026-09-25 20:15:53.875787+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-c8a7-7d98-a3b7-1949414d5525",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:52.956172+00:00",
+        "released_at": "2026-09-25 20:15:54.121624+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-cae6-7b65-89c5-4f0a7f1bde00",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:53.506292+00:00",
+        "released_at": "2026-09-25 20:15:54.642298+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-ccad-757f-8e5c-3fb8667587a0",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:53.977895+00:00",
+        "released_at": "2026-09-25 20:15:55.177625+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-cddc-7ebc-a5a3-9a2f6c2fcaad",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:54.217795+00:00",
+        "released_at": "2026-09-25 20:15:55.429059+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-cff8-73ae-9278-38347c16bc13",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:54.814298+00:00",
+        "released_at": "2026-09-25 20:15:55.958979+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-d1bf-78c3-bbad-437e03c421c8",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:55.280862+00:00",
+        "released_at": "2026-09-25 20:15:56.492054+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-d2cb-7fa9-bf38-157b6da627e0",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:55.547187+00:00",
+        "released_at": "2026-09-25 20:15:56.747503+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-d520-7636-aba5-9c524d8a559d",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:56.131598+00:00",
+        "released_at": "2026-09-25 20:15:57.252834+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-d6d3-7419-86a7-99fa24379b5e",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:56.583624+00:00",
+        "released_at": "2026-09-25 20:15:57.813747+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-d801-7e11-96d0-76ab292f7efd",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:56.883200+00:00",
+        "released_at": "2026-09-25 20:15:58.079130+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-da3e-7264-b74d-da372add0dc0",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:57.435717+00:00",
+        "released_at": "2026-09-25 20:15:58.607898+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-dc69-7a18-a7a5-e6beca21d846",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:57.985279+00:00",
+        "released_at": "2026-09-25 20:15:59.162404+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-dce6-7d43-b013-5dc675c709b7",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:58.146291+00:00",
+        "released_at": "2026-09-25 20:15:59.440835+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-df9e-7fb7-8dcb-d835ee67b777",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:58.805794+00:00",
+        "released_at": "2026-09-25 20:15:59.973275+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-e1a8-75b6-b186-3225db86556a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:59.321508+00:00",
+        "released_at": "2026-09-25 20:16:00.480284+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-e2c1-7545-ba4d-114c74420993",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:15:59.628084+00:00",
+        "released_at": "2026-09-25 20:16:00.822798+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-e470-7cc5-96a7-58b1f4e9591d",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:00.076270+00:00",
+        "released_at": "2026-09-25 20:16:01.154043+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-e709-756f-8930-1a3de78ed719",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:00.687454+00:00",
+        "released_at": "2026-09-25 20:16:01.931440+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-e864-7efd-8281-bb07cd2070c4",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:00.974284+00:00",
+        "released_at": "2026-09-25 20:16:02.172332+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-e8ff-7e2b-a69e-865f41aa6da9",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:01.236504+00:00",
+        "released_at": "2026-09-25 20:16:02.431645+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-ec64-7a96-9627-5a10897a7006",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:02.095378+00:00",
+        "released_at": "2026-09-25 20:16:03.214953+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-ed03-714e-ab9a-01cdfc656091",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:02.253144+00:00",
+        "released_at": "2026-09-25 20:16:03.534805+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-ee56-778e-b408-c7c55eee892d",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:02.582573+00:00",
+        "released_at": "2026-09-25 20:16:03.792106+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-f1a5-7e51-9ebe-e05496615ec3",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:03.405538+00:00",
+        "released_at": "2026-09-25 20:16:04.585821+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-f27d-7d0e-8e9e-3c59a5098a96",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:03.653267+00:00",
+        "released_at": "2026-09-25 20:16:04.954581+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-f3bf-718f-9dc6-c7cbadbd3f2e",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:03.955488+00:00",
+        "released_at": "2026-09-25 20:16:05.219411+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-f741-76ec-8742-164b620fa6c2",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:04.777278+00:00",
+        "released_at": "2026-09-25 20:16:05.988227+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-f7e5-75d8-9b53-ceab635be48a",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:05.044361+00:00",
+        "released_at": "2026-09-25 20:16:06.344908+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-f90b-7f61-8b3b-27f3280467e5",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:05.324065+00:00",
+        "released_at": "2026-09-25 20:16:06.599988+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-fc9b-7982-9f35-e68733ab6b70",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:06.209509+00:00",
+        "released_at": "2026-09-25 20:16:07.398764+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-feca-78a7-b884-a6d3bfabd1a3",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:06.730239+00:00",
+        "released_at": "2026-09-25 20:16:07.950499+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-01e6-75ed-8c27-55e2c49d653c",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:07.565893+00:00",
+        "released_at": "2026-09-25 20:16:08.728504+00:00"
+      },
+      {
+        "allocation_id": "01a0da35-fd71-7c6e-964a-806ebc7a64a4",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:06.463838+00:00",
+        "released_at": "2026-09-25 20:16:07.693786+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-02c8-7fe2-914c-ac8f62997ee8",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:07.812526+00:00",
+        "released_at": "2026-09-25 20:16:09.000358+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-03c3-79d8-8fda-1637fa6f1efe",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:08.077026+00:00",
+        "released_at": "2026-09-25 20:16:09.255727+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-0702-790f-84a5-b9f5e8a97542",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:08.885575+00:00",
+        "released_at": "2026-09-25 20:16:10.037583+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-07cd-7b47-8568-49f3caf50cb8",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:09.110696+00:00",
+        "released_at": "2026-09-25 20:16:10.437850+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-08b3-7932-a823-36a2e95f1c05",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:09.344244+00:00",
+        "released_at": "2026-09-25 20:16:10.462288+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-0cae-7d7a-80b2-0b01d5e6c5b2",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:10.231169+00:00",
+        "released_at": "2026-09-25 20:16:11.482657+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-0d5f-702f-95f2-1665200e229a",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:10.545273+00:00",
+        "released_at": "2026-09-25 20:16:11.792670+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-0e40-7eeb-ad8f-b4aa5cf87a3e",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:10.768600+00:00",
+        "released_at": "2026-09-25 20:16:12.058991+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-11fa-777f-9832-fff635b43878",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:11.710661+00:00",
+        "released_at": "2026-09-25 20:16:12.887939+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-127e-7b5f-8aa0-19782fdc83ca",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:11.865295+00:00",
+        "released_at": "2026-09-25 20:16:13.179644+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-1431-7a2d-8149-8aef354a1c9c",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:12.281690+00:00",
+        "released_at": "2026-09-25 20:16:13.438557+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-1754-78d5-9fba-b5733fcc6717",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:13.064270+00:00",
+        "released_at": "2026-09-25 20:16:14.202444+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-180b-7f94-bc77-d1addabbc69f",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:13.274126+00:00",
+        "released_at": "2026-09-25 20:16:14.451415+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-1936-7931-885f-a2bac7e1a0bf",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:13.560642+00:00",
+        "released_at": "2026-09-25 20:16:14.710014+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-1c31-7c12-acc4-a567eb310c5f",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:14.324769+00:00",
+        "released_at": "2026-09-25 20:16:15.475112+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-1cf9-749e-b7b2-b180e5389e1e",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:14.532312+00:00",
+        "released_at": "2026-09-25 20:16:15.737696+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-1e1d-79d7-bd4b-a2e84458131e",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:14.819721+00:00",
+        "released_at": "2026-09-25 20:16:15.983316+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-20f3-73d8-9271-b7006458f2de",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:15.559954+00:00",
+        "released_at": "2026-09-25 20:16:16.775009+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-224c-7eb4-9588-5f8832a8b413",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:15.878347+00:00",
+        "released_at": "2026-09-25 20:16:17.113214+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-22e6-7b98-98ab-9c47222751e8",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:16.061581+00:00",
+        "released_at": "2026-09-25 20:16:17.375707+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-26bd-7380-a821-b740bd077862",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:17.027610+00:00",
+        "released_at": "2026-09-25 20:16:18.155787+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-2776-7364-a8a1-5d3c24fd279a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:17.212274+00:00",
+        "released_at": "2026-09-25 20:16:18.505479+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-287a-749a-aaea-8e5b0dee03d1",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:17.485541+00:00",
+        "released_at": "2026-09-25 20:16:18.762366+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-2c2f-7685-82e0-6a636c3c5f9c",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:18.419308+00:00",
+        "released_at": "2026-09-25 20:16:19.531335+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-2cf4-732b-8ff3-fb250cfa5902",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:18.615084+00:00",
+        "released_at": "2026-09-25 20:16:19.801731+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-2df2-71a6-9dfb-c3971c94afa3",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:18.874148+00:00",
+        "released_at": "2026-09-25 20:16:20.059829+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-3142-74c3-9460-8c41df0e1378",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:19.722435+00:00",
+        "released_at": "2026-09-25 20:16:20.838915+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-31d1-7342-ac06-0c316a853cb7",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:19.878138+00:00",
+        "released_at": "2026-09-25 20:16:21.201970+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-3312-7251-a5cd-a22a8ac03b0f",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:20.185071+00:00",
+        "released_at": "2026-09-25 20:16:21.457370+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-36b9-731f-b311-b1f63e9f2241",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:21.118032+00:00",
+        "released_at": "2026-09-25 20:16:22.226300+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-376b-7d1d-956a-402748770213",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:21.296928+00:00",
+        "released_at": "2026-09-25 20:16:22.546939+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-3886-799b-8711-b9cf021bd600",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:21.585295+00:00",
+        "released_at": "2026-09-25 20:16:22.803645+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-3caa-75c2-8149-8b5fae7e5cf6",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:22.642630+00:00",
+        "released_at": "2026-09-25 20:16:23.837702+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-3efc-7074-be97-2a01129aced7",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:23.237261+00:00",
+        "released_at": "2026-09-25 20:16:24.391018+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-3f9a-7e93-9ae8-f3e3c18ac2e6",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:23.393267+00:00",
+        "released_at": "2026-09-25 20:16:24.814130+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4212-726d-bb61-3b6e69160551",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:24.010896+00:00",
+        "released_at": "2026-09-25 20:16:25.338409+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-44d0-75f6-aa51-94c620ef254f",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:24.723751+00:00",
+        "released_at": "2026-09-25 20:16:25.931326+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4812-76d7-b30b-15d925e790a1",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:25.519278+00:00",
+        "released_at": "2026-09-25 20:16:26.819973+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4aa0-76b9-bd70-1797119a5864",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:26.211541+00:00",
+        "released_at": "2026-09-25 20:16:27.326896+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4586-73f5-bc47-8f5a02342291",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:24.907483+00:00",
+        "released_at": "2026-09-25 20:16:26.304300+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-8bdd-7389-ab93-08cb7914864d",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:42.887036+00:00",
+        "released_at": "2026-09-25 20:16:44.136949+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-8cb4-753c-bf4d-17aa237f4540",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:43.121960+00:00",
+        "released_at": "2026-09-25 20:16:44.389288+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-8f4d-77b5-b031-3a54f47cbab8",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:43.791016+00:00",
+        "released_at": "2026-09-25 20:16:44.901273+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4b6a-7a6b-a6a4-5eeea7d40845",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:26.420085+00:00",
+        "released_at": "2026-09-25 20:16:27.658798+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4d89-75b2-8701-6b8b7219fd1f",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:26.960495+00:00",
+        "released_at": "2026-09-25 20:16:28.179945+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-910c-7838-b71b-80b0af4e0260",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:44.246196+00:00",
+        "released_at": "2026-09-25 20:16:45.502769+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-4feb-72ff-b89e-e78046a3b81d",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:27.568169+00:00",
+        "released_at": "2026-09-25 20:16:28.772201+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-50a3-72f1-b4ab-b7ba64916218",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:27.754625+00:00",
+        "released_at": "2026-09-25 20:16:29.103447+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-5327-7aa3-8698-1e74f8847006",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:28.369852+00:00",
+        "released_at": "2026-09-25 20:16:29.632168+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-5598-72a3-8dd3-0d5c72285304",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:29.023363+00:00",
+        "released_at": "2026-09-25 20:16:30.151447+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-5631-7c51-9f9b-2b6977bafdbc",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:29.188789+00:00",
+        "released_at": "2026-09-25 20:16:30.480145+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-589e-7f15-ba9c-6571184fd7d3",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:29.799004+00:00",
+        "released_at": "2026-09-25 20:16:30.990014+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-5af5-7cac-a524-97432b72cb8d",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:30.375407+00:00",
+        "released_at": "2026-09-25 20:16:31.512308+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-5baf-7b98-8ad6-a0b2a6379e90",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:30.582020+00:00",
+        "released_at": "2026-09-25 20:16:31.849365+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-5da5-745c-9126-181059378c87",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:31.094892+00:00",
+        "released_at": "2026-09-25 20:16:32.360553+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-6051-7694-a55d-37bbbfe2a006",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:31.773267+00:00",
+        "released_at": "2026-09-25 20:16:32.901682+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-60f1-7a95-ac82-070ccd5d5a6a",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:31.937502+00:00",
+        "released_at": "2026-09-25 20:16:33.191219+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-636a-73eb-a4df-5f69a8e55fe8",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:32.521326+00:00",
+        "released_at": "2026-09-25 20:16:33.716837+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-658c-72bf-994d-873da4424bca",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:33.108294+00:00",
+        "released_at": "2026-09-25 20:16:34.259459+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-6645-7d83-a909-4d5945d5921e",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:33.290297+00:00",
+        "released_at": "2026-09-25 20:16:34.572095+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-68a2-782d-986e-27642fe61a7c",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:33.881567+00:00",
+        "released_at": "2026-09-25 20:16:35.096970+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-6af1-72c2-b7ed-897ab1560e5b",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:34.490375+00:00",
+        "released_at": "2026-09-25 20:16:35.622716+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-6ba9-7fb5-ba6e-ba2675f3977a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:34.670943+00:00",
+        "released_at": "2026-09-25 20:16:35.973545+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-6dc3-7251-a778-837eec7d8fb4",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:35.216149+00:00",
+        "released_at": "2026-09-25 20:16:36.492199+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-706b-72cd-aad6-733aaef7d12c",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:35.879197+00:00",
+        "released_at": "2026-09-25 20:16:37.124262+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-7133-7e66-93d6-65d2c472cfbc",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:36.081903+00:00",
+        "released_at": "2026-09-25 20:16:37.386167+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-73d7-7e9e-afde-0710d6ee88c0",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:36.685605+00:00",
+        "released_at": "2026-09-25 20:16:37.900836+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-75f1-7007-ae2b-6d681ab4af0a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:37.304110+00:00",
+        "released_at": "2026-09-25 20:16:38.432391+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-7689-7a3d-b3da-8e848d95c34d",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:37.465604+00:00",
+        "released_at": "2026-09-25 20:16:38.780465+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-7901-7aef-81f5-643ba1ca9f98",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:38.021276+00:00",
+        "released_at": "2026-09-25 20:16:39.305061+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-7b54-7ac8-9749-818736dd9990",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:38.643502+00:00",
+        "released_at": "2026-09-25 20:16:39.932036+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-7c42-7e7b-9834-c5e62551d4d7",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:38.909960+00:00",
+        "released_at": "2026-09-25 20:16:40.177630+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-7ed7-7abc-b2a1-25a962b2cba0",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:39.486813+00:00",
+        "released_at": "2026-09-25 20:16:40.703476+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-80de-76e1-adb5-16c65fc7e9bc",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:40.095653+00:00",
+        "released_at": "2026-09-25 20:16:41.210020+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-81a0-70eb-90a5-953dc105da5a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:40.292416+00:00",
+        "released_at": "2026-09-25 20:16:41.526039+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-83d7-7f0e-8b79-8dde8346fb58",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:40.863060+00:00",
+        "released_at": "2026-09-25 20:16:42.052012+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-861e-7c15-8aed-1a92d20e80a7",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:41.389309+00:00",
+        "released_at": "2026-09-25 20:16:42.675765+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-87e8-7db4-b3fd-2022d5cb447f",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:41.895989+00:00",
+        "released_at": "2026-09-25 20:16:43.005802+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-897e-73ff-913b-e21043f33eab",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:42.270513+00:00",
+        "released_at": "2026-09-25 20:16:43.525208+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9245-7c84-880f-d18dbd44e5c0",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:44.527484+00:00",
+        "released_at": "2026-09-25 20:16:45.800475+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9496-750f-8b49-a22d35c3c4c9",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:45.132656+00:00",
+        "released_at": "2026-09-25 20:16:46.331733+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-96cf-7b73-b629-4dd16cd8ab52",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:45.681839+00:00",
+        "released_at": "2026-09-25 20:16:46.967919+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9795-79c4-ab7c-4ec73fb0f859",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:45.901988+00:00",
+        "released_at": "2026-09-25 20:16:47.242365+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9a51-743e-b82a-1e87ea1a33df",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:46.611472+00:00",
+        "released_at": "2026-09-25 20:16:47.750141+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9c71-70c3-ba10-74d1611eb7ed",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:47.145728+00:00",
+        "released_at": "2026-09-25 20:16:48.311972+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9d48-702a-8b37-f91661bd9a2a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:47.353878+00:00",
+        "released_at": "2026-09-25 20:16:48.561919+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-9f9b-7d55-948b-f6913611d2df",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:47.925888+00:00",
+        "released_at": "2026-09-25 20:16:49.123386+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-a2c7-73a7-ab11-6a28464d7b65",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:48.693502+00:00",
+        "released_at": "2026-09-25 20:16:49.891859+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-a35e-74af-bea1-3d9ddb8835c5",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:48.928792+00:00",
+        "released_at": "2026-09-25 20:16:50.246559+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-a499-76be-9dba-16d115bbcb02",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:49.237440+00:00",
+        "released_at": "2026-09-25 20:16:50.508548+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-a833-74b8-a9a9-be061aaa56aa",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:50.078058+00:00",
+        "released_at": "2026-09-25 20:16:51.273745+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-a8dc-79cb-b7d0-323585440949",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:50.336351+00:00",
+        "released_at": "2026-09-25 20:16:51.601645+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-a9eb-7f19-9d9f-bd9a51e670df",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:50.620859+00:00",
+        "released_at": "2026-09-25 20:16:51.891611+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-ad71-7b72-a32f-1edf8d9c2144",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:51.466391+00:00",
+        "released_at": "2026-09-25 20:16:52.660579+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-ae9d-7c51-8d8c-afd7dade6f5b",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:51.808759+00:00",
+        "released_at": "2026-09-25 20:16:52.907886+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-af39-7a25-bf68-8599d887ba29",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:51.973214+00:00",
+        "released_at": "2026-09-25 20:16:53.164512+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-b286-7fa5-aa5f-9da2b13dafbf",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:52.802941+00:00",
+        "released_at": "2026-09-25 20:16:53.954440+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-b399-7818-936b-5b10142dc1c6",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:53.093707+00:00",
+        "released_at": "2026-09-25 20:16:54.208764+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-b44e-7476-8181-76fa5cb93d2e",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:53.263978+00:00",
+        "released_at": "2026-09-25 20:16:54.561227+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-b7a6-7e05-a482-e0ef237ebcc0",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:54.106663+00:00",
+        "released_at": "2026-09-25 20:16:55.331468+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-b90a-7bcf-be62-e6014a034828",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:54.472115+00:00",
+        "released_at": "2026-09-25 20:16:55.636355+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-b9c1-758a-a62d-ed60b711cdf6",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:54.641669+00:00",
+        "released_at": "2026-09-25 20:16:55.901576+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-bd3b-79c2-8060-b02121147fd6",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:55.544735+00:00",
+        "released_at": "2026-09-25 20:16:56.684209+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-be30-7405-9165-d29148db7b95",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:55.721129+00:00",
+        "released_at": "2026-09-25 20:16:57.024753+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-bef6-71f7-bf86-9cc984081c70",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:55.992148+00:00",
+        "released_at": "2026-09-25 20:16:57.281894+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-c29b-71cc-9917-abfe70756a78",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:56.902958+00:00",
+        "released_at": "2026-09-25 20:16:58.054163+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-c3ad-7d03-a752-3c3f41649e31",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:57.200872+00:00",
+        "released_at": "2026-09-25 20:16:58.386500+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-c43e-792b-8a76-78e50790a648",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:57.359130+00:00",
+        "released_at": "2026-09-25 20:16:58.637110+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-c7eb-79de-9542-81ede1735a50",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:58.254345+00:00",
+        "released_at": "2026-09-25 20:16:59.420126+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-c8e5-7a02-91ec-6feedc6ec2e1",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:58.479117+00:00",
+        "released_at": "2026-09-25 20:16:59.732948+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-c9bc-7330-9aba-2148365fdddf",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:58.738457+00:00",
+        "released_at": "2026-09-25 20:17:00.041787+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-cd36-79d5-ad32-da6ea5d6f9f9",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:59.611690+00:00",
+        "released_at": "2026-09-25 20:17:00.809150+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-ce77-7776-b592-d4c5479aa388",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:16:59.858336+00:00",
+        "released_at": "2026-09-25 20:17:01.058308+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-cf02-759c-8073-db08c36a6f3e",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:00.117008+00:00",
+        "released_at": "2026-09-25 20:17:01.320031+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-d239-7332-ae91-9d077ecb809d",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:00.922307+00:00",
+        "released_at": "2026-09-25 20:17:02.126956+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-d317-70dd-a45e-f4150949bbb7",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:01.159451+00:00",
+        "released_at": "2026-09-25 20:17:02.396209+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-d497-79e3-9ee1-dfcd831772ea",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:01.531105+00:00",
+        "released_at": "2026-09-25 20:17:02.647164+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-d8a4-7162-988c-714f216081d2",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:02.494637+00:00",
+        "released_at": "2026-09-25 20:17:03.673362+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-d976-7434-9b51-72dc5b5d0a79",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:02.751622+00:00",
+        "released_at": "2026-09-25 20:17:03.926859+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-d79e-7762-86ce-b7b3b162557e",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:02.285653+00:00",
+        "released_at": "2026-09-25 20:17:03.432634+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-dcab-7740-a5a5-26a02178139a",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:03.602550+00:00",
+        "released_at": "2026-09-25 20:17:04.701089+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-de72-7ffc-997f-fef70dd930fb",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:04.054432+00:00",
+        "released_at": "2026-09-25 20:17:05.230758+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-df5a-73a1-b1c4-9c5c1df4fd71",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:04.287779+00:00",
+        "released_at": "2026-09-25 20:17:05.480694+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-e1ad-70c4-a9f9-1949a8fb26ba",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:04.876184+00:00",
+        "released_at": "2026-09-25 20:17:05.987177+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-e3ae-7b35-a58e-d1a2a43a8955",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:05.374598+00:00",
+        "released_at": "2026-09-25 20:17:06.497671+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-e46c-7f32-bf64-93f619efb8b1",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:05.579151+00:00",
+        "released_at": "2026-09-25 20:17:06.797900+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-e65f-7873-b664-1afac821a865",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:06.091513+00:00",
+        "released_at": "2026-09-25 20:17:07.323833+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-e8c2-72bc-ab67-2ef837a00054",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:06.663723+00:00",
+        "released_at": "2026-09-25 20:17:07.928975+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-e9d6-7d01-b190-9a9de735b957",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:06.944906+00:00",
+        "released_at": "2026-09-25 20:17:08.180819+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-ec3a-7960-aad8-bebef19a557d",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:07.489578+00:00",
+        "released_at": "2026-09-25 20:17:08.697784+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-ee19-7a1b-a528-ac734ca5f4b6",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:08.060453+00:00",
+        "released_at": "2026-09-25 20:17:09.260006+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-ef22-7f59-8636-4ed4856f57f1",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:08.310539+00:00",
+        "released_at": "2026-09-25 20:17:09.549330+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-f164-75cf-b02d-17f673bd85f4",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:08.827658+00:00",
+        "released_at": "2026-09-25 20:17:10.062275+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-f389-72f5-9e09-66334c35fa8a",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:09.435036+00:00",
+        "released_at": "2026-09-25 20:17:10.589830+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-f594-78d7-be4b-5755ae8b300f",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:09.891094+00:00",
+        "released_at": "2026-09-25 20:17:11.164936+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-f646-7fda-8f14-206af14d6466",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:10.158643+00:00",
+        "released_at": "2026-09-25 20:17:11.444615+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-f8d5-75a3-8ab2-a9446ceef011",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:10.782930+00:00",
+        "released_at": "2026-09-25 20:17:11.950934+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-faff-71f4-8414-fb4bca7565ad",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:11.292729+00:00",
+        "released_at": "2026-09-25 20:17:12.460603+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-fcb0-7ddd-852a-127468ee10c4",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:11.793429+00:00",
+        "released_at": "2026-09-25 20:17:12.995726+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-fddf-72b5-b334-8e44d22fae4c",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:12.085727+00:00",
+        "released_at": "2026-09-25 20:17:13.246486+00:00"
+      },
+      {
+        "allocation_id": "01a0da36-fff5-70a1-8347-a1e5696911c0",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:12.616333+00:00",
+        "released_at": "2026-09-25 20:17:13.744659+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-02be-7d6b-9971-40cb4cb47a35",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:13.353658+00:00",
+        "released_at": "2026-09-25 20:17:14.528275+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-03e8-731b-82ec-2ea3ce60dec9",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:13.648999+00:00",
+        "released_at": "2026-09-25 20:17:14.862008+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-049b-76ad-8493-313b07a595d3",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:13.838693+00:00",
+        "released_at": "2026-09-25 20:17:15.135043+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-0845-7e39-b9c5-78cdbfc7ac37",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:14.728420+00:00",
+        "released_at": "2026-09-25 20:17:15.911878+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-0a1c-7ee5-9621-6829a693147b",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:15.232819+00:00",
+        "released_at": "2026-09-25 20:17:16.515640+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-0b14-7fbb-9853-333d50f9be64",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:15.476644+00:00",
+        "released_at": "2026-09-25 20:17:16.756525+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-0db9-7dfb-b307-d1ec3e788c23",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:16.058122+00:00",
+        "released_at": "2026-09-25 20:17:17.274835+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-10bc-7a09-a7b4-ee9afd21536d",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:16.908646+00:00",
+        "released_at": "2026-09-25 20:17:18.058795+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-11c2-74ce-93b3-bebcdfabbf90",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:17.121846+00:00",
+        "released_at": "2026-09-25 20:17:18.329510+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-1252-7755-aca4-e048356d97c2",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:17.349282+00:00",
+        "released_at": "2026-09-25 20:17:18.581713+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-15df-75a5-baa5-745c6b9b037e",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:18.247111+00:00",
+        "released_at": "2026-09-25 20:17:19.357041+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-16d7-7375-b210-19b2823b3a4b",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:18.418182+00:00",
+        "released_at": "2026-09-25 20:17:19.674681+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-1792-7a5e-8755-233d3ea36182",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:18.674925+00:00",
+        "released_at": "2026-09-25 20:17:19.937171+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-1b19-7995-b58f-6ee4cfb8a5c2",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:19.556117+00:00",
+        "released_at": "2026-09-25 20:17:20.788060+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-1bd0-77c5-9fb5-2eb0c77b6a5e",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:19.775430+00:00",
+        "released_at": "2026-09-25 20:17:21.140906+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-1d68-7963-a5f9-eb49aa9a6277",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:20.073687+00:00",
+        "released_at": "2026-09-25 20:17:21.390390+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-21c5-7798-aac4-ac061ac3893a",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:21.290144+00:00",
+        "released_at": "2026-09-25 20:17:22.485397+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-22b6-7d89-b568-a5d2ac0be168",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:21.474331+00:00",
+        "released_at": "2026-09-25 20:17:22.736729+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-20d1-7bc6-b825-525c1ca70372",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:21.013084+00:00",
+        "released_at": "2026-09-25 20:17:22.161943+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-260d-72d3-9fbd-ba2dec31c6b0",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:22.350675+00:00",
+        "released_at": "2026-09-25 20:17:23.554112+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-283e-7430-af7f-94e81e5582d2",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:22.948078+00:00",
+        "released_at": "2026-09-25 20:17:24.128135+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-28da-776b-8173-650aa76187b0",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:23.104195+00:00",
+        "released_at": "2026-09-25 20:17:24.505109+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-2b74-7242-809b-aa52941bec89",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:23.737825+00:00",
+        "released_at": "2026-09-25 20:17:25.110804+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-2df4-7e9b-bc41-c1e026bf415b",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:24.371198+00:00",
+        "released_at": "2026-09-25 20:17:25.624385+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-2f50-79bd-bbfe-b789582a1951",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:24.690768+00:00",
+        "released_at": "2026-09-25 20:17:25.871115+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-3132-74d6-be61-d0ddf91b675d",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:25.218469+00:00",
+        "released_at": "2026-09-25 20:17:26.390228+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-3330-7354-b18c-c4d807e41f8a",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:25.746811+00:00",
+        "released_at": "2026-09-25 20:17:26.890387+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-340d-74c5-8756-3b8f3fec7e43",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:25.974100+00:00",
+        "released_at": "2026-09-25 20:17:27.237002+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-362b-77d2-b45e-9d149f62d9b5",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:26.513197+00:00",
+        "released_at": "2026-09-25 20:17:27.759885+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-3bd5-7545-ad30-d825d317153b",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:27.942832+00:00",
+        "released_at": null
+      },
+      {
+        "allocation_id": "01a0da37-38ab-7291-bbaa-64cbaacbe9d8",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:27.148015+00:00",
+        "released_at": "2026-09-25 20:17:28.322441+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-3e0c-771d-8a37-b0c5709ce462",
+        "tenant_id": "01a0da35-ab38-7b16-a514-5126846f9610",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:28.528290+00:00",
+        "released_at": null
+      },
+      {
+        "allocation_id": "01a0da37-396a-7620-8a11-25975f235583",
+        "tenant_id": "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:27.339047+00:00",
+        "released_at": "2026-09-25 20:17:28.611424+00:00"
+      },
+      {
+        "allocation_id": "01a0da37-3eaf-70c6-be4c-67d55d3983c5",
+        "tenant_id": "01a0da35-ab0c-760c-a649-3cce9bfbaca9",
+        "cpu_millis": 1000,
+        "memory_bytes": 1073741824,
+        "held_at": "2026-09-25 20:17:28.701755+00:00",
+        "released_at": null
+      }
+    ],
+    "trace": [
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be588c0",
+        "allocation_id": "01a0da35-ba45-78de-af9c-4da969b282d7",
+        "offset_ms": 327.04745896626264
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f271",
+        "allocation_id": "01a0da35-bb22-756d-bab3-f1f112d4e79a",
+        "offset_ms": 546.1010420694947
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e87f3",
+        "allocation_id": "01a0da35-bbea-77f6-9370-da69bc7c68df",
+        "offset_ms": 736.1154169775546
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-ba45-78de-af9c-4da969b282d7",
+        "offset_ms": 1416.8491669697687
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8814",
+        "allocation_id": "01a0da35-bf91-7438-b7f0-313e3bea072e",
+        "offset_ms": 1738.476459053345
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-bb22-756d-bab3-f1f112d4e79a",
+        "offset_ms": 1830.2276670001447
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-bbea-77f6-9370-da69bc7c68df",
+        "offset_ms": 1911.439709016122
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8815",
+        "allocation_id": "01a0da35-c2a3-798f-97bc-d74b51f33275",
+        "offset_ms": 2453.245709068142
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f292",
+        "allocation_id": "01a0da35-c304-7efd-aa60-76d26c472bb9",
+        "offset_ms": 2550.995917059481
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-bf91-7438-b7f0-313e3bea072e",
+        "offset_ms": 3032.0729590021074
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8816",
+        "allocation_id": "01a0da35-c5ad-7933-97d3-f4d42ff9f2e3",
+        "offset_ms": 3235.696875024587
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-c2a3-798f-97bc-d74b51f33275",
+        "offset_ms": 3550.5892919609323
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8817",
+        "allocation_id": "01a0da35-c7ef-77a4-8b68-1487e354eddc",
+        "offset_ms": 3820.031958981417
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-c304-7efd-aa60-76d26c472bb9",
+        "offset_ms": 3853.1237919814885
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58901",
+        "allocation_id": "01a0da35-c8a7-7d98-a3b7-1949414d5525",
+        "offset_ms": 4002.957334043458
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-c5ad-7933-97d3-f4d42ff9f2e3",
+        "offset_ms": 4398.155250004493
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f2c3",
+        "allocation_id": "01a0da35-cae6-7b65-89c5-4f0a7f1bde00",
+        "offset_ms": 4581.996666966006
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-c7ef-77a4-8b68-1487e354eddc",
+        "offset_ms": 4877.617625053972
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8828",
+        "allocation_id": "01a0da35-ccad-757f-8e5c-3fb8667587a0",
+        "offset_ms": 5022.997666965239
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-c8a7-7d98-a3b7-1949414d5525",
+        "offset_ms": 5118.403250002302
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8829",
+        "allocation_id": "01a0da35-cddc-7ebc-a5a3-9a2f6c2fcaad",
+        "offset_ms": 5327.593708992936
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-cae6-7b65-89c5-4f0a7f1bde00",
+        "offset_ms": 5666.231792070903
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f2e4",
+        "allocation_id": "01a0da35-cff8-73ae-9278-38347c16bc13",
+        "offset_ms": 5889.997542020865
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-ccad-757f-8e5c-3fb8667587a0",
+        "offset_ms": 6179.740124964155
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e882a",
+        "allocation_id": "01a0da35-d1bf-78c3-bbad-437e03c421c8",
+        "offset_ms": 6322.265333961695
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-cddc-7ebc-a5a3-9a2f6c2fcaad",
+        "offset_ms": 6431.092209066264
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e882b",
+        "allocation_id": "01a0da35-d2cb-7fa9-bf38-157b6da627e0",
+        "offset_ms": 6591.521917027421
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-cff8-73ae-9278-38347c16bc13",
+        "offset_ms": 6977.7825840283185
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58952",
+        "allocation_id": "01a0da35-d520-7636-aba5-9c524d8a559d",
+        "offset_ms": 7204.728709068149
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-d1bf-78c3-bbad-437e03c421c8",
+        "offset_ms": 7488.718667067587
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1477",
+        "allocation_id": "01a0da35-d6d3-7419-86a7-99fa24379b5e",
+        "offset_ms": 7621.17383396253
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-d2cb-7fa9-bf38-157b6da627e0",
+        "offset_ms": 7756.746125058271
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1478",
+        "allocation_id": "01a0da35-d801-7e11-96d0-76ab292f7efd",
+        "offset_ms": 7920.8239170257
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-d520-7636-aba5-9c524d8a559d",
+        "offset_ms": 8275.016500032507
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e883c",
+        "allocation_id": "01a0da35-da3e-7264-b74d-da372add0dc0",
+        "offset_ms": 8513.560416991822
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-d6d3-7419-86a7-99fa24379b5e",
+        "offset_ms": 8828.45329202246
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e884d",
+        "allocation_id": "01a0da35-dc69-7a18-a7a5-e6beca21d846",
+        "offset_ms": 9048.41316700913
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-d801-7e11-96d0-76ab292f7efd",
+        "offset_ms": 9068.226500065066
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58983",
+        "allocation_id": "01a0da35-dce6-7d43-b013-5dc675c709b7",
+        "offset_ms": 9178.857124992646
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-da3e-7264-b74d-da372add0dc0",
+        "offset_ms": 9625.64895907417
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1489",
+        "allocation_id": "01a0da35-df9e-7fb7-8dcb-d835ee67b777",
+        "offset_ms": 9874.740584054962
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-dc69-7a18-a7a5-e6beca21d846",
+        "offset_ms": 10177.617541979998
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e885e",
+        "allocation_id": "01a0da35-e1a8-75b6-b186-3225db86556a",
+        "offset_ms": 10407.758541987278
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-dce6-7d43-b013-5dc675c709b7",
+        "offset_ms": 10441.542834043503
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e885f",
+        "allocation_id": "01a0da35-e2c1-7545-ba4d-114c74420993",
+        "offset_ms": 10677.111292025074
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-df9e-7fb7-8dcb-d835ee67b777",
+        "offset_ms": 10983.380584046245
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14aa",
+        "allocation_id": "01a0da35-e470-7cc5-96a7-58b1f4e9591d",
+        "offset_ms": 11103.210959001444
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-e1a8-75b6-b186-3225db86556a",
+        "offset_ms": 11508.623333997093
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8860",
+        "allocation_id": "01a0da35-e709-756f-8930-1a3de78ed719",
+        "offset_ms": 11787.916708970442
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-e2c1-7545-ba4d-114c74420993",
+        "offset_ms": 11829.477958963253
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8861",
+        "allocation_id": "01a0da35-e864-7efd-8281-bb07cd2070c4",
+        "offset_ms": 12122.782042017207
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-e470-7cc5-96a7-58b1f4e9591d",
+        "offset_ms": 12148.643292021006
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be589c4",
+        "allocation_id": "01a0da35-e8ff-7e2b-a69e-865f41aa6da9",
+        "offset_ms": 12275.789292063564
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-e709-756f-8930-1a3de78ed719",
+        "offset_ms": 12958.366667036898
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14db",
+        "allocation_id": "01a0da35-ec64-7a96-9627-5a10897a7006",
+        "offset_ms": 13142.19124999363
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-e864-7efd-8281-bb07cd2070c4",
+        "offset_ms": 13164.373542065732
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14dc",
+        "allocation_id": "01a0da35-ed03-714e-ab9a-01cdfc656091",
+        "offset_ms": 13300.540916970931
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-e8ff-7e2b-a69e-865f41aa6da9",
+        "offset_ms": 13443.899500067346
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8862",
+        "allocation_id": "01a0da35-ee56-778e-b408-c7c55eee892d",
+        "offset_ms": 13650.195542024449
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-ec64-7a96-9627-5a10897a7006",
+        "offset_ms": 14238.876834046096
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8883",
+        "allocation_id": "01a0da35-f1a5-7e51-9ebe-e05496615ec3",
+        "offset_ms": 14500.844959053211
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-ed03-714e-ab9a-01cdfc656091",
+        "offset_ms": 14539.514292031527
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58a05",
+        "allocation_id": "01a0da35-f27d-7d0e-8e9e-3c59a5098a96",
+        "offset_ms": 14711.090917000547
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-ee56-778e-b408-c7c55eee892d",
+        "offset_ms": 14801.005250075832
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8884",
+        "allocation_id": "01a0da35-f3bf-718f-9dc6-c7cbadbd3f2e",
+        "offset_ms": 15031.2219170155
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-f1a5-7e51-9ebe-e05496615ec3",
+        "offset_ms": 15610.289750038646
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14fd",
+        "allocation_id": "01a0da35-f741-76ec-8742-164b620fa6c2",
+        "offset_ms": 15923.709959024563
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-f27d-7d0e-8e9e-3c59a5098a96",
+        "offset_ms": 15947.016417048872
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14fe",
+        "allocation_id": "01a0da35-f7e5-75d8-9b53-ceab635be48a",
+        "offset_ms": 16090.432167053223
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-f3bf-718f-9dc6-c7cbadbd3f2e",
+        "offset_ms": 16221.703084069304
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8885",
+        "allocation_id": "01a0da35-f90b-7f61-8b3b-27f3280467e5",
+        "offset_ms": 16379.017709055915
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-f741-76ec-8742-164b620fa6c2",
+        "offset_ms": 17021.925334003754
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88a6",
+        "allocation_id": "01a0da35-fc9b-7982-9f35-e68733ab6b70",
+        "offset_ms": 17309.583625057712
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-f7e5-75d8-9b53-ceab635be48a",
+        "offset_ms": 17359.585709054954
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58a46",
+        "allocation_id": "01a0da35-fd71-7c6e-964a-806ebc7a64a4",
+        "offset_ms": 17511.373999994248
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-f90b-7f61-8b3b-27f3280467e5",
+        "offset_ms": 17624.372209073044
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88a7",
+        "allocation_id": "01a0da35-feca-78a7-b884-a6d3bfabd1a3",
+        "offset_ms": 17853.58716698829
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-fc9b-7982-9f35-e68733ab6b70",
+        "offset_ms": 18405.337334028445
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e151f",
+        "allocation_id": "01a0da36-01e6-75ed-8c27-55e2c49d653c",
+        "offset_ms": 18660.43633397203
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-fd71-7c6e-964a-806ebc7a64a4",
+        "offset_ms": 18695.306834066287
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1520",
+        "allocation_id": "01a0da36-02c8-7fe2-914c-ac8f62997ee8",
+        "offset_ms": 18879.466250073165
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da35-feca-78a7-b884-a6d3bfabd1a3",
+        "offset_ms": 18958.42141704634
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88a8",
+        "allocation_id": "01a0da36-03c3-79d8-8fda-1637fa6f1efe",
+        "offset_ms": 19132.885541999713
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-01e6-75ed-8c27-55e2c49d653c",
+        "offset_ms": 19740.997291984968
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88c9",
+        "allocation_id": "01a0da36-0702-790f-84a5-b9f5e8a97542",
+        "offset_ms": 19967.171041993424
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-02c8-7fe2-914c-ac8f62997ee8",
+        "offset_ms": 20001.151166972704
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58a87",
+        "allocation_id": "01a0da36-07cd-7b47-8568-49f3caf50cb8",
+        "offset_ms": 20164.284624974243
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-03c3-79d8-8fda-1637fa6f1efe",
+        "offset_ms": 20249.003250035457
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88ca",
+        "allocation_id": "01a0da36-08b3-7932-a823-36a2e95f1c05",
+        "offset_ms": 20389.243375044316
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-0702-790f-84a5-b9f5e8a97542",
+        "offset_ms": 21056.732167024165
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1541",
+        "allocation_id": "01a0da36-0cae-7d7a-80b2-0b01d5e6c5b2",
+        "offset_ms": 21407.297917059623
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-07cd-7b47-8568-49f3caf50cb8",
+        "offset_ms": 21431.251083966345
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-08b3-7932-a823-36a2e95f1c05",
+        "offset_ms": 21452.659250004217
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1542",
+        "allocation_id": "01a0da36-0d5f-702f-95f2-1665200e229a",
+        "offset_ms": 21585.377625073306
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88cb",
+        "allocation_id": "01a0da36-0e40-7eeb-ad8f-b4aa5cf87a3e",
+        "offset_ms": 21815.99074997939
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-0cae-7d7a-80b2-0b01d5e6c5b2",
+        "offset_ms": 22506.95791700855
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88ec",
+        "allocation_id": "01a0da36-11fa-777f-9832-fff635b43878",
+        "offset_ms": 22763.114999979734
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-0d5f-702f-95f2-1665200e229a",
+        "offset_ms": 22785.31554201618
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1543",
+        "allocation_id": "01a0da36-127e-7b5f-8aa0-19782fdc83ca",
+        "offset_ms": 22894.790709018707
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-0e40-7eeb-ad8f-b4aa5cf87a3e",
+        "offset_ms": 23066.925334045663
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88ed",
+        "allocation_id": "01a0da36-1431-7a2d-8149-8aef354a1c9c",
+        "offset_ms": 23332.816333975643
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-11fa-777f-9832-fff635b43878",
+        "offset_ms": 23905.58837505523
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58ae8",
+        "allocation_id": "01a0da36-1754-78d5-9fba-b5733fcc6717",
+        "offset_ms": 24146.6318750754
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-127e-7b5f-8aa0-19782fdc83ca",
+        "offset_ms": 24180.37075002212
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58ae9",
+        "allocation_id": "01a0da36-180b-7f94-bc77-d1addabbc69f",
+        "offset_ms": 24319.42449999042
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-1431-7a2d-8149-8aef354a1c9c",
+        "offset_ms": 24438.589917030185
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e88ee",
+        "allocation_id": "01a0da36-1936-7931-885f-a2bac7e1a0bf",
+        "offset_ms": 24625.811084057204
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-1754-78d5-9fba-b5733fcc6717",
+        "offset_ms": 25204.175041988492
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e890f",
+        "allocation_id": "01a0da36-1c31-7c12-acc4-a567eb310c5f",
+        "offset_ms": 25380.425709066913
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-180b-7f94-bc77-d1addabbc69f",
+        "offset_ms": 25445.826041977853
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1584",
+        "allocation_id": "01a0da36-1cf9-749e-b7b2-b180e5389e1e",
+        "offset_ms": 25586.78808400873
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-1936-7931-885f-a2bac7e1a0bf",
+        "offset_ms": 25705.786667065695
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1585",
+        "allocation_id": "01a0da36-1e1d-79d7-bd4b-a2e84458131e",
+        "offset_ms": 25870.123250060715
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-1c31-7c12-acc4-a567eb310c5f",
+        "offset_ms": 26470.74216697365
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8930",
+        "allocation_id": "01a0da36-20f3-73d8-9271-b7006458f2de",
+        "offset_ms": 26596.140334033407
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-1cf9-749e-b7b2-b180e5389e1e",
+        "offset_ms": 26747.357708984055
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8931",
+        "allocation_id": "01a0da36-224c-7eb4-9588-5f8832a8b413",
+        "offset_ms": 26946.937249973416
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-1e1d-79d7-bd4b-a2e84458131e",
+        "offset_ms": 26975.676417001523
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1586",
+        "allocation_id": "01a0da36-22e6-7b98-98ab-9c47222751e8",
+        "offset_ms": 27095.23854206782
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-20f3-73d8-9271-b7006458f2de",
+        "offset_ms": 27806.21366703417
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8932",
+        "allocation_id": "01a0da36-26bd-7380-a821-b740bd077862",
+        "offset_ms": 28081.84529200662
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-224c-7eb4-9588-5f8832a8b413",
+        "offset_ms": 28106.84162506368
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8933",
+        "allocation_id": "01a0da36-2776-7364-a8a1-5d3c24fd279a",
+        "offset_ms": 28265.342792030424
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-22e6-7b98-98ab-9c47222751e8",
+        "offset_ms": 28382.64591700863
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58b2a",
+        "allocation_id": "01a0da36-287a-749a-aaea-8e5b0dee03d1",
+        "offset_ms": 28522.42541697342
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-26bd-7380-a821-b740bd077862",
+        "offset_ms": 29195.807083975524
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01511",
+        "allocation_id": "01a0da36-2c2f-7685-82e0-6a636c3c5f9c",
+        "offset_ms": 29474.162084050477
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-2776-7364-a8a1-5d3c24fd279a",
+        "offset_ms": 29500.122750061564
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01512",
+        "allocation_id": "01a0da36-2cf4-732b-8ff3-fb250cfa5902",
+        "offset_ms": 29672.471667057835
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-287a-749a-aaea-8e5b0dee03d1",
+        "offset_ms": 29763.152459054254
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8934",
+        "allocation_id": "01a0da36-2df2-71a6-9dfb-c3971c94afa3",
+        "offset_ms": 29926.1420420371
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-2c2f-7685-82e0-6a636c3c5f9c",
+        "offset_ms": 30533.258709008805
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8955",
+        "allocation_id": "01a0da36-3142-74c3-9460-8c41df0e1378",
+        "offset_ms": 30771.92562504206
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-2cf4-732b-8ff3-fb250cfa5902",
+        "offset_ms": 30792.296375031583
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01513",
+        "allocation_id": "01a0da36-31d1-7342-ac06-0c316a853cb7",
+        "offset_ms": 30913.65362505894
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-2df2-71a6-9dfb-c3971c94afa3",
+        "offset_ms": 31059.191292035393
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8956",
+        "allocation_id": "01a0da36-3312-7251-a5cd-a22a8ac03b0f",
+        "offset_ms": 31237.068042042665
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-3142-74c3-9460-8c41df0e1378",
+        "offset_ms": 31863.79491700791
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f42d",
+        "allocation_id": "01a0da36-36b9-731f-b311-b1f63e9f2241",
+        "offset_ms": 32171.163792023435
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-31d1-7342-ac06-0c316a853cb7",
+        "offset_ms": 32194.458000012673
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f42e",
+        "allocation_id": "01a0da36-376b-7d1d-956a-402748770213",
+        "offset_ms": 32347.896500024945
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-3312-7251-a5cd-a22a8ac03b0f",
+        "offset_ms": 32461.151499999687
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8957",
+        "allocation_id": "01a0da36-3886-799b-8711-b9cf021bd600",
+        "offset_ms": 32636.328167049214
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-36b9-731f-b311-b1f63e9f2241",
+        "offset_ms": 33243.036124971695
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-376b-7d1d-956a-402748770213",
+        "offset_ms": 33540.84116697777
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01554",
+        "allocation_id": "01a0da36-3caa-75c2-8149-8b5fae7e5cf6",
+        "offset_ms": 33690.27854199521
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-3886-799b-8711-b9cf021bd600",
+        "offset_ms": 33808.50154196378
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8978",
+        "allocation_id": "01a0da36-3efc-7074-be97-2a01129aced7",
+        "offset_ms": 34286.14504204597
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8979",
+        "allocation_id": "01a0da36-3f9a-7e93-9ae8-f3e3c18ac2e6",
+        "offset_ms": 34448.30833398737
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-3caa-75c2-8149-8b5fae7e5cf6",
+        "offset_ms": 34858.721249969676
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01565",
+        "allocation_id": "01a0da36-4212-726d-bb61-3b6e69160551",
+        "offset_ms": 35087.020459002815
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-3efc-7074-be97-2a01129aced7",
+        "offset_ms": 35414.04862503987
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e897a",
+        "allocation_id": "01a0da36-44d0-75f6-aa51-94c620ef254f",
+        "offset_ms": 35784.15337507613
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-3f9a-7e93-9ae8-f3e3c18ac2e6",
+        "offset_ms": 35805.59904198162
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e897b",
+        "allocation_id": "01a0da36-4586-73f5-bc47-8f5a02342291",
+        "offset_ms": 35961.88345900737
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4212-726d-bb61-3b6e69160551",
+        "offset_ms": 36356.666167033836
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01586",
+        "allocation_id": "01a0da36-4812-76d7-b30b-15d925e790a1",
+        "offset_ms": 36630.61995897442
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-44d0-75f6-aa51-94c620ef254f",
+        "offset_ms": 36951.063625048846
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e897c",
+        "allocation_id": "01a0da36-4aa0-76b9-bd70-1797119a5864",
+        "offset_ms": 37272.38733402919
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4586-73f5-bc47-8f5a02342291",
+        "offset_ms": 37297.55745898001
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e897d",
+        "allocation_id": "01a0da36-4b6a-7a6b-a6a4-5eeea7d40845",
+        "offset_ms": 37469.58641696256
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4812-76d7-b30b-15d925e790a1",
+        "offset_ms": 37835.9851250425
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f47f",
+        "allocation_id": "01a0da36-4d89-75b2-8701-6b8b7219fd1f",
+        "offset_ms": 38021.62583405152
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4aa0-76b9-bd70-1797119a5864",
+        "offset_ms": 38345.474792062305
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015b7",
+        "allocation_id": "01a0da36-4feb-72ff-b89e-e78046a3b81d",
+        "offset_ms": 38627.757583977655
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4b6a-7a6b-a6a4-5eeea7d40845",
+        "offset_ms": 38654.96704203542
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015b8",
+        "allocation_id": "01a0da36-50a3-72f1-b4ab-b7ba64916218",
+        "offset_ms": 38803.5162090091
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4d89-75b2-8701-6b8b7219fd1f",
+        "offset_ms": 39206.854209071025
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e898e",
+        "allocation_id": "01a0da36-5327-7aa3-8698-1e74f8847006",
+        "offset_ms": 39468.17958401516
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-4feb-72ff-b89e-e78046a3b81d",
+        "offset_ms": 39799.88570907153
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e899f",
+        "allocation_id": "01a0da36-5598-72a3-8dd3-0d5c72285304",
+        "offset_ms": 40073.076167027466
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-50a3-72f1-b4ab-b7ba64916218",
+        "offset_ms": 40095.672333962284
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f4b0",
+        "allocation_id": "01a0da36-5631-7c51-9f9b-2b6977bafdbc",
+        "offset_ms": 40227.84708405379
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-5327-7aa3-8698-1e74f8847006",
+        "offset_ms": 40654.58229207434
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89a0",
+        "allocation_id": "01a0da36-589e-7f15-ba9c-6571184fd7d3",
+        "offset_ms": 40852.704584016465
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-5598-72a3-8dd3-0d5c72285304",
+        "offset_ms": 41162.95137500856
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015d9",
+        "allocation_id": "01a0da36-5af5-7cac-a524-97432b72cb8d",
+        "offset_ms": 41448.943624971434
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-5631-7c51-9f9b-2b6977bafdbc",
+        "offset_ms": 41476.17566701956
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015da",
+        "allocation_id": "01a0da36-5baf-7b98-8ad6-a0b2a6379e90",
+        "offset_ms": 41632.691625040025
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-589e-7f15-ba9c-6571184fd7d3",
+        "offset_ms": 41989.82554196846
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89b1",
+        "allocation_id": "01a0da36-5da5-745c-9126-181059378c87",
+        "offset_ms": 42139.57808399573
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-5af5-7cac-a524-97432b72cb8d",
+        "offset_ms": 42525.86637507193
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89c2",
+        "allocation_id": "01a0da36-6051-7694-a55d-37bbbfe2a006",
+        "offset_ms": 42819.047834025696
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-5baf-7b98-8ad6-a0b2a6379e90",
+        "offset_ms": 42842.720375047065
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f4f1",
+        "allocation_id": "01a0da36-60f1-7a95-ac82-070ccd5d5a6a",
+        "offset_ms": 42978.06429199409
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-5da5-745c-9126-181059378c87",
+        "offset_ms": 43367.13783396408
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015eb",
+        "allocation_id": "01a0da36-636a-73eb-a4df-5f69a8e55fe8",
+        "offset_ms": 43615.14745897148
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-6051-7694-a55d-37bbbfe2a006",
+        "offset_ms": 43907.77170902584
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89d3",
+        "allocation_id": "01a0da36-658c-72bf-994d-873da4424bca",
+        "offset_ms": 44159.88849999849
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-60f1-7a95-ac82-070ccd5d5a6a",
+        "offset_ms": 44184.125459054485
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89d4",
+        "allocation_id": "01a0da36-6645-7d83-a909-4d5945d5921e",
+        "offset_ms": 44342.57591702044
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-636a-73eb-a4df-5f69a8e55fe8",
+        "offset_ms": 44731.17208399344
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b0160c",
+        "allocation_id": "01a0da36-68a2-782d-986e-27642fe61a7c",
+        "offset_ms": 44961.18133398704
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-658c-72bf-994d-873da4424bca",
+        "offset_ms": 45273.88287498616
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89d5",
+        "allocation_id": "01a0da36-6af1-72c2-b7ed-897ab1560e5b",
+        "offset_ms": 45541.09958396293
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-6645-7d83-a909-4d5945d5921e",
+        "offset_ms": 45564.203749992885
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89d6",
+        "allocation_id": "01a0da36-6ba9-7fb5-ba6e-ba2675f3977a",
+        "offset_ms": 45732.6825420605
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-68a2-782d-986e-27642fe61a7c",
+        "offset_ms": 46100.37633404136
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f542",
+        "allocation_id": "01a0da36-6dc3-7251-a778-837eec7d8fb4",
+        "offset_ms": 46260.76495903544
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-6af1-72c2-b7ed-897ab1560e5b",
+        "offset_ms": 46650.86583397351
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8c9a6",
+        "allocation_id": "01a0da36-706b-72cd-aad6-733aaef7d12c",
+        "offset_ms": 46942.74804205634
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-6ba9-7fb5-ba6e-ba2675f3977a",
+        "offset_ms": 46967.086959048174
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8c9a7",
+        "allocation_id": "01a0da36-7133-7e66-93d6-65d2c472cfbc",
+        "offset_ms": 47140.9315840574
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-6dc3-7251-a778-837eec7d8fb4",
+        "offset_ms": 47517.294167075306
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89e7",
+        "allocation_id": "01a0da36-73d7-7e9e-afde-0710d6ee88c0",
+        "offset_ms": 47817.54920899402
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-706b-72cd-aad6-733aaef7d12c",
+        "offset_ms": 48172.974584042095
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e89f8",
+        "allocation_id": "01a0da36-75f1-7007-ae2b-6d681ab4af0a",
+        "offset_ms": 48354.19991705567
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-7133-7e66-93d6-65d2c472cfbc",
+        "offset_ms": 48378.531874972396
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be588e1",
+        "allocation_id": "01a0da36-7689-7a3d-b3da-8e848d95c34d",
+        "offset_ms": 48505.19108399749
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-73d7-7e9e-afde-0710d6ee88c0",
+        "offset_ms": 48906.46591701079
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8c9b8",
+        "allocation_id": "01a0da36-7901-7aef-81f5-643ba1ca9f98",
+        "offset_ms": 49136.95087505039
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-75f1-7007-ae2b-6d681ab4af0a",
+        "offset_ms": 49454.5917090727
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a09",
+        "allocation_id": "01a0da36-7b54-7ac8-9749-818736dd9990",
+        "offset_ms": 49746.535249985754
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-7689-7a3d-b3da-8e848d95c34d",
+        "offset_ms": 49785.01633403357
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a0a",
+        "allocation_id": "01a0da36-7c42-7e7b-9834-c5e62551d4d7",
+        "offset_ms": 49975.09987500962
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-7901-7aef-81f5-643ba1ca9f98",
+        "offset_ms": 50326.345124980435
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8c9d9",
+        "allocation_id": "01a0da36-7ed7-7abc-b2a1-25a962b2cba0",
+        "offset_ms": 50634.08266706392
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-7b54-7ac8-9749-818736dd9990",
+        "offset_ms": 50953.5794169642
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a0b",
+        "allocation_id": "01a0da36-80de-76e1-adb5-16c65fc7e9bc",
+        "offset_ms": 51151.680874987505
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-7c42-7e7b-9834-c5e62551d4d7",
+        "offset_ms": 51172.7895840304
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a0c",
+        "allocation_id": "01a0da36-81a0-70eb-90a5-953dc105da5a",
+        "offset_ms": 51346.609667059965
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-7ed7-7abc-b2a1-25a962b2cba0",
+        "offset_ms": 51730.02512496896
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58933",
+        "allocation_id": "01a0da36-83d7-7f0e-8b79-8dde8346fb58",
+        "offset_ms": 51913.96120900754
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-80de-76e1-adb5-16c65fc7e9bc",
+        "offset_ms": 52218.67195900995
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8ca0a",
+        "allocation_id": "01a0da36-861e-7c15-8aed-1a92d20e80a7",
+        "offset_ms": 52499.99504198786
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-81a0-70eb-90a5-953dc105da5a",
+        "offset_ms": 52520.054209046066
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a0d",
+        "allocation_id": "01a0da36-87e8-7db4-b3fd-2022d5cb447f",
+        "offset_ms": 52954.92383406963
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-83d7-7f0e-8b79-8dde8346fb58",
+        "offset_ms": 53060.58245897293
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a0e",
+        "allocation_id": "01a0da36-897e-73ff-913b-e21043f33eab",
+        "offset_ms": 53378.89000005089
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-861e-7c15-8aed-1a92d20e80a7",
+        "offset_ms": 53716.46395896096
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8ca1b",
+        "allocation_id": "01a0da36-8bdd-7389-ab93-08cb7914864d",
+        "offset_ms": 53974.20950001106
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-87e8-7db4-b3fd-2022d5cb447f",
+        "offset_ms": 54014.40408406779
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a0f",
+        "allocation_id": "01a0da36-8cb4-753c-bf4d-17aa237f4540",
+        "offset_ms": 54181.26337497961
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-897e-73ff-913b-e21043f33eab",
+        "offset_ms": 54556.37854197994
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a10",
+        "allocation_id": "01a0da36-8f4d-77b5-b031-3a54f47cbab8",
+        "offset_ms": 54851.33020905778
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-8bdd-7389-ab93-08cb7914864d",
+        "offset_ms": 55140.153000014834
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58975",
+        "allocation_id": "01a0da36-910c-7838-b71b-80b0af4e0260",
+        "offset_ms": 55300.66641699523
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-8cb4-753c-bf4d-17aa237f4540",
+        "offset_ms": 55395.05549997557
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a11",
+        "allocation_id": "01a0da36-9245-7c84-880f-d18dbd44e5c0",
+        "offset_ms": 55607.57462505717
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-8f4d-77b5-b031-3a54f47cbab8",
+        "offset_ms": 55913.7534169713
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8ca4c",
+        "allocation_id": "01a0da36-9496-750f-8b49-a22d35c3c4c9",
+        "offset_ms": 56206.62612502929
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-910c-7838-b71b-80b0af4e0260",
+        "offset_ms": 56518.07162503246
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad17-79f9-8994-952ea9c8ca5d",
+        "allocation_id": "01a0da36-96cf-7b73-b629-4dd16cd8ab52",
+        "offset_ms": 56773.695625015534
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9245-7c84-880f-d18dbd44e5c0",
+        "offset_ms": 56802.151625044644
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a22",
+        "allocation_id": "01a0da36-9795-79c4-ab7c-4ec73fb0f859",
+        "offset_ms": 56968.974499963224
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9496-750f-8b49-a22d35c3c4c9",
+        "offset_ms": 57364.18162507471
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a33",
+        "allocation_id": "01a0da36-9a51-743e-b82a-1e87ea1a33df",
+        "offset_ms": 57667.663166997954
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-96cf-7b73-b629-4dd16cd8ab52",
+        "offset_ms": 58000.26312505361
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be589b7",
+        "allocation_id": "01a0da36-9c71-70c3-ba10-74d1611eb7ed",
+        "offset_ms": 58214.823374990374
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9795-79c4-ab7c-4ec73fb0f859",
+        "offset_ms": 58240.29729200993
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a34",
+        "allocation_id": "01a0da36-9d48-702a-8b37-f91661bd9a2a",
+        "offset_ms": 58438.9116250677
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9a51-743e-b82a-1e87ea1a33df",
+        "offset_ms": 58767.30229204986
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f282",
+        "allocation_id": "01a0da36-9f9b-7d55-948b-f6913611d2df",
+        "offset_ms": 59030.1408340456
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9c71-70c3-ba10-74d1611eb7ed",
+        "offset_ms": 59317.99970904831
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9d48-702a-8b37-f91661bd9a2a",
+        "offset_ms": 59565.05112501327
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a45",
+        "allocation_id": "01a0da36-a2c7-73a7-ab11-6a28464d7b65",
+        "offset_ms": 59832.83129206393
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a46",
+        "allocation_id": "01a0da36-a35e-74af-bea1-3d9ddb8835c5",
+        "offset_ms": 59985.01962504815
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-9f9b-7d55-948b-f6913611d2df",
+        "offset_ms": 60127.744083991274
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f294",
+        "allocation_id": "01a0da36-a499-76be-9dba-16d115bbcb02",
+        "offset_ms": 60309.33933402412
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-a2c7-73a7-ab11-6a28464d7b65",
+        "offset_ms": 60913.41120901052
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a47",
+        "allocation_id": "01a0da36-a833-74b8-a9a9-be061aaa56aa",
+        "offset_ms": 61220.39508400485
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-a35e-74af-bea1-3d9ddb8835c5",
+        "offset_ms": 61241.570084006526
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a48",
+        "allocation_id": "01a0da36-a8dc-79cb-b7d0-323585440949",
+        "offset_ms": 61388.153166975826
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-a499-76be-9dba-16d115bbcb02",
+        "offset_ms": 61515.56370896287
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be589f9",
+        "allocation_id": "01a0da36-a9eb-7f19-9d9f-bd9a51e670df",
+        "offset_ms": 61659.84779200517
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-a833-74b8-a9a9-be061aaa56aa",
+        "offset_ms": 62296.1835419992
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f2d6",
+        "allocation_id": "01a0da36-ad71-7b72-a32f-1edf8d9c2144",
+        "offset_ms": 62571.75866700709
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-a8dc-79cb-b7d0-323585440949",
+        "offset_ms": 62609.96312496718
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f2d7",
+        "allocation_id": "01a0da36-ae9d-7c51-8d8c-afd7dade6f5b",
+        "offset_ms": 62863.52608399466
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-a9eb-7f19-9d9f-bd9a51e670df",
+        "offset_ms": 62889.063250040635
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a49",
+        "allocation_id": "01a0da36-af39-7a25-bf68-8599d887ba29",
+        "offset_ms": 63019.22795898281
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-ad71-7b72-a32f-1edf8d9c2144",
+        "offset_ms": 63669.978584046476
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a6a",
+        "allocation_id": "01a0da36-b286-7fa5-aa5f-9da2b13dafbf",
+        "offset_ms": 63864.6812500665
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-ae9d-7c51-8d8c-afd7dade6f5b",
+        "offset_ms": 63905.96766700037
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58a3b",
+        "allocation_id": "01a0da36-b399-7818-936b-5b10142dc1c6",
+        "offset_ms": 64138.36858398281
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-af39-7a25-bf68-8599d887ba29",
+        "offset_ms": 64163.50979206618
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a6b",
+        "allocation_id": "01a0da36-b44e-7476-8181-76fa5cb93d2e",
+        "offset_ms": 64319.89920907654
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-b286-7fa5-aa5f-9da2b13dafbf",
+        "offset_ms": 64973.89654198196
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f2f9",
+        "allocation_id": "01a0da36-b7a6-7e05-a482-e0ef237ebcc0",
+        "offset_ms": 65180.38991698995
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-b399-7818-936b-5b10142dc1c6",
+        "offset_ms": 65213.808959000744
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad14-7032-bf96-7f36b640f2fa",
+        "allocation_id": "01a0da36-b90a-7bcf-be62-e6014a034828",
+        "offset_ms": 65534.17250001803
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-b44e-7476-8181-76fa5cb93d2e",
+        "offset_ms": 65558.2297090441
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a6c",
+        "allocation_id": "01a0da36-b9c1-758a-a62d-ed60b711cdf6",
+        "offset_ms": 65713.16387504339
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-b7a6-7e05-a482-e0ef237ebcc0",
+        "offset_ms": 66357.28533403017
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a8d",
+        "allocation_id": "01a0da36-bd3b-79c2-8060-b02121147fd6",
+        "offset_ms": 66610.41720898356
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-b90a-7bcf-be62-e6014a034828",
+        "offset_ms": 66630.79441699665
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58a7d",
+        "allocation_id": "01a0da36-be30-7405-9165-d29148db7b95",
+        "offset_ms": 66869.48037496768
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-b9c1-758a-a62d-ed60b711cdf6",
+        "offset_ms": 66897.50666706823
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a8e",
+        "allocation_id": "01a0da36-bef6-71f7-bf86-9cc984081c70",
+        "offset_ms": 67048.51008404512
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-bd3b-79c2-8060-b02121147fd6",
+        "offset_ms": 67729.9057500204
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e147f",
+        "allocation_id": "01a0da36-c29b-71cc-9917-abfe70756a78",
+        "offset_ms": 67994.83979202341
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-be30-7405-9165-d29148db7b95",
+        "offset_ms": 68026.7037920421
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1480",
+        "allocation_id": "01a0da36-c3ad-7d03-a752-3c3f41649e31",
+        "offset_ms": 68254.99129202217
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-bef6-71f7-bf86-9cc984081c70",
+        "offset_ms": 68277.16820896603
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8a8f",
+        "allocation_id": "01a0da36-c43e-792b-8a76-78e50790a648",
+        "offset_ms": 68397.7852499811
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-c29b-71cc-9917-abfe70756a78",
+        "offset_ms": 69087.5854169717
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8ab0",
+        "allocation_id": "01a0da36-c7eb-79de-9542-81ede1735a50",
+        "offset_ms": 69353.08749997057
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-c3ad-7d03-a752-3c3f41649e31",
+        "offset_ms": 69391.60979201552
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58abf",
+        "allocation_id": "01a0da36-c8e5-7a02-91ec-6feedc6ec2e1",
+        "offset_ms": 69588.70483399369
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-c43e-792b-8a76-78e50790a648",
+        "offset_ms": 69635.1736249635
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8ab1",
+        "allocation_id": "01a0da36-c9bc-7330-9aba-2148365fdddf",
+        "offset_ms": 69806.12920899875
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-c7eb-79de-9542-81ede1735a50",
+        "offset_ms": 70453.89562507626
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14a2",
+        "allocation_id": "01a0da36-cd36-79d5-ad32-da6ea5d6f9f9",
+        "offset_ms": 70704.61812498979
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-c8e5-7a02-91ec-6feedc6ec2e1",
+        "offset_ms": 70735.3357920656
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14a3",
+        "allocation_id": "01a0da36-ce77-7776-b592-d4c5479aa388",
+        "offset_ms": 71015.78208396677
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-c9bc-7330-9aba-2148365fdddf",
+        "offset_ms": 71036.51329199784
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8ab2",
+        "allocation_id": "01a0da36-cf02-759c-8073-db08c36a6f3e",
+        "offset_ms": 71153.55683397502
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-cd36-79d5-ad32-da6ea5d6f9f9",
+        "offset_ms": 71811.6920000175
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8ad3",
+        "allocation_id": "01a0da36-d239-7332-ae91-9d077ecb809d",
+        "offset_ms": 71978.20987505838
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-ce77-7776-b592-d4c5479aa388",
+        "offset_ms": 72064.78808401152
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14a4",
+        "allocation_id": "01a0da36-d317-70dd-a45e-f4150949bbb7",
+        "offset_ms": 72200.01941698138
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-cf02-759c-8073-db08c36a6f3e",
+        "offset_ms": 72327.13379198685
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8ad4",
+        "allocation_id": "01a0da36-d497-79e3-9ee1-dfcd831772ea",
+        "offset_ms": 72583.39908404741
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-d239-7332-ae91-9d077ecb809d",
+        "offset_ms": 73138.44483403955
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58b22",
+        "allocation_id": "01a0da36-d79e-7762-86ce-b7b3b162557e",
+        "offset_ms": 73367.69674997777
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-d317-70dd-a45e-f4150949bbb7",
+        "offset_ms": 73394.03770898934
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58b23",
+        "allocation_id": "01a0da36-d8a4-7162-988c-714f216081d2",
+        "offset_ms": 73620.12645904906
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-d497-79e3-9ee1-dfcd831772ea",
+        "offset_ms": 73644.43066704553
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8ad5",
+        "allocation_id": "01a0da36-d976-7434-9b51-72dc5b5d0a79",
+        "offset_ms": 73829.26133403089
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-d79e-7762-86ce-b7b3b162557e",
+        "offset_ms": 74463.56137504335
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14e8",
+        "allocation_id": "01a0da36-dcab-7740-a5a5-26a02178139a",
+        "offset_ms": 74647.75616698898
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-d8a4-7162-988c-714f216081d2",
+        "offset_ms": 74666.32920899428
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-d976-7434-9b51-72dc5b5d0a79",
+        "offset_ms": 74923.9059999818
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8af6",
+        "allocation_id": "01a0da36-de72-7ffc-997f-fef70dd930fb",
+        "offset_ms": 75107.24733397365
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8af7",
+        "allocation_id": "01a0da36-df5a-73a1-b1c4-9c5c1df4fd71",
+        "offset_ms": 75341.10162500292
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-dcab-7740-a5a5-26a02178139a",
+        "offset_ms": 75714.98808404431
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e14f9",
+        "allocation_id": "01a0da36-e1ad-70c4-a9f9-1949a8fb26ba",
+        "offset_ms": 75938.00687498879
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-de72-7ffc-997f-fef70dd930fb",
+        "offset_ms": 76242.931334069
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8af8",
+        "allocation_id": "01a0da36-e3ae-7b35-a58e-d1a2a43a8955",
+        "offset_ms": 76453.5617500078
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-df5a-73a1-b1c4-9c5c1df4fd71",
+        "offset_ms": 76478.82808407303
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8af9",
+        "allocation_id": "01a0da36-e46c-7f32-bf64-93f619efb8b1",
+        "offset_ms": 76635.84141700994
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-e1ad-70c4-a9f9-1949a8fb26ba",
+        "offset_ms": 76990.51591707394
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e151c",
+        "allocation_id": "01a0da36-e65f-7873-b664-1afac821a865",
+        "offset_ms": 77137.00754207093
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-e3ae-7b35-a58e-d1a2a43a8955",
+        "offset_ms": 77510.72787505109
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8afa",
+        "allocation_id": "01a0da36-e8c2-72bc-ab67-2ef837a00054",
+        "offset_ms": 77766.42062503379
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-e46c-7f32-bf64-93f619efb8b1",
+        "offset_ms": 77808.44649998471
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8afb",
+        "allocation_id": "01a0da36-e9d6-7d01-b190-9a9de735b957",
+        "offset_ms": 78032.71212498657
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-e65f-7873-b664-1afac821a865",
+        "offset_ms": 78342.03583397903
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e153f",
+        "allocation_id": "01a0da36-ec3a-7960-aad8-bebef19a557d",
+        "offset_ms": 78636.0514590051
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-e8c2-72bc-ab67-2ef837a00054",
+        "offset_ms": 78945.93608402647
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f427",
+        "allocation_id": "01a0da36-ee19-7a1b-a528-ac734ca5f4b6",
+        "offset_ms": 79113.68091707118
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-e9d6-7d01-b190-9a9de735b957",
+        "offset_ms": 79186.58254202455
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8afc",
+        "allocation_id": "01a0da36-ef22-7f59-8636-4ed4856f57f1",
+        "offset_ms": 79375.74262497947
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-ec3a-7960-aad8-bebef19a557d",
+        "offset_ms": 79710.40245902259
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b0d",
+        "allocation_id": "01a0da36-f164-75cf-b02d-17f673bd85f4",
+        "offset_ms": 79960.83570900373
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-ee19-7a1b-a528-ac734ca5f4b6",
+        "offset_ms": 80280.1048749825
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1573",
+        "allocation_id": "01a0da36-f389-72f5-9e09-66334c35fa8a",
+        "offset_ms": 80516.0885839723
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-ef22-7f59-8636-4ed4856f57f1",
+        "offset_ms": 80576.1832089629
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b0e",
+        "allocation_id": "01a0da36-f594-78d7-be4b-5755ae8b300f",
+        "offset_ms": 81031.97004203685
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-f164-75cf-b02d-17f673bd85f4",
+        "offset_ms": 81056.89879204147
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b0f",
+        "allocation_id": "01a0da36-f646-7fda-8f14-206af14d6466",
+        "offset_ms": 81204.3399590766
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-f389-72f5-9e09-66334c35fa8a",
+        "offset_ms": 81618.09141701087
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e1587",
+        "allocation_id": "01a0da36-f8d5-75a3-8ab2-a9446ceef011",
+        "offset_ms": 81879.13470901549
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-f594-78d7-be4b-5755ae8b300f",
+        "offset_ms": 82163.61516702455
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f46a",
+        "allocation_id": "01a0da36-faff-71f4-8414-fb4bca7565ad",
+        "offset_ms": 82414.68570905272
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-f646-7fda-8f14-206af14d6466",
+        "offset_ms": 82439.16737497784
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b10",
+        "allocation_id": "01a0da36-fcb0-7ddd-852a-127468ee10c4",
+        "offset_ms": 82854.04250002466
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-f8d5-75a3-8ab2-a9446ceef011",
+        "offset_ms": 82951.75875001587
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b11",
+        "allocation_id": "01a0da36-fddf-72b5-b334-8e44d22fae4c",
+        "offset_ms": 83156.3820419833
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-faff-71f4-8414-fb4bca7565ad",
+        "offset_ms": 83472.08199999295
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad15-7011-b288-da49000e15a8",
+        "allocation_id": "01a0da36-fff5-70a1-8347-a1e5696911c0",
+        "offset_ms": 83698.09441699181
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-fcb0-7ddd-852a-127468ee10c4",
+        "offset_ms": 84010.85550000425
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-fddf-72b5-b334-8e44d22fae4c",
+        "offset_ms": 84248.74608404934
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b12",
+        "allocation_id": "01a0da37-02be-7d6b-9971-40cb4cb47a35",
+        "offset_ms": 84395.34916705452
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b13",
+        "allocation_id": "01a0da37-03e8-731b-82ec-2ea3ce60dec9",
+        "offset_ms": 84699.37279203441
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da36-fff5-70a1-8347-a1e5696911c0",
+        "offset_ms": 84739.36908401083
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01503",
+        "allocation_id": "01a0da37-049b-76ad-8493-313b07a595d3",
+        "offset_ms": 84879.51750005595
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-02be-7d6b-9971-40cb4cb47a35",
+        "offset_ms": 85550.51095900126
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f4ac",
+        "allocation_id": "01a0da37-0845-7e39-b9c5-78cdbfc7ac37",
+        "offset_ms": 85827.93620903976
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-03e8-731b-82ec-2ea3ce60dec9",
+        "offset_ms": 85866.56412505545
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-049b-76ad-8493-313b07a595d3",
+        "offset_ms": 86127.4609999964
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b14",
+        "allocation_id": "01a0da37-0a1c-7ee5-9621-6829a693147b",
+        "offset_ms": 86286.97083401494
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b15",
+        "allocation_id": "01a0da37-0b14-7fbb-9853-333d50f9be64",
+        "offset_ms": 86534.27412500605
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-0845-7e39-b9c5-78cdbfc7ac37",
+        "offset_ms": 86922.08520905115
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01537",
+        "allocation_id": "01a0da37-0db9-7dfb-b307-d1ec3e788c23",
+        "offset_ms": 87210.64012497663
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-0a1c-7ee5-9621-6829a693147b",
+        "offset_ms": 87512.25516700651
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-0b14-7fbb-9853-333d50f9be64",
+        "offset_ms": 87761.65383402258
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b16",
+        "allocation_id": "01a0da37-10bc-7a09-a7b4-ee9afd21536d",
+        "offset_ms": 87989.16837503202
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b17",
+        "allocation_id": "01a0da37-11c2-74ce-93b3-bebcdfabbf90",
+        "offset_ms": 88244.51012501959
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-0db9-7dfb-b307-d1ec3e788c23",
+        "offset_ms": 88267.84262503497
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f4ce",
+        "allocation_id": "01a0da37-1252-7755-aca4-e048356d97c2",
+        "offset_ms": 88389.30616702419
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-10bc-7a09-a7b4-ee9afd21536d",
+        "offset_ms": 89114.81141706463
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b0156a",
+        "allocation_id": "01a0da37-15df-75a5-baa5-745c6b9b037e",
+        "offset_ms": 89299.3282090174
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-11c2-74ce-93b3-bebcdfabbf90",
+        "offset_ms": 89322.25262501743
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b0156b",
+        "allocation_id": "01a0da37-16d7-7375-b210-19b2823b3a4b",
+        "offset_ms": 89544.43558398634
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-1252-7755-aca4-e048356d97c2",
+        "offset_ms": 89576.64745906368
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b18",
+        "allocation_id": "01a0da37-1792-7a5e-8755-233d3ea36182",
+        "offset_ms": 89727.68083401024
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-15df-75a5-baa5-745c6b9b037e",
+        "offset_ms": 90382.67295900732
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b39",
+        "allocation_id": "01a0da37-1b19-7995-b58f-6ee4cfb8a5c2",
+        "offset_ms": 90642.05841696821
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-16d7-7375-b210-19b2823b3a4b",
+        "offset_ms": 90672.87933407351
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b0156c",
+        "allocation_id": "01a0da37-1bd0-77c5-9fb5-2eb0c77b6a5e",
+        "offset_ms": 90819.76904196199
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-1792-7a5e-8755-233d3ea36182",
+        "offset_ms": 90938.6760420166
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b3a",
+        "allocation_id": "01a0da37-1d68-7963-a5f9-eb49aa9a6277",
+        "offset_ms": 91223.49725000095
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-1b19-7995-b58f-6ee4cfb8a5c2",
+        "offset_ms": 91825.24283404928
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f530",
+        "allocation_id": "01a0da37-20d1-7bc6-b825-525c1ca70372",
+        "offset_ms": 92108.30141697079
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-1bd0-77c5-9fb5-2eb0c77b6a5e",
+        "offset_ms": 92144.57054203376
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab45-7fda-82a0-cb5a6453f531",
+        "allocation_id": "01a0da37-21c5-7798-aac4-ac061ac3893a",
+        "offset_ms": 92340.80245904624
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-1d68-7963-a5f9-eb49aa9a6277",
+        "offset_ms": 92385.49370900728
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b3b",
+        "allocation_id": "01a0da37-22b6-7d89-b568-a5d2ac0be168",
+        "offset_ms": 92584.14612500928
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-20d1-7bc6-b825-525c1ca70372",
+        "offset_ms": 93185.77012501191
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015ae",
+        "allocation_id": "01a0da37-260d-72d3-9fbd-ba2dec31c6b0",
+        "offset_ms": 93452.14537496213
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-21c5-7798-aac4-ac061ac3893a",
+        "offset_ms": 93489.23929198645
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-22b6-7d89-b568-a5d2ac0be168",
+        "offset_ms": 93737.99370904453
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b5c",
+        "allocation_id": "01a0da37-283e-7430-af7f-94e81e5582d2",
+        "offset_ms": 93998.42858407646
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b5d",
+        "allocation_id": "01a0da37-28da-776b-8173-650aa76187b0",
+        "offset_ms": 94158.31395902205
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-260d-72d3-9fbd-ba2dec31c6b0",
+        "offset_ms": 94576.94720907602
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015c1",
+        "allocation_id": "01a0da37-2b74-7242-809b-aa52941bec89",
+        "offset_ms": 94840.89654206764
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-283e-7430-af7f-94e81e5582d2",
+        "offset_ms": 95129.1156669613
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b5e",
+        "allocation_id": "01a0da37-2df4-7e9b-bc41-c1e026bf415b",
+        "offset_ms": 95474.93862500414
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-28da-776b-8173-650aa76187b0",
+        "offset_ms": 95509.18141705915
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b5f",
+        "allocation_id": "01a0da37-2f50-79bd-bbfe-b789582a1951",
+        "offset_ms": 95824.3147090543
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-2b74-7242-809b-aa52941bec89",
+        "offset_ms": 96103.96529198624
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b015e4",
+        "allocation_id": "01a0da37-3132-74d6-be61-d0ddf91b675d",
+        "offset_ms": 96303.3882919699
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-2df4-7e9b-bc41-c1e026bf415b",
+        "offset_ms": 96629.11208404694
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b60",
+        "allocation_id": "01a0da37-3330-7354-b18c-c4d807e41f8a",
+        "offset_ms": 96801.11529200803
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-2f50-79bd-bbfe-b789582a1951",
+        "offset_ms": 96868.26512496918
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af21-7dcd-b854-ca5d162e8b61",
+        "allocation_id": "01a0da37-340d-74c5-8756-3b8f3fec7e43",
+        "offset_ms": 97023.05758406874
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-3132-74d6-be61-d0ddf91b675d",
+        "offset_ms": 97395.45591699425
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be588f2",
+        "allocation_id": "01a0da37-362b-77d2-b45e-9d149f62d9b5",
+        "offset_ms": 97565.82804198842
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-3330-7354-b18c-c4d807e41f8a",
+        "offset_ms": 97920.14720896259
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01617",
+        "allocation_id": "01a0da37-38ab-7291-bbaa-64cbaacbe9d8",
+        "offset_ms": 98204.63162497617
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-340d-74c5-8756-3b8f3fec7e43",
+        "offset_ms": 98233.95412496757
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ad16-7a45-b5eb-89f666b01618",
+        "allocation_id": "01a0da37-396a-7620-8a11-25975f235583",
+        "offset_ms": 98396.0229170043
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-362b-77d2-b45e-9d149f62d9b5",
+        "offset_ms": 98777.57458400447
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af22-7508-99ff-969a2434385f",
+        "allocation_id": "01a0da37-3bd5-7545-ad30-d825d317153b",
+        "offset_ms": 99026.98104199953
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-38ab-7291-bbaa-64cbaacbe9d8",
+        "offset_ms": 99335.38212499116
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-af22-7508-99ff-969a24343870",
+        "allocation_id": "01a0da37-3e0c-771d-8a37-b0c5709ce462",
+        "offset_ms": 99581.56924997456
+      },
+      {
+        "event": "fixture_completion",
+        "allocation_id": "01a0da37-396a-7620-8a11-25975f235583",
+        "offset_ms": 99607.95841703657
+      },
+      {
+        "event": "dispatch",
+        "job_id": "01a0da35-ab44-7fc3-b241-1f132be58924",
+        "allocation_id": "01a0da37-3eaf-70c6-be4c-67d55d3983c5",
+        "offset_ms": 99748.55912500061
+      }
+    ],
+    "windows": [
+      {
+        "index": 1,
+        "start_db_utc": "2026-09-25T20:15:59.026386+00:00",
+        "end_db_utc": "2026-09-25T20:16:29.026386+00:00",
+        "dominant_resource_time": {
+          "01a0da35-ab0c-760c-a649-3cce9bfbaca9": "4.212674333333333333333333333",
+          "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f": "8.901918333333333333333333333",
+          "01a0da35-ab38-7b16-a514-5126846f9610": "13.16682466666666666666666668"
+        },
+        "weighted_jain": "0.9845099503771299550661679897"
+      },
+      {
+        "index": 2,
+        "start_db_utc": "2026-09-25T20:16:29.026386+00:00",
+        "end_db_utc": "2026-09-25T20:16:59.026386+00:00",
+        "dominant_resource_time": {
+          "01a0da35-ab0c-760c-a649-3cce9bfbaca9": "4.328151666666666666666666666",
+          "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f": "8.150441000000000000000000000",
+          "01a0da35-ab38-7b16-a514-5126846f9610": "13.92597999999999999999999999"
+        },
+        "weighted_jain": "0.9920404216994859900206947109"
+      },
+      {
+        "index": 3,
+        "start_db_utc": "2026-09-25T20:16:59.026386+00:00",
+        "end_db_utc": "2026-09-25T20:17:29.026386+00:00",
+        "dominant_resource_time": {
+          "01a0da35-ab0c-760c-a649-3cce9bfbaca9": "3.910338333333333333333333333",
+          "01a0da35-ab31-73d7-aaf8-2d0d7c6ed34f": "8.058439333333333333333333335",
+          "01a0da35-ab38-7b16-a514-5126846f9610": "14.03355966666666666666666666"
+        },
+        "weighted_jain": "0.9966011366319448244016176400"
+      }
+    ],
+    "errors": []
+  }
+}

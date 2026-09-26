@@ -121,6 +121,8 @@ def seed_job(
     retry_of_job_id: UUID | None = None,
     artifact_id: UUID | None = None,
     canonical_spec: dict | None = None,
+    cpu_millis: int = 1000,
+    ready_sequence: int | None = None,
 ) -> dict[str, UUID]:
     job_id = job_id or new_uuid7()
     session_id = new_uuid7()
@@ -140,7 +142,9 @@ def seed_job(
             "max_retries": 2,
             "retry_of_job_id": retry_of_job_id,
             "base_priority": 1,
-            "ready_sequence": int(job_id.int & 0x7FFFFFFF),
+            "ready_sequence": (
+                int(job_id.int & 0x7FFFFFFF) if ready_sequence is None else ready_sequence
+            ),
         },
     )
     connection.execute(
@@ -153,7 +157,7 @@ def seed_job(
             "template_id": graph["template_id"],
             "template_version": 1,
             "input_artifact_id": artifact_id or graph["artifact_id"],
-            "cpu_millis": 1000,
+            "cpu_millis": cpu_millis,
             "memory_bytes": 1_073_741_824,
             "gpu_count": 0,
             "runtime_limit_seconds": 300,

@@ -1,0 +1,77 @@
+{
+  "evidence_layer": "P production HTTP API and PostgreSQL; CPU queue only",
+  "started_at_utc": "2026-09-24T22:19:36.769299+00:00",
+  "finished_at_utc": "2026-09-24T22:20:06.596282+00:00",
+  "fixture": {
+    "tenants": 100,
+    "jobs_per_tenant": 1000,
+    "login_rate_per_minute": 120,
+    "submit_clients": 8,
+    "global_policy_version": 2,
+    "global_outstanding_limit": 101000,
+    "template_setup": "direct DB static template; tenants/policy/artifacts/jobs through API",
+    "accepted_id_journal": "benchmarks/results/b13/b13-api-prefill-100k.accepted.jsonl"
+  },
+  "provenance_start": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "94c7fe2ea574e17e80b02e58508541eeb13d9ef3ea5cc1d0903841383cff34a3",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "4c47ff287f01ebc70bb5d17219672d787b71e030f3229f98f459242683f6ef4e",
+      "benchmarks/b13/queue_microbench.py": "c95cbcf5bed55780d99b3104b8b6363eb26a9c0672c3cecd538da15b26ff445f",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "migrations/versions/20260925_0010_b13_queue_submitters.py": "87c46499c03623457cbcfdbeb1077cabb9ac9e4f011a421cb67d8fbc7c23a78b",
+      "migrations/versions/20260925_0011_b13_concurrency_resume.py": "4229b7352d6ca254abe912201f157108b64298d781965b1fe75b1c90ba389d80",
+      "migrations/versions/20260925_0012_b13_retry_eligibility.py": "da8af1455516489593156d11cff27fbcf6a293823b1232de4a63c8f5155bbdf9",
+      "src/nexa/infrastructure/persistence/schema_v10.py": "662d18de8772d0e1d873e7503d9548e1cbaab397089c209d48e55836eff96242",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "src/nexa/infrastructure/persistence/schema_v9.py": "171a46cb59c37e0dd9cbc4fd684352baf246cc5ade2223bbb0653c7d0067870f",
+      "tests/integration/test_coordinator_b13.py": "c805a8cf52e331a0522b8103026d3711414ff99014d74821d7a2474821fb2ac4"
+    }
+  },
+  "provenance_end": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "94c7fe2ea574e17e80b02e58508541eeb13d9ef3ea5cc1d0903841383cff34a3",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "4c47ff287f01ebc70bb5d17219672d787b71e030f3229f98f459242683f6ef4e",
+      "benchmarks/b13/queue_microbench.py": "c95cbcf5bed55780d99b3104b8b6363eb26a9c0672c3cecd538da15b26ff445f",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "migrations/versions/20260925_0010_b13_queue_submitters.py": "87c46499c03623457cbcfdbeb1077cabb9ac9e4f011a421cb67d8fbc7c23a78b",
+      "migrations/versions/20260925_0011_b13_concurrency_resume.py": "4229b7352d6ca254abe912201f157108b64298d781965b1fe75b1c90ba389d80",
+      "migrations/versions/20260925_0012_b13_retry_eligibility.py": "da8af1455516489593156d11cff27fbcf6a293823b1232de4a63c8f5155bbdf9",
+      "src/nexa/infrastructure/persistence/schema_v10.py": "662d18de8772d0e1d873e7503d9548e1cbaab397089c209d48e55836eff96242",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "src/nexa/infrastructure/persistence/schema_v9.py": "171a46cb59c37e0dd9cbc4fd684352baf246cc5ade2223bbb0653c7d0067870f",
+      "tests/integration/test_coordinator_b13.py": "c805a8cf52e331a0522b8103026d3711414ff99014d74821d7a2474821fb2ac4"
+    }
+  },
+  "provenance_changed_during_run": false,
+  "accepted_count": 100008,
+  "distinct_idempotency_keys": 100000,
+  "cross_principal_duplicate_keys": 8,
+  "measurement": {
+    "run_count": 99976,
+    "newly_accepted_this_run": 0,
+    "median_ms": 51.90866650082171,
+    "range_ms": [
+      22.7476250147447,
+      8079.870540997945
+    ],
+    "errors": []
+  },
+  "reconciliation": {
+    "accepted_ids": 100008,
+    "traceable_job_session_spec": 100008,
+    "db_job_count": 100008,
+    "global_outstanding": 100008
+  },
+  "restart_authorization": {
+    "sampled_reads": 200,
+    "cross_tenant_denied": 100
+  }
+}

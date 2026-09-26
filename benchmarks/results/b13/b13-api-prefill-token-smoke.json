@@ -1,0 +1,75 @@
+{
+  "evidence_layer": "P production HTTP API and PostgreSQL; CPU queue only",
+  "started_at_utc": "2026-09-24T21:26:02.070042+00:00",
+  "finished_at_utc": "2026-09-24T21:26:05.594657+00:00",
+  "fixture": {
+    "tenants": 2,
+    "jobs_per_tenant": 2,
+    "login_rate_per_minute": 120,
+    "submit_clients": 2,
+    "global_policy_version": 2,
+    "global_outstanding_limit": 100000,
+    "template_setup": "direct DB static template; tenants/policy/artifacts/jobs through API",
+    "accepted_id_journal": "benchmarks/results/b13/b13-api-prefill-token-smoke.accepted.jsonl"
+  },
+  "provenance_start": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "56af625099a766f3e15977e12ae495ab3ff03a81fb15a0ffee628db9eeb6b1df",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "4c47ff287f01ebc70bb5d17219672d787b71e030f3229f98f459242683f6ef4e",
+      "benchmarks/b13/queue_microbench.py": "c2b06473319fdefeecf2d6e5cbe22ca444270065616350aae1ea798911d8e6d0",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "migrations/versions/20260925_0010_b13_queue_submitters.py": "87c46499c03623457cbcfdbeb1077cabb9ac9e4f011a421cb67d8fbc7c23a78b",
+      "migrations/versions/20260925_0011_b13_concurrency_resume.py": "4229b7352d6ca254abe912201f157108b64298d781965b1fe75b1c90ba389d80",
+      "src/nexa/infrastructure/persistence/schema_v10.py": "662d18de8772d0e1d873e7503d9548e1cbaab397089c209d48e55836eff96242",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "src/nexa/infrastructure/persistence/schema_v9.py": "171a46cb59c37e0dd9cbc4fd684352baf246cc5ade2223bbb0653c7d0067870f",
+      "tests/integration/test_coordinator_b13.py": "4d37af306351cab6ed880a247788f7fce39fa10e9c53dabb67cfef73d52dc424"
+    }
+  },
+  "provenance_end": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "56af625099a766f3e15977e12ae495ab3ff03a81fb15a0ffee628db9eeb6b1df",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "4c47ff287f01ebc70bb5d17219672d787b71e030f3229f98f459242683f6ef4e",
+      "benchmarks/b13/queue_microbench.py": "c2b06473319fdefeecf2d6e5cbe22ca444270065616350aae1ea798911d8e6d0",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "migrations/versions/20260925_0010_b13_queue_submitters.py": "87c46499c03623457cbcfdbeb1077cabb9ac9e4f011a421cb67d8fbc7c23a78b",
+      "migrations/versions/20260925_0011_b13_concurrency_resume.py": "4229b7352d6ca254abe912201f157108b64298d781965b1fe75b1c90ba389d80",
+      "src/nexa/infrastructure/persistence/schema_v10.py": "662d18de8772d0e1d873e7503d9548e1cbaab397089c209d48e55836eff96242",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "src/nexa/infrastructure/persistence/schema_v9.py": "171a46cb59c37e0dd9cbc4fd684352baf246cc5ade2223bbb0653c7d0067870f",
+      "tests/integration/test_coordinator_b13.py": "4d37af306351cab6ed880a247788f7fce39fa10e9c53dabb67cfef73d52dc424"
+    }
+  },
+  "provenance_changed_during_run": false,
+  "accepted_count": 4,
+  "distinct_idempotency_keys": 4,
+  "cross_principal_duplicate_keys": 0,
+  "measurement": {
+    "run_count": 4,
+    "newly_accepted_this_run": 0,
+    "median_ms": 93.22212502593175,
+    "range_ms": [
+      53.96458302857354,
+      160.6070839916356
+    ],
+    "errors": []
+  },
+  "reconciliation": {
+    "accepted_ids": 4,
+    "traceable_job_session_spec": 4,
+    "db_job_count": 4,
+    "global_outstanding": 4
+  },
+  "restart_authorization": {
+    "sampled_reads": 4,
+    "cross_tenant_denied": 2
+  }
+}

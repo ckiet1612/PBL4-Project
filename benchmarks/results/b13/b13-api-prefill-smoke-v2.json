@@ -1,0 +1,58 @@
+{
+  "evidence_layer": "P production HTTP API and PostgreSQL; CPU queue only",
+  "fixture": {
+    "tenants": 2,
+    "jobs_per_tenant": 10,
+    "template_setup": "direct DB static template; tenants/policy/artifacts/jobs through API",
+    "accepted_id_journal": "benchmarks/results/b13/b13-api-prefill-smoke-v2.accepted.jsonl"
+  },
+  "provenance": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "351328cb1ee618e70f1fe771f63da4e65c151d85cd2c7e7eea55a223143cbf5d",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "a055da5a73b302c19e50acad3fe06ed606ff6c78b6c0fcd9ee4d3665e809501d",
+      "benchmarks/b13/queue_microbench.py": "23c454dced871edac2d1d80b1ea01e1351058402087fb2d6495735a45605ce2c",
+      "benchmarks/results/b13/b13-api-prefill-smoke-v2.accepted.jsonl": "9eaace7be31f186dd51b7a89c92494eb87878244a638a21aa8a8cfef7af737ec",
+      "benchmarks/results/b13/b13-api-prefill-smoke.accepted.jsonl": "db773aa357713497624594b6517f47ef12e6f26f35fd76a6623192301f9ddb2e",
+      "benchmarks/results/b13/b13-api-prefill-smoke.json": "3f5aad9f60033881940430f871941b741dd1b5512a9d9f50dab64c96b0585308",
+      "benchmarks/results/b13/b13-policy-comparison.csv": "4e644f193dbfefd9b32af1ae77bc14ff3cb98e8f5923d91965128df610c5eeb0",
+      "benchmarks/results/b13/b13-policy-comparison.svg": "94f4e315f911dccbc18dc72faf60ad6a95a1c2b0bbc3ea8ce71071cd3a24da96",
+      "benchmarks/results/b13/b13-policy-simulation.json.gz": "2a7c415b786726785665fba45fb5e733f1f6e7e24e49415fcc666519226750cf",
+      "benchmarks/results/b13/b13-queue-micro-100k-v2.json": "9ed10d131381c67fcc619577b7cd622ba2a86d469dd5bd191767dde75954534e",
+      "benchmarks/results/b13/b13-queue-micro-100k-v3.json": "7cfe00d6882f292f676d5671477351489bcc909cdecb293c37c2541fae0948b5",
+      "benchmarks/results/b13/b13-queue-micro-100k-v4.json": "bb79df89d70e5f7e1ff5c985bd25ab2c7b42cebcdc92fc580452c36546b7df22",
+      "benchmarks/results/b13/b13-queue-micro-100k-v5.json": "5d4e8d5455a8a9bc7fa1d4e479b56947db841ed6867ea3101076105a3779f9ba",
+      "benchmarks/results/b13/b13-queue-micro-100k-v6.json": "97eefb0d91a06e5cf6418394b251b3a6589db5607e14be241e046b95dac808d0",
+      "benchmarks/results/b13/b13-queue-micro-100k-v7.json": "477cd12bdc427ae98db2dd35468d7d269099ba8eabdd68464eae99965bf114c9",
+      "benchmarks/results/b13/b13-queue-micro-100k.json": "bee8cd3823c2935c231100bddc6d63b3c77b623d1b89201532e138d66c7ed13e",
+      "benchmarks/results/b13/b13-queue-micro-smoke.json": "bfeae84d578d119bf8a43ddc74d06059608b6844b0f9ed3e75342b3c49cf25cf",
+      "docs/superpowers/plans/2026-09-25-b13-production-fairness.md": "0dda898f1d58c1beec5da351284e9197ce5fc7fba923f9e36cef140230ca63ac",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "tests/integration/test_coordinator_b13.py": "c4046636e7fa571ab1de48cec9a785c62462392d44a2a5b6ace8edf34bd0e7a7"
+    }
+  },
+  "accepted_count": 20,
+  "measurement": {
+    "run_count": 20,
+    "median_ms": 34.208791505079716,
+    "range_ms": [
+      28.221625019796193,
+      69.29491698974743
+    ],
+    "errors": []
+  },
+  "reconciliation": {
+    "accepted_ids": 20,
+    "traceable_job_session_spec": 20,
+    "db_job_count": 20,
+    "global_outstanding": 20
+  },
+  "restart_authorization": {
+    "sampled_reads": 4,
+    "cross_tenant_denied": 2
+  }
+}

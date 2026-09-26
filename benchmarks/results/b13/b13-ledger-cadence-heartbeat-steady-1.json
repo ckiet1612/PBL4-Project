@@ -1,0 +1,936 @@
+{
+  "evidence_layer": "P PostgreSQL coordinator with fixture-only heartbeat; no Docker execution",
+  "timestamp_utc": "2026-09-25T15:06:55.246937+00:00",
+  "environment": {
+    "os": "macOS-27.0-arm64-arm-64bit",
+    "postgres_version_num": "170011",
+    "database_host": "127.0.0.1",
+    "database_port": 15440,
+    "database_name": "nexa_b05_test_b13cadence_hb_steady",
+    "jobs_before": 100000
+  },
+  "provenance": {
+    "head": "96c674a43b285275dfb30e1f87ff61fffac1397c",
+    "tracked_diff_sha256": "16dd1e3cbefcd77ba205d62780a4e604293e5efdbdb8f064ee6322388fc2830d",
+    "untracked_sha256": {
+      "benchmarks/b13/__init__.py": "c12f4a02de9ae876278f0d6b099af7006d80390815c8000a740b0d3d69a09da2",
+      "benchmarks/b13/api_prefill.py": "172961a61aac245237572fba8e40751077aa15ef71c66882df8388af126c30ae",
+      "benchmarks/b13/ledger_cadence.py": "9eb3699bb74327dadd5d8a70ddcfcbe0c5e0007cd10b6b65a7ad49dcdf3cc1ff",
+      "benchmarks/b13/queue_microbench.py": "57fa4c040d1775d25b6a42258c8258fe0dd2fb267e64c060c35c5eb68933c0d8",
+      "benchmarks/b13/runtime_fairness.py": "e78019c883206503adf7ee8513d93218aa64cad1e4df53f6d119844315b31118",
+      "migrations/versions/20260925_0008_b13_queue_heads.py": "c33f761fdfeb3c02d6192b61f123c454cc0b3c0ec583cbf36c01dc624d7ff06f",
+      "migrations/versions/20260925_0009_b13_eligibility_signature.py": "89e765548137a95e3898ba6825cfa6aa4f0a10899f1412dc0be925de2ddd6f30",
+      "migrations/versions/20260925_0010_b13_queue_submitters.py": "87c46499c03623457cbcfdbeb1077cabb9ac9e4f011a421cb67d8fbc7c23a78b",
+      "migrations/versions/20260925_0011_b13_concurrency_resume.py": "4229b7352d6ca254abe912201f157108b64298d781965b1fe75b1c90ba389d80",
+      "migrations/versions/20260925_0012_b13_retry_eligibility.py": "da8af1455516489593156d11cff27fbcf6a293823b1232de4a63c8f5155bbdf9",
+      "migrations/versions/20260925_0013_b13_eligibility_events.py": "c0e7530dcca08c084f5bcc4b1b955b7427c21ec0475ce5483aa8f904a2a04365",
+      "migrations/versions/20260925_0014_b13_tenant_eligibility.py": "b4f6b7e5296fc06da82c4ef249d8f5769cac314b2cf18d2ded7f785f580d5497",
+      "migrations/versions/20260925_0015_b13_priority_age_probe.py": "2165fbf92fefe054ac7156bf8ac24c830cbd8e02b65db383e10929399880d001",
+      "migrations/versions/20260925_0016_b13_submitter_age_probe.py": "c281e74418364a5884d352c66a54dd2f52ab369b3a4dd244af59f1a9b510c8dd",
+      "src/nexa/coordinator/eligibility.py": "945052aec9fc6e47c5e763c10332ebd19de2a6d7092dc725aed3692c6ddd7ff5",
+      "src/nexa/infrastructure/persistence/schema_v10.py": "662d18de8772d0e1d873e7503d9548e1cbaab397089c209d48e55836eff96242",
+      "src/nexa/infrastructure/persistence/schema_v11.py": "7ed571b903977828c39673e81af252f9bed064c58a8f778f343ae06e8d572854",
+      "src/nexa/infrastructure/persistence/schema_v12.py": "ae70a83d6564299b6146ac775cd82c7713668a608c3908ca41a6c42c89cb63f1",
+      "src/nexa/infrastructure/persistence/schema_v13.py": "626d29763d5f96c998902d2c70b85cb42b1ca8c77ec337405a49618bffcf3850",
+      "src/nexa/infrastructure/persistence/schema_v7.py": "7ee3d9ee3a245fcd716814429c4a069d3abcfb68179a4d9bcc160965921b009f",
+      "src/nexa/infrastructure/persistence/schema_v8.py": "2aba12f2bb762da3c446819d45abfd268f6df7bb9dbde7f67c597df432c257e7",
+      "src/nexa/infrastructure/persistence/schema_v9.py": "171a46cb59c37e0dd9cbc4fd684352baf246cc5ade2223bbb0653c7d0067870f",
+      "tests/benchmarks/test_b13_api_prefill.py": "7b835854e4abb88d87ad0b8caf2b156d67258fb49df332d46b8aa7b9945cd818",
+      "tests/benchmarks/test_b13_queue_microbench.py": "b8e1cc139aa7d064265be66b9504c4eff0e2a2f954672ddac4658be789f1c17a",
+      "tests/benchmarks/test_b13_runtime_fairness.py": "5f82f337b19f65ceb36bd5ecd2f50552c3f3b520ca12b542a01d6ec85c79d112",
+      "tests/integration/test_coordinator_b13.py": "4432e60a6a96472fa05b0df80d08e1987e7a536bc1ace05312772c9fc18d27e0"
+    }
+  },
+  "measurement": {
+    "started_monotonic": 570167.515266875,
+    "leadership_wait_ms": 104.82887492980808,
+    "window_seconds": 12.006340582971461,
+    "warmup_seconds": 2.0,
+    "commits": [
+      {
+        "offset_ms": 115.22599996533245,
+        "completed_at_utc": "2026-09-25T15:06:43.298802+00:00"
+      },
+      {
+        "offset_ms": 245.41758291888982,
+        "completed_at_utc": "2026-09-25T15:06:43.428996+00:00"
+      },
+      {
+        "offset_ms": 362.40741692017764,
+        "completed_at_utc": "2026-09-25T15:06:43.545986+00:00"
+      },
+      {
+        "offset_ms": 509.8512920085341,
+        "completed_at_utc": "2026-09-25T15:06:43.693432+00:00"
+      },
+      {
+        "offset_ms": 632.9564999323338,
+        "completed_at_utc": "2026-09-25T15:06:43.816537+00:00"
+      },
+      {
+        "offset_ms": 759.4268328975886,
+        "completed_at_utc": "2026-09-25T15:06:43.943010+00:00"
+      },
+      {
+        "offset_ms": 950.7167079718783,
+        "completed_at_utc": "2026-09-25T15:06:44.134301+00:00"
+      },
+      {
+        "offset_ms": 1026.1487920070067,
+        "completed_at_utc": "2026-09-25T15:06:44.209734+00:00"
+      },
+      {
+        "offset_ms": 1142.905999906361,
+        "completed_at_utc": "2026-09-25T15:06:44.326492+00:00"
+      },
+      {
+        "offset_ms": 1293.5824579326436,
+        "completed_at_utc": "2026-09-25T15:06:44.477170+00:00"
+      },
+      {
+        "offset_ms": 1416.6035829111934,
+        "completed_at_utc": "2026-09-25T15:06:44.600192+00:00"
+      },
+      {
+        "offset_ms": 1557.8329999698326,
+        "completed_at_utc": "2026-09-25T15:06:44.741423+00:00"
+      },
+      {
+        "offset_ms": 1679.9525419482961,
+        "completed_at_utc": "2026-09-25T15:06:44.863544+00:00"
+      },
+      {
+        "offset_ms": 1836.7622079094872,
+        "completed_at_utc": "2026-09-25T15:06:45.020355+00:00"
+      },
+      {
+        "offset_ms": 2025.1929169753566,
+        "completed_at_utc": "2026-09-25T15:06:45.208787+00:00"
+      },
+      {
+        "offset_ms": 2098.0959999142215,
+        "completed_at_utc": "2026-09-25T15:06:45.281691+00:00"
+      },
+      {
+        "offset_ms": 2250.33629196696,
+        "completed_at_utc": "2026-09-25T15:06:45.433934+00:00"
+      },
+      {
+        "offset_ms": 2356.0659169452265,
+        "completed_at_utc": "2026-09-25T15:06:45.539664+00:00"
+      },
+      {
+        "offset_ms": 2486.9684169534594,
+        "completed_at_utc": "2026-09-25T15:06:45.670567+00:00"
+      },
+      {
+        "offset_ms": 2657.867041998543,
+        "completed_at_utc": "2026-09-25T15:06:45.841471+00:00"
+      },
+      {
+        "offset_ms": 2885.4224579408765,
+        "completed_at_utc": "2026-09-25T15:06:46.069029+00:00"
+      },
+      {
+        "offset_ms": 2945.2308749314398,
+        "completed_at_utc": "2026-09-25T15:06:46.128836+00:00"
+      },
+      {
+        "offset_ms": 3128.7881669122726,
+        "completed_at_utc": "2026-09-25T15:06:46.312397+00:00"
+      },
+      {
+        "offset_ms": 3419.2641669651493,
+        "completed_at_utc": "2026-09-25T15:06:46.602873+00:00"
+      },
+      {
+        "offset_ms": 3448.42745794449,
+        "completed_at_utc": "2026-09-25T15:06:46.632036+00:00"
+      },
+      {
+        "offset_ms": 3632.4069999391213,
+        "completed_at_utc": "2026-09-25T15:06:46.816017+00:00"
+      },
+      {
+        "offset_ms": 3649.8337079538032,
+        "completed_at_utc": "2026-09-25T15:06:46.833444+00:00"
+      },
+      {
+        "offset_ms": 3893.7325419392437,
+        "completed_at_utc": "2026-09-25T15:06:47.077345+00:00"
+      },
+      {
+        "offset_ms": 3912.607082980685,
+        "completed_at_utc": "2026-09-25T15:06:47.096220+00:00"
+      },
+      {
+        "offset_ms": 4366.918541956693,
+        "completed_at_utc": "2026-09-25T15:06:47.550540+00:00"
+      },
+      {
+        "offset_ms": 4526.104707969353,
+        "completed_at_utc": "2026-09-25T15:06:47.709724+00:00"
+      },
+      {
+        "offset_ms": 4550.942000001669,
+        "completed_at_utc": "2026-09-25T15:06:47.734562+00:00"
+      },
+      {
+        "offset_ms": 4755.099916947074,
+        "completed_at_utc": "2026-09-25T15:06:47.938722+00:00"
+      },
+      {
+        "offset_ms": 4780.8997919783,
+        "completed_at_utc": "2026-09-25T15:06:47.964521+00:00"
+      },
+      {
+        "offset_ms": 4899.886999977753,
+        "completed_at_utc": "2026-09-25T15:06:48.083510+00:00"
+      },
+      {
+        "offset_ms": 5133.971499977633,
+        "completed_at_utc": "2026-09-25T15:06:48.317597+00:00"
+      },
+      {
+        "offset_ms": 5168.906125007197,
+        "completed_at_utc": "2026-09-25T15:06:48.352531+00:00"
+      },
+      {
+        "offset_ms": 5349.490666994825,
+        "completed_at_utc": "2026-09-25T15:06:48.533118+00:00"
+      },
+      {
+        "offset_ms": 5438.958332990296,
+        "completed_at_utc": "2026-09-25T15:06:48.622589+00:00"
+      },
+      {
+        "offset_ms": 5672.489041928202,
+        "completed_at_utc": "2026-09-25T15:06:48.856119+00:00"
+      },
+      {
+        "offset_ms": 5694.806957966648,
+        "completed_at_utc": "2026-09-25T15:06:48.878438+00:00"
+      },
+      {
+        "offset_ms": 5935.472582932562,
+        "completed_at_utc": "2026-09-25T15:06:49.119107+00:00"
+      },
+      {
+        "offset_ms": 5996.831124997698,
+        "completed_at_utc": "2026-09-25T15:06:49.180469+00:00"
+      },
+      {
+        "offset_ms": 6189.562707906589,
+        "completed_at_utc": "2026-09-25T15:06:49.373198+00:00"
+      },
+      {
+        "offset_ms": 6253.758874954656,
+        "completed_at_utc": "2026-09-25T15:06:49.437395+00:00"
+      },
+      {
+        "offset_ms": 6472.0341669162735,
+        "completed_at_utc": "2026-09-25T15:06:49.655672+00:00"
+      },
+      {
+        "offset_ms": 6504.906541900709,
+        "completed_at_utc": "2026-09-25T15:06:49.688546+00:00"
+      },
+      {
+        "offset_ms": 6716.771916951984,
+        "completed_at_utc": "2026-09-25T15:06:49.900413+00:00"
+      },
+      {
+        "offset_ms": 6736.394207924604,
+        "completed_at_utc": "2026-09-25T15:06:49.920035+00:00"
+      },
+      {
+        "offset_ms": 6953.624832909554,
+        "completed_at_utc": "2026-09-25T15:06:50.137268+00:00"
+      },
+      {
+        "offset_ms": 7037.654957966879,
+        "completed_at_utc": "2026-09-25T15:06:50.221299+00:00"
+      },
+      {
+        "offset_ms": 7231.301166932099,
+        "completed_at_utc": "2026-09-25T15:06:50.414947+00:00"
+      },
+      {
+        "offset_ms": 7253.76549991779,
+        "completed_at_utc": "2026-09-25T15:06:50.437411+00:00"
+      },
+      {
+        "offset_ms": 7454.87116696313,
+        "completed_at_utc": "2026-09-25T15:06:50.638520+00:00"
+      },
+      {
+        "offset_ms": 7515.09633299429,
+        "completed_at_utc": "2026-09-25T15:06:50.698744+00:00"
+      },
+      {
+        "offset_ms": 7702.597166993655,
+        "completed_at_utc": "2026-09-25T15:06:50.886248+00:00"
+      },
+      {
+        "offset_ms": 7827.196792000905,
+        "completed_at_utc": "2026-09-25T15:06:51.010849+00:00"
+      },
+      {
+        "offset_ms": 7951.48733293172,
+        "completed_at_utc": "2026-09-25T15:06:51.135140+00:00"
+      },
+      {
+        "offset_ms": 8030.015999916941,
+        "completed_at_utc": "2026-09-25T15:06:51.213670+00:00"
+      },
+      {
+        "offset_ms": 8207.721666898578,
+        "completed_at_utc": "2026-09-25T15:06:51.391378+00:00"
+      },
+      {
+        "offset_ms": 8310.7495829463,
+        "completed_at_utc": "2026-09-25T15:06:51.494406+00:00"
+      },
+      {
+        "offset_ms": 8471.803916967474,
+        "completed_at_utc": "2026-09-25T15:06:51.655462+00:00"
+      },
+      {
+        "offset_ms": 8614.22608292196,
+        "completed_at_utc": "2026-09-25T15:06:51.797885+00:00"
+      },
+      {
+        "offset_ms": 8712.281374959275,
+        "completed_at_utc": "2026-09-25T15:06:51.895942+00:00"
+      },
+      {
+        "offset_ms": 8906.029707984999,
+        "completed_at_utc": "2026-09-25T15:06:52.089692+00:00"
+      },
+      {
+        "offset_ms": 8983.329124981537,
+        "completed_at_utc": "2026-09-25T15:06:52.166992+00:00"
+      },
+      {
+        "offset_ms": 9104.224082897417,
+        "completed_at_utc": "2026-09-25T15:06:52.287888+00:00"
+      },
+      {
+        "offset_ms": 9246.037207893096,
+        "completed_at_utc": "2026-09-25T15:06:52.429703+00:00"
+      },
+      {
+        "offset_ms": 9370.466332999058,
+        "completed_at_utc": "2026-09-25T15:06:52.554133+00:00"
+      },
+      {
+        "offset_ms": 9526.230124989524,
+        "completed_at_utc": "2026-09-25T15:06:52.709902+00:00"
+      },
+      {
+        "offset_ms": 9818.63124994561,
+        "completed_at_utc": "2026-09-25T15:06:53.002303+00:00"
+      },
+      {
+        "offset_ms": 9846.839874982834,
+        "completed_at_utc": "2026-09-25T15:06:53.030511+00:00"
+      },
+      {
+        "offset_ms": 9996.983249904588,
+        "completed_at_utc": "2026-09-25T15:06:53.180656+00:00"
+      },
+      {
+        "offset_ms": 10238.237916957587,
+        "completed_at_utc": "2026-09-25T15:06:53.421915+00:00"
+      },
+      {
+        "offset_ms": 10258.73837491963,
+        "completed_at_utc": "2026-09-25T15:06:53.442414+00:00"
+      },
+      {
+        "offset_ms": 10465.823332895525,
+        "completed_at_utc": "2026-09-25T15:06:53.649500+00:00"
+      },
+      {
+        "offset_ms": 10492.016916978173,
+        "completed_at_utc": "2026-09-25T15:06:53.675694+00:00"
+      },
+      {
+        "offset_ms": 10703.513457905501,
+        "completed_at_utc": "2026-09-25T15:06:53.887193+00:00"
+      },
+      {
+        "offset_ms": 10745.554374996573,
+        "completed_at_utc": "2026-09-25T15:06:53.929234+00:00"
+      },
+      {
+        "offset_ms": 10962.596374913119,
+        "completed_at_utc": "2026-09-25T15:06:54.146278+00:00"
+      },
+      {
+        "offset_ms": 11004.586374969222,
+        "completed_at_utc": "2026-09-25T15:06:54.188268+00:00"
+      },
+      {
+        "offset_ms": 11262.148916954175,
+        "completed_at_utc": "2026-09-25T15:06:54.445834+00:00"
+      },
+      {
+        "offset_ms": 11282.989874947816,
+        "completed_at_utc": "2026-09-25T15:06:54.466675+00:00"
+      },
+      {
+        "offset_ms": 11465.609457925893,
+        "completed_at_utc": "2026-09-25T15:06:54.649296+00:00"
+      },
+      {
+        "offset_ms": 11524.438166990876,
+        "completed_at_utc": "2026-09-25T15:06:54.708126+00:00"
+      },
+      {
+        "offset_ms": 11716.259832959622,
+        "completed_at_utc": "2026-09-25T15:06:54.899949+00:00"
+      },
+      {
+        "offset_ms": 11771.472207969055,
+        "completed_at_utc": "2026-09-25T15:06:54.955162+00:00"
+      }
+    ],
+    "commit_gap_ms": [
+      115.22599996533245,
+      130.19158295355737,
+      116.98983400128782,
+      147.44387508835644,
+      123.10520792379975,
+      126.47033296525478,
+      191.28987507428974,
+      75.43208403512836,
+      116.7572078993544,
+      150.6764580262825,
+      123.02112497854978,
+      141.22941705863923,
+      122.11954197846353,
+      156.80966596119106,
+      188.43070906586945,
+      72.90308293886483,
+      152.24029205273837,
+      105.72962497826666,
+      130.9025000082329,
+      170.89862504508346,
+      227.55541594233364,
+      59.80841699056327,
+      183.55729198083282,
+      290.47600005287677,
+      29.163290979340672,
+      183.9795419946313,
+      17.426708014681935,
+      243.89883398544043,
+      18.87454104144126,
+      454.311458976008,
+      159.18616601265967,
+      24.837292032316327,
+      204.1579169454053,
+      25.799875031225383,
+      118.98720799945295,
+      234.0844999998808,
+      34.934625029563904,
+      180.58454198762774,
+      89.46766599547118,
+      233.53070893790573,
+      22.31791603844613,
+      240.6656249659136,
+      61.358542065136135,
+      192.73158290889114,
+      64.19616704806685,
+      218.27529196161777,
+      32.87237498443574,
+      211.8653750512749,
+      19.62229097262025,
+      217.23062498494983,
+      84.03012505732477,
+      193.64620896521956,
+      22.464332985691726,
+      201.10566704533994,
+      60.22516603115946,
+      187.50083399936557,
+      124.59962500724941,
+      124.29054093081504,
+      78.52866698522121,
+      177.70566698163748,
+      103.0279160477221,
+      161.05433402117342,
+      142.42216595448554,
+      98.05529203731567,
+      193.7483330257237,
+      77.29941699653864,
+      120.89495791587979,
+      141.81312499567866,
+      124.42912510596216,
+      155.76379199046642,
+      292.4011249560863,
+      28.2086250372231,
+      150.143374921754,
+      241.25466705299914,
+      20.500457962043583,
+      207.0849579758942,
+      26.193584082648158,
+      211.49654092732817,
+      42.040917091071606,
+      217.04199991654605,
+      41.99000005610287,
+      257.562541984953,
+      20.840957993641496,
+      182.61958297807723,
+      58.82870906498283,
+      191.82166596874595,
+      55.212375009432435,
+      234.86837500240654
+    ],
+    "max_commit_gap_ms": 454.311458976008,
+    "median_commit_gap_ms": 130.54704148089513,
+    "decisions": [
+      {
+        "offset_ms": 120.48587494064122,
+        "duration_ms": 205.74383297935128,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 367.2499998938292,
+        "duration_ms": 201.21779199689627,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 638.0534999771044,
+        "duration_ms": 221.08470799867064,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 955.5506249889731,
+        "duration_ms": 285.141707980074,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 1147.913624998182,
+        "duration_ms": 192.35262495931238,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 1421.3438329752535,
+        "duration_ms": 206.71537495218217,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 1685.05049997475,
+        "duration_ms": 212.0909580262378,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 2030.0531249959022,
+        "duration_ms": 297.044915962033,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 2254.893207922578,
+        "duration_ms": 224.8245420632884,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 2491.309250006452,
+        "duration_ms": 210.0299169542268,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 2895.018749986775,
+        "duration_ms": 361.1763750668615,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 3424.6907079359517,
+        "duration_ms": 530.2129170158878,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 3637.611332931556,
+        "duration_ms": 212.32087491080165,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 3898.805332952179,
+        "duration_ms": 218.8438749872148,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 4532.606249907985,
+        "duration_ms": 599.6419580187649,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 4785.55404196959,
+        "duration_ms": 252.92787491343915,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 5141.087499912828,
+        "duration_ms": 355.52062501665205,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 5354.936957941391,
+        "duration_ms": 213.81570806261152,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 5677.091582911089,
+        "duration_ms": 285.34058306831867,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 6001.807999913581,
+        "duration_ms": 324.7007910395041,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 6258.439291967079,
+        "duration_ms": 256.6118329996243,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 6509.772041928954,
+        "duration_ms": 251.3207090087235,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 6721.88958292827,
+        "duration_ms": 212.1042909566313,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 7042.915083002299,
+        "duration_ms": 282.95420797076076,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 7258.636332931928,
+        "duration_ms": 215.7086250372231,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 7520.043166936375,
+        "duration_ms": 225.49033304676414,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 7832.366332993843,
+        "duration_ms": 286.3467079587281,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 8034.927166998386,
+        "duration_ms": 202.5485000340268,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 8315.565333003178,
+        "duration_ms": 223.1474999571219,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 8619.09845797345,
+        "duration_ms": 268.79341690801084,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 8910.789874964394,
+        "duration_ms": 291.6802499676123,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 9109.5426249085,
+        "duration_ms": 198.7396670738235,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 9375.43283298146,
+        "duration_ms": 213.3149579167366,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 9851.675874902867,
+        "duration_ms": 433.71183401905,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 10243.21487499401,
+        "duration_ms": 391.52004197239876,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 10472.665707929991,
+        "duration_ms": 229.43654109258205,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 10708.650791901164,
+        "duration_ms": 206.84274996165186,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 10967.435791972093,
+        "duration_ms": 206.9108330179006,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 11267.307707923464,
+        "duration_ms": 253.35104193072766,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 11471.151374978945,
+        "duration_ms": 203.83112505078316,
+        "decision": "DrainForReservation"
+      },
+      {
+        "offset_ms": 11721.379249938764,
+        "duration_ms": 200.18137502484024,
+        "decision": "DrainForReservation"
+      }
+    ],
+    "accounting_heartbeats": [
+      {
+        "offset_ms": 245.48720789607614,
+        "duration_ms": 20.510374917648733,
+        "skipped": false
+      },
+      {
+        "offset_ms": 509.9219169933349,
+        "duration_ms": 23.66687508765608,
+        "skipped": false
+      },
+      {
+        "offset_ms": 759.505124995485,
+        "duration_ms": 22.53891690634191,
+        "skipped": false
+      },
+      {
+        "offset_ms": 1026.228667004034,
+        "duration_ms": 23.246792028658092,
+        "skipped": false
+      },
+      {
+        "offset_ms": 1293.660374940373,
+        "duration_ms": 31.174750067293644,
+        "skipped": false
+      },
+      {
+        "offset_ms": 1557.9033748945221,
+        "duration_ms": 29.11795792169869,
+        "skipped": false
+      },
+      {
+        "offset_ms": 1836.8286669719964,
+        "duration_ms": 40.57470802217722,
+        "skipped": false
+      },
+      {
+        "offset_ms": 2098.15620793961,
+        "duration_ms": 51.56495899427682,
+        "skipped": false
+      },
+      {
+        "offset_ms": 2356.150291976519,
+        "duration_ms": 48.06912504136562,
+        "skipped": false
+      },
+      {
+        "offset_ms": 2658.0436249496415,
+        "duration_ms": 87.12737495079637,
+        "skipped": false
+      },
+      {
+        "offset_ms": 2945.377374999225,
+        "duration_ms": 123.96812497172505,
+        "skipped": false
+      },
+      {
+        "offset_ms": 3128.9332079468295,
+        "duration_ms": 54.46016706991941,
+        "skipped": false
+      },
+      {
+        "offset_ms": 3448.491249931976,
+        "duration_ms": 91.64291701745242,
+        "skipped": false
+      },
+      {
+        "offset_ms": 3649.8957499861717,
+        "duration_ms": 35.65858397632837,
+        "skipped": false
+      },
+      {
+        "offset_ms": 3912.683832924813,
+        "duration_ms": 46.72112502157688,
+        "skipped": false
+      },
+      {
+        "offset_ms": 4367.260499973781,
+        "duration_ms": 246.90262496005744,
+        "skipped": false
+      },
+      {
+        "offset_ms": 4551.007166970521,
+        "duration_ms": 172.90933302138,
+        "skipped": false
+      },
+      {
+        "offset_ms": 4755.203832988627,
+        "duration_ms": 124.58104093093425,
+        "skipped": false
+      },
+      {
+        "offset_ms": 4899.948916980065,
+        "duration_ms": 19.29154188837856,
+        "skipped": false
+      },
+      {
+        "offset_ms": 5168.976874905638,
+        "duration_ms": 36.810167017392814,
+        "skipped": false
+      },
+      {
+        "offset_ms": 5439.207374933176,
+        "duration_ms": 52.082416019402444,
+        "skipped": false
+      },
+      {
+        "offset_ms": 5694.879582966678,
+        "duration_ms": 52.78637504670769,
+        "skipped": false
+      },
+      {
+        "offset_ms": 5935.652916901745,
+        "duration_ms": 42.66549996100366,
+        "skipped": false
+      },
+      {
+        "offset_ms": 6189.714666921645,
+        "duration_ms": 36.679791985079646,
+        "skipped": false
+      },
+      {
+        "offset_ms": 6472.100332961418,
+        "duration_ms": 59.81558398343623,
+        "skipped": false
+      },
+      {
+        "offset_ms": 6736.462999950163,
+        "duration_ms": 61.30008399486542,
+        "skipped": false
+      },
+      {
+        "offset_ms": 6953.7004579324275,
+        "duration_ms": 24.614375084638596,
+        "skipped": false
+      },
+      {
+        "offset_ms": 7231.365374987945,
+        "duration_ms": 51.214249921031296,
+        "skipped": false
+      },
+      {
+        "offset_ms": 7454.9557499121875,
+        "duration_ms": 23.969708010554314,
+        "skipped": false
+      },
+      {
+        "offset_ms": 7702.675957931206,
+        "duration_ms": 21.44308399874717,
+        "skipped": false
+      },
+      {
+        "offset_ms": 7951.553541934118,
+        "duration_ms": 19.579792045988142,
+        "skipped": false
+      },
+      {
+        "offset_ms": 8207.850916893221,
+        "duration_ms": 24.84033291693777,
+        "skipped": false
+      },
+      {
+        "offset_ms": 8471.891999943182,
+        "duration_ms": 31.910249963402748,
+        "skipped": false
+      },
+      {
+        "offset_ms": 8712.345916894265,
+        "duration_ms": 19.358916906639934,
+        "skipped": false
+      },
+      {
+        "offset_ms": 8983.393916976638,
+        "duration_ms": 31.426750007085502,
+        "skipped": false
+      },
+      {
+        "offset_ms": 9246.111874934286,
+        "duration_ms": 31.523625017143786,
+        "skipped": false
+      },
+      {
+        "offset_ms": 9526.446374948137,
+        "duration_ms": 56.5150409238413,
+        "skipped": false
+      },
+      {
+        "offset_ms": 9818.741374998353,
+        "duration_ms": 98.30679197330028,
+        "skipped": false
+      },
+      {
+        "offset_ms": 9997.074999962933,
+        "duration_ms": 26.444582967087626,
+        "skipped": false
+      },
+      {
+        "offset_ms": 10258.797374903224,
+        "duration_ms": 36.749041988514364,
+        "skipped": false
+      },
+      {
+        "offset_ms": 10492.079332936555,
+        "duration_ms": 19.17666709050536,
+        "skipped": false
+      },
+      {
+        "offset_ms": 10745.610624901019,
+        "duration_ms": 19.84762493520975,
+        "skipped": false
+      },
+      {
+        "offset_ms": 11004.646957968362,
+        "duration_ms": 19.69350001309067,
+        "skipped": false
+      },
+      {
+        "offset_ms": 11283.048207988031,
+        "duration_ms": 43.352624983526766,
+        "skipped": false
+      },
+      {
+        "offset_ms": 11524.517791927792,
+        "duration_ms": 27.374334051273763,
+        "skipped": false
+      },
+      {
+        "offset_ms": 11771.535499952734,
+        "duration_ms": 22.55058300215751,
+        "skipped": false
+      }
+    ],
+    "errors": [],
+    "mutations": [],
+    "ledger_count": 100,
+    "accounted_through_min": "2026-09-25T15:06:55.220535+00:00",
+    "accounted_through_max": "2026-09-25T15:06:55.220535+00:00"
+  }
+}

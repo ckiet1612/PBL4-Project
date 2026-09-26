@@ -1,0 +1,79 @@
+{
+  "fault": "ProgrammingError",
+  "sqlstate": "P0001",
+  "epoch": 1,
+  "timeline": [
+    {
+      "step": "first_dispatch_committed",
+      "db_time": "2026-09-25 20:08:21.003522+00:00",
+      "ledger_score": "0",
+      "accounted_through": "2026-09-25 20:08:20.936178+00:00",
+      "ledger_version": 3,
+      "allocations": [
+        {
+          "allocation_id": "01a0da2e-e2f4-7bbe-b4e7-818b36bb6b56",
+          "job_id": "01a0da2e-e23f-7bd8-a194-1020164a2aa2",
+          "state": "HELD",
+          "cpu_millis": 1000
+        }
+      ],
+      "active_counters": {
+        "GLOBAL": 1,
+        "TENANT": 1,
+        "USER": 1
+      },
+      "attempt_count": 1,
+      "event_count": 1
+    },
+    {
+      "step": "ledger_update_rejected",
+      "db_time": "2026-09-25 20:08:21.101375+00:00",
+      "ledger_score": "0",
+      "accounted_through": "2026-09-25 20:08:20.936178+00:00",
+      "ledger_version": 3,
+      "allocations": [
+        {
+          "allocation_id": "01a0da2e-e2f4-7bbe-b4e7-818b36bb6b56",
+          "job_id": "01a0da2e-e23f-7bd8-a194-1020164a2aa2",
+          "state": "HELD",
+          "cpu_millis": 1000
+        }
+      ],
+      "active_counters": {
+        "GLOBAL": 1,
+        "TENANT": 1,
+        "USER": 1
+      },
+      "attempt_count": 1,
+      "event_count": 1
+    },
+    {
+      "step": "new_process_dispatch_committed",
+      "db_time": "2026-09-25 20:08:22.827448+00:00",
+      "ledger_score": "0.27900000000000000000000000000000000000000000000001",
+      "accounted_through": "2026-09-25 20:08:22.610833+00:00",
+      "ledger_version": 5,
+      "allocations": [
+        {
+          "allocation_id": "01a0da2e-e2f4-7bbe-b4e7-818b36bb6b56",
+          "job_id": "01a0da2e-e23f-7bd8-a194-1020164a2aa2",
+          "state": "HELD",
+          "cpu_millis": 1000
+        },
+        {
+          "allocation_id": "01a0da2e-e985-73ec-932f-2f46ceffe058",
+          "job_id": "01a0da2e-e236-709d-ad05-8ab15e9891e6",
+          "state": "HELD",
+          "cpu_millis": 1000
+        }
+      ],
+      "active_counters": {
+        "GLOBAL": 2,
+        "TENANT": 2,
+        "USER": 2
+      },
+      "attempt_count": 2,
+      "event_count": 2
+    }
+  ]
+}

@@ -6,7 +6,7 @@ from threading import Event
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 
 from nexa.application.execution_cleanup import _lock_policy_counters
 from nexa.application.worker_service import WorkerService
@@ -222,6 +222,7 @@ def test_poll_committed_offer_closed_schema_replay(migrated_postgres_engine, tmp
             from tests.integration._factories import seed_job
 
             seed_job(connection, graph, canonical_spec=spec)
+            connection.execute(update(s.jobs).values(eligible_since=func.clock_timestamp()))
             connection.execute(update(s.admission_counters).values(outstanding=1))
         service = CoordinatorService(create_session_factory(engine))
         service.tick(service.acquire())

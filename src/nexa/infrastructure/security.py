@@ -33,9 +33,12 @@ def _b64encode(value: bytes) -> str:
 def _b64decode(value: str) -> bytes:
     padding = "=" * (-len(value) % 4)
     try:
-        return base64.b64decode(value + padding, altchars=b"-_", validate=True)
+        decoded = base64.b64decode(value + padding, altchars=b"-_", validate=True)
     except (ValueError, binascii.Error):
         raise ValueError("invalid base64url value") from None
+    if _b64encode(decoded) != value:
+        raise ValueError("invalid base64url value")
+    return decoded
 
 
 def read_secret_file(path: Path) -> bytes:
