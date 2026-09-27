@@ -10,6 +10,9 @@ from nexa.domain.scheduling import CreateReservation, Dispatch, InvalidateReserv
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
 
+# The only QUEUED combinations (ck_jobs_queued_dispatchable, SM:15).
+_DISPATCHABLE = (("RUNNING", None), ("PAUSED", "CHECKPOINT_FOR_PAUSE"))
+
 
 def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
     if isinstance(decision, InvalidateReservation):
@@ -44,7 +47,7 @@ def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
         return
     if (
         job["state"] != "QUEUED"
-        or job["desired_state"] != "RUNNING"
+        or (job["desired_state"], job["recovery_intent"]) not in _DISPATCHABLE
         or job["version"] != decision.expected_job_version
     ):
         raise RuntimeError("stale dispatch proposal")
@@ -83,7 +86,8 @@ def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
             **identity,
             attempt_number=number,
             state="CREATED",
-            execution_intent="RUN",
+            # SM:15 — a retry re-queued for a pending pause runs only to checkpoint.
+            execution_intent=job["recovery_intent"] or "RUN",
             worker_incarnation_id=worker["current_incarnation_id"],
             job_fence=fence,
             startup_nonce=new_uuid7(),
@@ -145,12 +149,19 @@ def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
         )
         if result.rowcount != 1:
             raise RuntimeError("missing admitted job counter")
-    session.execute(
-        update(s.jobs)
-        .where(s.jobs.c.job_id == job["job_id"])
-        .values(state="DISPATCHING", job_fence=fence, waiting_reason=None)
+    # One UPDATE per job: a second one re-checks the row's foreign keys and waits
+    # on a users row that a request transaction holds FOR UPDATE (B15-R04).
+    _event(
+        session,
+        job,
+        now,
+        holder_id,
+        "JOB_DISPATCHING",
+        None,
+        state="DISPATCHING",
+        job_fence=fence,
+        waiting_reason=None,
     )
-    _event(session, job, now, holder_id, "JOB_DISPATCHING", None)
     if decision.reservation_id:
         session.execute(
             update(s.reservations)
@@ -163,14 +174,20 @@ def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
     rebase_locked(session, now)
 
 
-def _event(session, job, now, holder_id, event_type, reason):
+def _event(session, job, now, holder_id, event_type, reason, *, keep_version=False, **changes):
     if job is None:
         return
+    # An event without a state change keeps the job version (contracts: append-only
+    # events do not bump the ETag).
+    version = job["version"] if keep_version else job["version"] + 1
     session.execute(
         update(s.jobs)
         .where(s.jobs.c.job_id == job["job_id"])
         .values(
-            version=job["version"] + 1, event_sequence=job["event_sequence"] + 1, updated_at=now
+            **changes,
+            version=version,
+            event_sequence=job["event_sequence"] + 1,
+            updated_at=now,
         )
     )
     session.execute(
@@ -196,7 +213,7 @@ def _event(session, job, now, holder_id, event_type, reason):
             target_type="JOB",
             target_id=str(job["job_id"]),
             before_version=job["version"],
-            after_version=job["version"] + 1,
+            after_version=version,
             reason=reason,
             created_at=now,
         )

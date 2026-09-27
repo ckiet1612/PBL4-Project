@@ -74,9 +74,11 @@ def verify_restore_manifest(context, architecture, launch):
         record, manifest, files = restore["record"], restore["manifest"], restore["files"]
         raw = rfc8785.dumps(manifest)
         body = {key: value for key, value in manifest.items() if key != "manifest_checksum"}
+        # A manual retry restores a same-tenant checkpoint of its source Job by
+        # reference; the claim verified that job's session provenance server-side.
+        inherited = record["job_id"] != context["job_id"]
         if (
             record["state"] != "COMMITTED"
-            or record["job_id"] != context["job_id"]
             or "sha256:" + hashlib.sha256(raw).hexdigest() != record["manifest_checksum"]
             or manifest["manifest_checksum"] != checksum(body)
             or manifest["kind"] != "CHECKPOINT"
@@ -89,7 +91,7 @@ def verify_restore_manifest(context, architecture, launch):
         artifact = context["input_artifacts"][0]
         expected = {
             "tenant_id": artifact["tenant_id"],
-            "job_id": context["job_id"],
+            "job_id": record["job_id"] if inherited else context["job_id"],
             "session_id": context["logical_session_id"],
             "input_checksum": artifact["checksum"],
             "spec_checksum": checksum(spec),
@@ -100,7 +102,10 @@ def verify_restore_manifest(context, architecture, launch):
             "image_digest": context["image_digest"],
         }
         provenance = manifest["provenance"]
-        if any(provenance[key] != expected[key] for key in _PROVENANCE_FROM_CONTEXT):
+        checked = [
+            key for key in _PROVENANCE_FROM_CONTEXT if not (inherited and key == "session_id")
+        ]
+        if any(provenance[key] != expected[key] for key in checked):
             raise RestoreUnavailable("restore provenance mismatch")
         if manifest["compatibility"] != launch.compatibility(architecture):
             raise RestoreUnavailable("restore compatibility mismatch")
@@ -154,8 +159,10 @@ def verify_restore_state(raw, *, context, cursor):
 def execution_request(
     context, source, architecture, *, checkpoint=None, restore_file=None, restore_source=None
 ):
-    if context["execution_intent"] != "RUN":
-        raise ValueError("CPU worker executes only RUN attempts")
+    # A CHECKPOINT_FOR_PAUSE attempt launches like RUN; the agent's pause flow
+    # checkpoints it at the first step boundary and stops it (SM:18).
+    if context["execution_intent"] not in {"RUN", "CHECKPOINT_FOR_PAUSE"}:
+        raise ValueError("CPU worker executes only RUN or CHECKPOINT_FOR_PAUSE attempts")
     if (context["restore_checkpoint"] is not None) != (
         checkpoint is not None and checkpoint.restore is not None
     ):

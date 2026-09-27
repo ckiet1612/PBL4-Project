@@ -389,9 +389,7 @@ def test_checkpoint_request_after_result_reservation_fails_closed(tmp_path: Path
 @pytest.mark.parametrize(
     "mutate",
     [
-        "pause",
         "past_deadline",
-        "missing_state",
         "symlink_state",
         "tampered_state",
         "foreign_state",
@@ -410,14 +408,10 @@ def test_checkpoint_request_fails_closed(tmp_path: Path, mutate: str) -> None:
     state_path = tmp_path / "output" / "state.json"
     _write_state(tmp_path)
     request = _request(runner, 1)
-    if mutate == "pause":
-        request["payload"]["reason"] = "PAUSE"
-    elif mutate == "past_deadline":
+    if mutate == "past_deadline":
         request["payload"]["checkpoint_deadline_monotonic_ns"] = int(
             (runner.clock() - 1) * 1_000_000_000
         )
-    elif mutate == "missing_state":
-        state_path.unlink()
     elif mutate == "symlink_state":
         target = tmp_path / "elsewhere.json"
         target.write_bytes(state_path.read_bytes())

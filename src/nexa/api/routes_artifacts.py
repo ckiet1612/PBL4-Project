@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from nexa.api.dependencies import resolve_principal, services
+from nexa.api.http import wire_response
 from nexa.api.schemas import (
     ArtifactKind,
     ArtifactPage,
@@ -65,11 +66,12 @@ def list_artifacts(
     page_size: int = Query(default=50, ge=1, le=100),
     cursor: str | None = Query(default=None, min_length=16, max_length=2048),
     kind: Annotated[ArtifactKind | None, Query()] = None,
-) -> dict:
+) -> JSONResponse:
     principal = resolve_principal(request, mutation=False)
-    return _artifact_service(request).list_artifacts(
+    result = _artifact_service(request).list_artifacts(
         principal, tenant_id=tenant_id, page_size=page_size, cursor=cursor, kind=kind
     )
+    return wire_response(ArtifactPage, result)
 
 
 @router.post(

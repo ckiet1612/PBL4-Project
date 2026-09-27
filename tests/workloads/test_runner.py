@@ -4,6 +4,7 @@ import os
 import socket
 import struct
 import sys
+import tempfile
 import threading
 import time
 from contextlib import suppress
@@ -11,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from nexa.worker.protocol import ProtocolError
+from nexa.worker.protocol import FrameDecoder, ProtocolError, encode_frame
 from nexa.workloads import trusted_runner
 from nexa.workloads.trusted_runner import RunnerState, RunnerSupervisor
 
@@ -78,6 +79,42 @@ def test_runner_controls_registered_supervisor_without_spawning_as_root() -> Non
         assert observed == [b"START\n"]
     finally:
         supervisor_side.close()
+        runner.close()
+
+
+def test_deadline_after_the_supervisor_reported_exit_still_emits_the_stop_frame() -> None:
+    # A workload that finished before its deadline leaves no supervisor to TERM;
+    # the runner must still stop and name the cause (B15-R15).
+    now = [1.0]
+    runner = RunnerSupervisor(
+        startup_limit_seconds=30,
+        runtime_limit_seconds=300,
+        stop_grace_seconds=5,
+        clock=lambda: now[0],
+    )
+    runner_side, supervisor_side = socket.socketpair()
+
+    def emulate_supervisor() -> None:
+        supervisor_side.sendall(b"READY\n")
+        supervisor_side.recv(64)
+        supervisor_side.sendall(b"STARTED 4321\nEXIT 0\n")
+        supervisor_side.close()
+
+    peer = threading.Thread(target=emulate_supervisor)
+    peer.start()
+    try:
+        runner.attach_supervisor_connection(runner_side, supervisor_pid=1234)
+        runner.accept_authority_deadline(10.0)
+        runner.launch_workload(("unused",))
+        peer.join(timeout=2)
+        assert runner._supervisor_exited.wait(timeout=2)
+        now[0] = 11.0
+        runner.enforce_deadlines()
+        assert runner.state is RunnerState.STOPPED
+        stops = [item for item in runner.pending_messages if item["type"] == "STOPPED"]
+        assert [item["payload"]["reason"] for item in stops] == ["LEASE_DEADLINE"]
+        assert stops[0]["payload"]["exit_code"] == 0
+    finally:
         runner.close()
 
 
@@ -501,6 +538,105 @@ def test_fatal_runner_error_aborts_control_connection() -> None:
     finally:
         controller_side.close()
         runner.close()
+
+
+def _stopped_runner(clock) -> RunnerSupervisor:  # type: ignore[no-untyped-def]
+    runner = RunnerSupervisor(
+        startup_limit_seconds=30,
+        runtime_limit_seconds=300,
+        stop_grace_seconds=5,
+        clock=clock,
+    )
+    runner.accept_authority_deadline(clock() + 1_000)
+    runner.mark_workload_started()
+    runner.request_stop("RUNTIME_LIMIT", now=clock())
+    runner.stop_workload(now=clock(), grace_seconds=0)
+    assert runner.state is RunnerState.STOPPED
+    return runner
+
+
+def _serving(runner: RunnerSupervisor, **kwargs) -> tuple[threading.Thread, str]:  # type: ignore[no-untyped-def]
+    # AF_UNIX paths are short on macOS; pytest's tmp_path can exceed the limit.
+    path = os.path.join(tempfile.mkdtemp(prefix="nexa-r14-", dir="/tmp"), "control.sock")
+    server = threading.Thread(
+        target=trusted_runner.serve_control, args=(runner, path), kwargs=kwargs, daemon=True
+    )
+    server.start()
+    return server, path
+
+
+def _connect(path: str) -> socket.socket:
+    deadline = time.monotonic() + 2
+    while True:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            client.connect(path)
+            client.settimeout(2)
+            return client
+        except (ConnectionRefusedError, FileNotFoundError):
+            client.close()
+            assert time.monotonic() < deadline, "runner stopped serving before delivery"
+            time.sleep(0.01)
+
+
+def _receive_stopped(client: socket.socket) -> dict[str, object]:
+    decoder = FrameDecoder()
+    frames: list[dict[str, object]] = []
+    while not any(frame.get("type") == "STOPPED" for frame in frames):
+        data = client.recv(64 * 1024)
+        assert data, "runner closed before sending STOPPED"
+        frames.extend(decoder.feed(data))
+    (stopped,) = [frame for frame in frames if frame.get("type") == "STOPPED"]
+    return stopped
+
+
+def _ack(client: socket.socket, sequence: object, code: str) -> None:
+    client.sendall(
+        encode_frame(
+            {
+                "schema_version": 1,
+                "ack_sequence": sequence,
+                "accepted": code in {"ACCEPTED", "DUPLICATE"},
+                "code": code,
+            }
+        )
+    )
+
+
+def test_stopped_runner_serves_until_a_worker_acknowledges_its_stop_frame() -> None:
+    # B15-R14/R16: a runner that stopped must hand its STOPPED frame, which names
+    # the cause, to a worker that keeps it. A connection that only reads its
+    # own control ACK drops the frame, so sending it is not delivery.
+    runner = _stopped_runner(lambda: 0.0)
+    server, path = _serving(runner)
+    with _connect(path) as dropping:
+        stopped = _receive_stopped(dropping)
+        assert stopped["payload"]["reason"] == "RUNTIME_LIMIT"
+    with _connect(path) as rejecting:
+        _ack(rejecting, _receive_stopped(rejecting)["message_sequence"], "INVALID")
+    server.join(timeout=0.3)
+    assert server.is_alive()
+    with _connect(path) as keeping:
+        # The worker keeps a terminal frame behind an unfinished one and ACKs
+        # it OUT_OF_ORDER until its sequence can be committed.
+        _ack(keeping, _receive_stopped(keeping)["message_sequence"], "OUT_OF_ORDER")
+        server.join(timeout=2)
+    assert not server.is_alive()
+
+
+def test_stopped_runner_without_an_acknowledgment_stops_serving_after_its_linger() -> None:
+    now = [0.0]
+    runner = _stopped_runner(lambda: now[0])
+    server, path = _serving(runner)
+    with _connect(path) as silent:
+        # A connected peer that never ACKs cannot hold the container open.
+        _receive_stopped(silent)
+        server.join(timeout=0.3)
+        assert server.is_alive()
+        now[0] = trusted_runner.STOP_FRAME_LINGER_SECONDS
+        server.join(timeout=2)
+    assert not server.is_alive()
+    assert trusted_runner.STOP_FRAME_LINGER_SECONDS <= 3
 
 
 def test_registered_supervisor_receives_stop_before_runner_reports_stopped() -> None:

@@ -1,0 +1,69 @@
+{
+  "rows": {
+    "jobs": 100000,
+    "idempotency_records": 100419,
+    "attempt_leases": 6
+  },
+  "reaper_expired_leases": {
+    "execution_ms": 0.064,
+    "planning_ms": 0.564,
+    "nodes": [
+      {
+        "Node Type": "Limit",
+        "Relation Name": null,
+        "Index Name": null,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plan Rows": 1
+      },
+      {
+        "Node Type": "Index Only Scan",
+        "Relation Name": "attempt_leases",
+        "Index Name": "ix_attempt_leases_active_expiry",
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plan Rows": 1
+      }
+    ],
+    "seq_scans": []
+  },
+  "retention_expired_records": {
+    "execution_ms": 0.217,
+    "planning_ms": 4.372,
+    "nodes": [
+      {
+        "Node Type": "Limit",
+        "Relation Name": null,
+        "Index Name": null,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plan Rows": 1
+      },
+      {
+        "Node Type": "LockRows",
+        "Relation Name": null,
+        "Index Name": null,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plan Rows": 1
+      },
+      {
+        "Node Type": "Index Scan",
+        "Relation Name": "idempotency_records",
+        "Index Name": "ix_idempotency_records_b15_sweep",
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plan Rows": 1
+      },
+      {
+        "Node Type": "Index Scan",
+        "Relation Name": "jobs",
+        "Index Name": "pk_jobs",
+        "Actual Rows": 0,
+        "Actual Loops": 0,
+        "Plan Rows": 1
+      }
+    ],
+    "seq_scans": []
+  }
+}

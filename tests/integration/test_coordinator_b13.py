@@ -1380,6 +1380,13 @@ def test_reservation_drains_fitting_arrivals_until_verified_cleanup_releases_cap
             "observed_at": datetime.now(UTC).isoformat(),
             "inspection_checksum": "sha256:" + "a" * 64,
         }
+        # SM:75 (B15-R21): only a claimed Attempt may fail; claim the offer first.
+        with migrated_postgres_engine.begin() as connection:
+            connection.execute(
+                update(s.attempts)
+                .where(s.attempts.c.attempt_id == attempt["attempt_id"])
+                .values(state="CLAIMED", claimed_at=func.clock_timestamp())
+            )
         path = f"/v1/attempts/{attempt['attempt_id']}"
         failed = client.post(
             path + "/fail",

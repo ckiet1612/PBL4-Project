@@ -34,6 +34,9 @@ from nexa.workloads.cpu_state import CpuState, CpuStateError, decode_state, read
 
 CHECKPOINT_STATE_PATH = "/output/state.json"
 RESTORE_STATE_PATH = "/input/restore-state.json"
+# After STOPPED the runner keeps serving, bounded, until a worker ACKs that frame;
+# B09 requires the container to stop within 7 s of a controller disconnect.
+STOP_FRAME_LINGER_SECONDS = 3.0
 _LAUNCH_SPEC_FIELDS = {
     "schema_version",
     "adapter_id",
@@ -123,6 +126,8 @@ class RunnerSupervisor:
         self._last_progress_envelope: dict[str, object] | None = None
         self._result: dict[str, object] | None = None
         self._checkpoint: dict[str, object] | None = None
+        # A request that arrived before the workload's first state write (B15-R20).
+        self._checkpoint_waiting: dict[str, object] | None = None
         self._stop_reason: str | None = None
         self.workload: subprocess.Popen[bytes] | None = None
         self.workload_process_group: int | None = None
@@ -132,6 +137,7 @@ class RunnerSupervisor:
         self._supervisor_thread: threading.Thread | None = None
         self._supervisor_started = threading.Event()
         self._supervisor_exited = threading.Event()
+        self._stop_frame_acknowledged = False
         self._supervisor_exit_code: int | None = None
         self._log_bytes = 0
         self._log_overflow = threading.Event()
@@ -340,7 +346,9 @@ class RunnerSupervisor:
             # Messages are strictly ordered and the server refuses a result
             # reservation while the attempt is CHECKPOINTING, so an open
             # checkpoint cycle must reach CHECKPOINT_READY before RESULT_PREPARE.
-            deferred = self._checkpoint is not None and self._checkpoint["manifest"] is None
+            deferred = self._checkpoint_waiting is not None or (
+                self._checkpoint is not None and self._checkpoint["manifest"] is None
+            )
             self._result = {
                 "completion_token": completion_token,
                 "descriptor": descriptor,
@@ -486,9 +494,6 @@ class RunnerSupervisor:
 
     def _request_checkpoint(self, payload: dict[str, object]) -> None:
         spec = self._checkpoint_spec()
-        if payload["reason"] == "PAUSE":
-            # Checkpoint-for-pause stops the workload; that transition is B15 scope.
-            raise ProtocolError("checkpoint for pause is not supported")
         if self.state not in {RunnerState.RUNNING, RunnerState.RESULT_HANDSHAKE}:
             raise ProtocolError("checkpoint requires a running workload")
         if self.runtime_started_at is None:
@@ -496,6 +501,12 @@ class RunnerSupervisor:
         if int(payload["checkpoint_deadline_monotonic_ns"]) / 1_000_000_000 <= self.clock():
             raise ProtocolError("checkpoint deadline has passed")
         identity = ("reservation_callback_id", "checkpoint_id", "checkpoint_sequence")
+        waiting = self._checkpoint_waiting
+        if waiting is not None:
+            if all(waiting[field] == payload[field] for field in identity):
+                # A replay of the request still waiting for the first state write.
+                return
+            raise ProtocolError("previous checkpoint request is still waiting")
         current = self._checkpoint
         if current is not None:
             if all(current[field] == payload[field] for field in identity):
@@ -512,6 +523,19 @@ class RunnerSupervisor:
         # RESULT_PREPARE until this cycle publishes, and the final state is valid.
         checkpoint = spec["checkpoint"]
         assert isinstance(checkpoint, dict)
+        if not os.path.lexists(self._container_path(checkpoint["state_path"])):
+            # The workload writes its first snapshot only after one stride, and a
+            # pause may be requested right after launch: wait for it until the
+            # request's own deadline instead of failing the attempt (B15-R20).
+            self._checkpoint_waiting = dict(payload)
+            return
+        self._stage_checkpoint(payload)
+
+    def _stage_checkpoint(self, payload: dict[str, object]) -> None:
+        spec = self._checkpoint_spec()
+        checkpoint = spec["checkpoint"]
+        assert isinstance(checkpoint, dict)
+        current = self._checkpoint
         raw = read_state_file(self._container_path(checkpoint["state_path"]))
         state = self._decode_cpu_state(raw)
         restore = spec["restore"]
@@ -689,16 +713,29 @@ class RunnerSupervisor:
 
     def acknowledge_message(self, ack: dict[str, object]) -> None:
         validated = validate_ack(ack)
-        if not validated["accepted"]:
-            return
+        sequence = validated["ack_sequence"]
         with self._lock:
-            sequence = validated["ack_sequence"]
+            stopped = self._find_pending("STOPPED")
+            if (
+                validated["code"] != "INVALID"
+                and stopped is not None
+                and stopped["message_sequence"] == sequence
+            ):
+                # OUT_OF_ORDER here means the worker kept the frame until its
+                # sequence can be committed (B15-R16).
+                self._stop_frame_acknowledged = True
+            if not validated["accepted"]:
+                return
             self._pending_messages = [
                 message
                 for message in self._pending_messages
                 if message.get("message_sequence") != sequence
             ]
             self._persist()
+
+    @property
+    def stop_frame_acknowledged(self) -> bool:
+        return self._stop_frame_acknowledged
 
     def _find_pending(self, message_type: str) -> dict[str, object] | None:
         return next(
@@ -1020,7 +1057,11 @@ class RunnerSupervisor:
         reason = self._stop_reason or "FAILURE"
         if self._supervisor_socket is not None and self._workload_started:
             grace = min(grace_seconds, float(self.stop_grace_seconds))
-            self._supervisor_socket.sendall(f"TERM {grace:.9f}\n".encode("ascii"))
+            # A supervisor that reported its workload's exit has closed its socket;
+            # only its exit report, never the TERM delivery, confirms the stop (B15-R15).
+            if not self._supervisor_exited.is_set():
+                with suppress(OSError):
+                    self._supervisor_socket.sendall(f"TERM {grace:.9f}\n".encode("ascii"))
             if not self._supervisor_exited.wait(timeout=grace + 1.5):
                 raise RuntimeError("workload supervisor did not confirm stop")
             exit_code = self._supervisor_exit_code
@@ -1087,9 +1128,42 @@ class RunnerSupervisor:
         self._persist()
         return normalized_exit_code
 
+    def _poll_waiting_checkpoint(self, instant: float) -> bool:
+        """Stage a waiting checkpoint once its state exists; False after a failure stop."""
+        if self._checkpoint_waiting is None:
+            # Never block the deadline watchdog on the lock without a waiting request.
+            return True
+        with self._lock:
+            waiting = self._checkpoint_waiting
+            if waiting is None or self.state not in {
+                RunnerState.RUNNING,
+                RunnerState.RESULT_HANDSHAKE,
+            }:
+                return True
+            checkpoint = self._checkpoint_spec()["checkpoint"]
+            assert isinstance(checkpoint, dict)
+            expired = int(waiting["checkpoint_deadline_monotonic_ns"]) / 1_000_000_000 <= instant
+            present = os.path.lexists(self._container_path(checkpoint["state_path"]))
+            if not expired and not present:
+                return True
+            self._checkpoint_waiting = None
+            try:
+                if not present:
+                    raise ProtocolError("checkpoint state never appeared")
+                self._stage_checkpoint(waiting)
+            except (ProtocolError, ValueError):
+                self._persist()
+                self.request_stop("FAILURE", now=instant)
+                self.stop_workload(now=instant, grace_seconds=0)
+                return False
+            self._persist()
+            return True
+
     def enforce_deadlines(self, *, now: float | None = None) -> None:
         instant = self.clock() if now is None else now
         if self.state == RunnerState.STOPPED:
+            return
+        if not self._poll_waiting_checkpoint(instant):
             return
         reason: str | None = None
         if (
@@ -1161,6 +1235,7 @@ class RunnerSupervisor:
                 "last_progress_envelope": self._last_progress_envelope,
                 "result": self._result,
                 "checkpoint": self._checkpoint,
+                "checkpoint_waiting": self._checkpoint_waiting,
                 "stop_reason": self._stop_reason,
             }
             _atomic_write(self.state_path, _canonical_json(payload), mode=0o600)
@@ -1194,6 +1269,10 @@ class RunnerSupervisor:
             if checkpoint is not None and not isinstance(checkpoint, dict):
                 raise ValueError("checkpoint state is invalid")
             self._checkpoint = checkpoint
+            waiting = payload.get("checkpoint_waiting")
+            if waiting is not None and not isinstance(waiting, dict):
+                raise ValueError("waiting checkpoint state is invalid")
+            self._checkpoint_waiting = waiting
             stop_reason = payload.get("stop_reason")
             self._stop_reason = str(stop_reason) if stop_reason is not None else None
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
@@ -1206,8 +1285,9 @@ def serve_control(
     *,
     supervisor_socket_path: str | None = None,
     timeout_seconds: int = 30,
+    stop_linger_seconds: float = STOP_FRAME_LINGER_SECONDS,
 ) -> None:
-    """Serve replayable private worker connections until the runner stops."""
+    """Serve replayable private worker connections until the stop frame is settled."""
     path = Path(socket_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with suppress(FileNotFoundError):
@@ -1231,7 +1311,23 @@ def serve_control(
             server.listen(4)
             server.settimeout(0.1)
             accepted_at = runner.clock()
-            while runner.state != RunnerState.STOPPED:
+            stopped_at: float | None = None
+
+            def stop_settled() -> bool:
+                # The STOPPED frame names the cause. Only a worker ACK shows it
+                # was kept; a connection that reads just its own control ACK
+                # drops it. Without one the runner exits after the linger (B15-R16).
+                nonlocal stopped_at
+                if runner.state != RunnerState.STOPPED:
+                    return False
+                if stopped_at is None:
+                    stopped_at = runner.clock()
+                return (
+                    runner.stop_frame_acknowledged
+                    or runner.clock() - stopped_at >= stop_linger_seconds
+                )
+
+            while not stop_settled():
                 if runner.fatal_error:
                     raise RuntimeError("trusted runner entered fail-closed termination")
                 if (
@@ -1245,7 +1341,7 @@ def serve_control(
                 except TimeoutError:
                     continue
                 accepted_at = runner.clock()
-                _serve_connection(runner, connection)
+                _serve_connection(runner, connection, stop_settled)
     finally:
         runner.close()
         if registration_thread is not None:
@@ -1290,7 +1386,12 @@ def _serve_supervisor_registration(runner: RunnerSupervisor, socket_path: str) -
             path.unlink()
 
 
-def _serve_connection(runner: RunnerSupervisor, connection: socket.socket) -> None:
+def _serve_connection(
+    runner: RunnerSupervisor,
+    connection: socket.socket,
+    stop_settled: Callable[[], bool] = lambda: False,
+) -> None:
+    """Serve one connection until the peer closes or the stop frame is settled."""
     with connection:
         connection.settimeout(0.1)
         decoder = FrameDecoder()
@@ -1303,7 +1404,7 @@ def _serve_connection(runner: RunnerSupervisor, connection: socket.socket) -> No
                 if sequence not in sent:
                     connection.sendall(encode_frame(message))
                     sent.add(sequence)
-            if runner.state == RunnerState.STOPPED:
+            if stop_settled():
                 return
             try:
                 data = connection.recv(64 * 1024)

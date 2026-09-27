@@ -8,7 +8,7 @@ from sqlalchemy import insert, select, update
 
 from nexa.api.schemas import Authority
 from nexa.application.artifact_service import ArtifactService
-from nexa.application.checkpoint_restore import CheckpointRestoreMixin, _not_corrupt
+from nexa.application.checkpoint_restore import CheckpointRestoreMixin, _inherits, _not_corrupt
 from nexa.application.checkpoint_service import CheckpointMixin, checkpoint_record
 from nexa.application.errors import ApplicationError
 from nexa.application.execution_cleanup import (
@@ -16,6 +16,7 @@ from nexa.application.execution_cleanup import (
     _adjust_counters,
     _lock_policy_counters,
 )
+from nexa.application.job_recovery import extend_retention, restorable_scope, restore_order
 from nexa.application.json_codec import json_wire_value
 from nexa.application.result_validation import validate_cpu_result_manifest
 from nexa.application.worker_service import WorkerService
@@ -60,7 +61,9 @@ class ExecutionService(
             if (
                 mode != "NORMAL"
                 or worker["health"] != "READY"
-                or worker["admin_state"] != "ENABLED"
+                # DRAINING forbids new allocation, which dispatch enforces; an offer
+                # committed before the drain is existing work (SM:103, B15-R22).
+                or worker["admin_state"] == "DISABLED"
             ):
                 raise ApplicationError(
                     code="state_conflict",
@@ -121,8 +124,8 @@ class ExecutionService(
                 checkpoint = (
                     session.execute(
                         select(checkpoints)
-                        .where(checkpoints.c.job_id == row["job_id"], _not_corrupt())
-                        .order_by(checkpoints.c.sequence.desc())
+                        .where(restorable_scope(row["job_id"]), _not_corrupt())
+                        .order_by(*restore_order(row["job_id"]))
                         .limit(1)
                     )
                     .mappings()
@@ -206,6 +209,7 @@ class ExecutionService(
             job, attempt, lease, allocation, grant = rows
             now = clock_timestamp(session)
             self._live_authority(job, attempt, lease, allocation, now)
+            self._result_authority(job, attempt)
             if attempt["state"] != "RUNNING":
                 raise ApplicationError(
                     code="state_conflict", status=409, message="Attempt has not started"
@@ -256,7 +260,7 @@ class ExecutionService(
         return run_transaction(self.session_factory, operation)
 
     @staticmethod
-    def _transition(session, job, authority, *, state, event_type, now):
+    def _transition(session, job, authority, *, state, event_type, now, **changes):
         from sqlalchemy import update
 
         from nexa.infrastructure.persistence.schema import audit_records, events, jobs
@@ -265,6 +269,7 @@ class ExecutionService(
             update(jobs)
             .where(jobs.c.job_id == job["job_id"])
             .values(
+                **changes,
                 state=state,
                 version=job["version"] + 1,
                 event_sequence=job["event_sequence"] + 1,
@@ -493,7 +498,7 @@ class ExecutionService(
                 )
             context = attempt["execution_context"] or {}
             if (
-                attempt["attempt_number"] > 1
+                (attempt["attempt_number"] > 1 or _inherits(session, job["job_id"]))
                 and not context.get("template_snapshot", {}).get("restart_safe")
                 and context.get("restore_checkpoint") is None
             ):
@@ -532,8 +537,12 @@ class ExecutionService(
                 .where(attempt_leases.c.lease_id == authority.lease_id)
                 .values(expires_at=expires)
             )
+            # SM:18 — a checkpoint-for-pause start enters PAUSING, never RUNNING.
+            started = (
+                "PAUSING" if attempt["execution_intent"] == "CHECKPOINT_FOR_PAUSE" else "RUNNING"
+            )
             self._transition(
-                session, job, authority, state="RUNNING", event_type="ATTEMPT_STARTED", now=now
+                session, job, authority, state=started, event_type="ATTEMPT_STARTED", now=now
             )
             body = json_wire_value(
                 dict(
@@ -657,6 +666,7 @@ class ExecutionService(
             job, attempt, lease, allocation, grant = rows
             now = clock_timestamp(session)
             self._live_authority(job, attempt, lease, allocation, now)
+            self._result_authority(job, attempt)
             if job["state"] != "RUNNING" or attempt["state"] != "RUNNING":
                 raise ApplicationError(
                     code="state_conflict", status=409, message="Attempt is not running"
@@ -822,6 +832,10 @@ class ExecutionService(
                 state="SUCCEEDED",
                 event_type="RESULT_RECOGNIZED",
                 now=now,
+                terminal_at=now,
+            )
+            extend_retention(
+                session, job["job_id"], now, self.settings.idempotency_terminal_retention_days
             )
             body = json_wire_value(
                 {

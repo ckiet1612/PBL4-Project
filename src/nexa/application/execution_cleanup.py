@@ -6,6 +6,7 @@ from secrets import randbelow
 from sqlalchemy import exists, insert, select, update
 
 from nexa.application.errors import ApplicationError
+from nexa.application.job_recovery import extend_retention, restorable_scope
 from nexa.application.json_codec import json_wire_value
 from nexa.coordinator.accounting import account_locked, rebase_locked
 from nexa.infrastructure.persistence import schema as s
@@ -35,6 +36,9 @@ _FAILURE_REASONS = {
     },
 }
 _TERMINAL = {"SUCCEEDED", "FAILED", "CANCELLED"}
+
+
+_FAILABLE_ATTEMPT_STATES = frozenset({"CLAIMED", "STARTING", "RUNNING", "CHECKPOINTING"})
 
 
 def _conflict(message="Cleanup identity or state is not valid"):
@@ -189,6 +193,21 @@ def _proof_valid(attempt, container, proof):
     )
 
 
+def _committed_checkpoint(session, job_id, *, attempt_id=None):
+    """Whether the job can restore a committed, non-corrupt checkpoint (from `attempt_id` if given).
+
+    Without an attempt this includes checkpoints a manual retry referenced.
+    """
+    query = select(s.checkpoints.c.checkpoint_id).where(
+        restorable_scope(job_id),
+        s.checkpoints.c.state == "COMMITTED",
+        ~exists().where(s.checkpoint_corruptions.c.checkpoint_id == s.checkpoints.c.checkpoint_id),
+    )
+    if attempt_id is not None:
+        query = query.where(s.checkpoints.c.attempt_id == attempt_id)
+    return session.execute(query.limit(1)).first() is not None
+
+
 class ExecutionCleanupMixin:
     def _store_cleanup_acknowledgment(
         self, session, receipt, replay, worker_id, callback_id, response
@@ -246,7 +265,19 @@ class ExecutionCleanupMixin:
                 or lease["revoked_at"] is not None
                 or lease["expires_at"] <= now
             ):
-                _conflict("Failure authority is stale")
+                # SM:59 (B15-R30): a stale lease or job state is stale authority.
+                raise ApplicationError(
+                    code="stale_authority", status=409, message="Failure authority is stale"
+                )
+            if attempt["state"] == "STOPPING":
+                # SM:75. A publish while PAUSING already moved the Attempt to
+                # STOPPING; its cleanup, not a failure, ends the pause (SM:23).
+                raise ApplicationError(
+                    code="stale_authority", status=409, message="Attempt is already stopping"
+                )
+            if attempt["state"] not in _FAILABLE_ATTEMPT_STATES:
+                # SM:75: an unclaimed CREATED offer has nothing a worker could fail.
+                _conflict("Attempt cannot fail in its state")
             if request.reason_code not in _FAILURE_REASONS[request.failure_class]:
                 raise ApplicationError(
                     code="validation_failed", status=422, message="Unknown failure reason"
@@ -466,8 +497,15 @@ class ExecutionCleanupMixin:
                 )
                 return response
             # Cleanup cannot replace failure/revoke linearization or revive an attempt.
-            if job["state"] not in _TERMINAL | {"RECOVERING", "CANCELLING"}:
+            if job["state"] not in _TERMINAL | {"RECOVERING", "CANCELLING", "PAUSING"}:
                 _conflict("Failure or completion must be committed before cleanup")
+            if job["state"] == "PAUSING" and not (
+                job["desired_state"] == "PAUSED"
+                and attempt["state"] == "STOPPING"
+                and _committed_checkpoint(session, ref, attempt_id=attempt_id)
+            ):
+                # Only a pause checkpoint committed by this attempt ends the pause.
+                _conflict("Pause checkpoint is not committed")
             if job["state"] == "RECOVERING" and attempt["failure_class"] is None:
                 response = json_wire_value(
                     dict(
@@ -496,6 +534,23 @@ class ExecutionCleanupMixin:
             changes = {}
             if job["state"] == "CANCELLING":
                 next_state = "CANCELLED"
+            elif job["state"] == "PAUSING":
+                # Admission stays outstanding; only the active attempt is released.
+                next_state = "PAUSED"
+                changes.update(recovery_intent=None, waiting_reason=None)
+                session.execute(
+                    update(s.attempts)
+                    .where(s.attempts.c.attempt_id == attempt_id)
+                    .values(state="CANCELLED", failure_reason="PAUSE", ended_at=now, updated_at=now)
+                )
+                session.execute(
+                    update(s.result_reservations)
+                    .where(
+                        s.result_reservations.c.attempt_id == attempt_id,
+                        s.result_reservations.c.state == "ACTIVE",
+                    )
+                    .values(state="ABANDONED")
+                )
             elif job["state"] == "RECOVERING":
                 next_state = "FAILED"
                 spec = (
@@ -514,28 +569,24 @@ class ExecutionCleanupMixin:
                 # A later attempt may resume from a committed checkpoint. Claim
                 # re-verifies it; if none is usable the worker fails that attempt
                 # INCOMPATIBLE with a NoContainerProof before any Docker create.
-                restorable = spec["restart_safe"] or (
-                    session.execute(
-                        select(s.checkpoints.c.checkpoint_id)
-                        .where(
-                            s.checkpoints.c.job_id == ref,
-                            s.checkpoints.c.state == "COMMITTED",
-                            ~exists().where(
-                                s.checkpoint_corruptions.c.checkpoint_id
-                                == s.checkpoints.c.checkpoint_id
-                            ),
-                        )
-                        .limit(1)
-                    ).first()
-                    is not None
-                )
-                if (
-                    attempt["failure_class"] == "INFRASTRUCTURE"
+                checkpointed = _committed_checkpoint(session, ref)
+                infrastructure = attempt["failure_class"] == "INFRASTRUCTURE"
+                paused = job["desired_state"] == "PAUSED"
+                # B15-R02: a non-retryable failure class ends the job even when a
+                # pause was requested and a checkpoint exists.
+                if infrastructure and paused and checkpointed:
+                    next_state = "PAUSED"
+                    changes.update(recovery_intent=None, waiting_reason=None)
+                elif (
+                    infrastructure
                     and job["retry_count"] < job["max_retries"]
-                    and restorable
-                    and job["desired_state"] == "RUNNING"
+                    and (spec["restart_safe"] or (checkpointed and not paused))
                 ):
+                    # Desired PAUSED without a checkpoint consumes one retry whose
+                    # attempt only produces the pause checkpoint.
                     next_state = "RETRY_WAIT"
+                    if paused:
+                        changes["recovery_intent"] = "CHECKPOINT_FOR_PAUSE"
                     retry = job["retry_count"] + 1
                     jitter_ms = randbelow(1001)
                     ready_at = now + timedelta(
@@ -556,19 +607,34 @@ class ExecutionCleanupMixin:
                             reason="INFRASTRUCTURE",
                         )
                     )
+                # SM:77 — a reaped LOST attempt is already terminal; cleanup only ends it.
                 session.execute(
                     update(s.attempts)
                     .where(s.attempts.c.attempt_id == attempt_id)
-                    .values(state="FAILED", ended_at=now, updated_at=now)
+                    .values(
+                        state="LOST" if attempt["state"] == "LOST" else "FAILED",
+                        ended_at=now,
+                        updated_at=now,
+                    )
                 )
             if next_state == "CANCELLED" and job["state"] not in _TERMINAL:
                 session.execute(
                     update(s.attempts)
                     .where(s.attempts.c.attempt_id == attempt_id)
-                    .values(state="CANCELLED", ended_at=now, updated_at=now)
+                    .values(
+                        state="LOST" if attempt["state"] == "LOST" else "CANCELLED",
+                        ended_at=now,
+                        updated_at=now,
+                    )
                 )
             terminalized = next_state in _TERMINAL and job["state"] not in _TERMINAL
             _adjust_counters(session, counters, now, outstanding=int(terminalized), active=1)
+            if terminalized:
+                # The terminal trigger freezes recovery_intent, so clear it in this update.
+                changes.update(recovery_intent=None, terminal_at=now)
+                extend_retention(
+                    session, ref, now, self.settings.idempotency_terminal_retention_days
+                )
             rebase_locked(session, now)
             if container is not None:
                 session.execute(

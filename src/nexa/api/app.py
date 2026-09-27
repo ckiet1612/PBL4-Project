@@ -17,7 +17,7 @@ from nexa.api.routes_auth import router as auth_router
 from nexa.api.routes_bootstrap import router as bootstrap_router
 from nexa.api.routes_jobs import router as jobs_router
 from nexa.api.routes_worker import router as worker_router
-from nexa.application.admin_service import AdminService
+from nexa.application.admin_workers import AdminWorkerService
 from nexa.application.artifact_service import ArtifactService
 from nexa.application.errors import ApplicationError
 from nexa.application.execution_service import ExecutionService
@@ -76,10 +76,10 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
             app.state.services = ApiServices(
                 settings=settings,
                 identity=identity,
-                admin=AdminService(session_factory, settings, identity),
+                admin=AdminWorkerService(session_factory, settings, identity),
                 policy=PolicyService(session_factory, settings, identity),
                 artifact=ArtifactService(session_factory, settings, identity, artifact_store),
-                jobs=JobService(session_factory, settings, identity),
+                jobs=JobService(session_factory, settings, identity, artifact_store),
                 worker=ExecutionService(
                     session_factory,
                     settings,

@@ -13,6 +13,7 @@ from nexa.api.execution_cleanup_schemas import (
     FailureRequest,
     WorkerAck,
 )
+from nexa.api.http import wire_response
 from nexa.api.schemas import (
     AdoptRequest,
     AdoptResponse,
@@ -119,8 +120,8 @@ async def get_reconciliation(
     incarnation_id: Annotated[UuidV7, Header(alias="X-Worker-Incarnation-Id")],
     cursor: Annotated[str | None, Query(min_length=16, max_length=2048)] = None,
     page_size: int = Query(default=50, ge=1, le=100),
-) -> dict:
-    return await run_in_threadpool(
+) -> JSONResponse:
+    result = await run_in_threadpool(
         _service(request).get_reconciliation,
         worker_id=worker_id,
         credential=_credential(request),
@@ -128,6 +129,7 @@ async def get_reconciliation(
         page_size=page_size,
         cursor=cursor,
     )
+    return wire_response(ReconciliationPage, result)
 
 
 @router.post(
@@ -141,11 +143,11 @@ async def heartbeat(
     request: Request,
     worker_id: UuidV7,
     callback_id: Annotated[UuidV7, Header(alias="X-Callback-Id")],
-) -> dict:
+) -> JSONResponse:
     body, decoded = await parse_json_request(
         request, HeartbeatRequest, settings=services(request).settings
     )
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _service(request).heartbeat,
         worker_id=worker_id,
         credential=_credential(request),
@@ -153,6 +155,7 @@ async def heartbeat(
         payload_hash=jcs_request_hash(decoded),
         request=body,
     )
+    return wire_response(HeartbeatResponse, result)
 
 
 @router.post(
@@ -162,15 +165,16 @@ async def heartbeat(
     responses=_ERRORS,
     openapi_extra={"security": _SECURITY},
 )
-async def poll(request: Request, worker_id: UuidV7) -> dict:
+async def poll(request: Request, worker_id: UuidV7) -> JSONResponse:
     body, _ = await parse_json_request(request, PollRequest, settings=services(request).settings)
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _service(request).poll,
         worker_id=worker_id,
         credential=_credential(request),
         incarnation_id=body.worker_incarnation_id,
         long_poll_seconds=body.long_poll_seconds,
     )
+    return wire_response(PollResponse, result)
 
 
 @router.post(
@@ -184,11 +188,11 @@ async def adopt_attempt(
     request: Request,
     attempt_id: UuidV7,
     callback_id: Annotated[UuidV7, Header(alias="X-Callback-Id")],
-) -> dict:
+) -> JSONResponse:
     body, decoded = await parse_json_request(
         request, AdoptRequest, settings=services(request).settings
     )
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _service(request).adopt_attempt,
         worker_id=body.prior_authority.worker_id,
         credential=_credential(request),
@@ -197,6 +201,9 @@ async def adopt_attempt(
         payload_hash=jcs_request_hash(decoded),
         request=body,
     )
+    # The wire body as stored: the worker compares the transferred reservations with
+    # the reserve answers it journaled, timestamps included (B15-R19).
+    return JSONResponse(result)
 
 
 @router.post(
@@ -210,11 +217,11 @@ async def renew_attempt(
     request: Request,
     attempt_id: UuidV7,
     callback_id: Annotated[UuidV7, Header(alias="X-Callback-Id")],
-) -> dict:
+) -> JSONResponse:
     body, decoded = await parse_json_request(
         request, RenewBody, settings=services(request).settings
     )
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _service(request).renew_attempt,
         worker_id=body.root.authority.worker_id,
         credential=_credential(request),
@@ -223,6 +230,7 @@ async def renew_attempt(
         payload_hash=jcs_request_hash(decoded),
         request=body.root,
     )
+    return wire_response(RenewResponse, result)
 
 
 @router.post(
@@ -476,7 +484,7 @@ async def fail_attempt(
         payload_hash=jcs_request_hash(decoded),
         request=body,
     )
-    return result
+    return wire_response(WorkerAck, result)
 
 
 @router.post(

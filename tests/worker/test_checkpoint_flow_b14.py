@@ -393,6 +393,8 @@ class Harness:
         self.clock = [time.monotonic_ns()]
         self.runner = None
         self.fail_send = set()
+        # The real runner sends a connection its pending frames before any ACK.
+        self.frames_first = False
         self.authority = start().context.authority
         self.agent = self._agent()
 
@@ -457,7 +459,8 @@ class Harness:
                     )
 
             def recv(self, maximum):
-                frames = [*self.acks, *harness.runner.pending_messages]
+                pending = harness.runner.pending_messages
+                frames = [*pending, *self.acks] if harness.frames_first else [*self.acks, *pending]
                 self.acks = []
                 if not frames:
                     raise TimeoutError()
@@ -701,6 +704,40 @@ def test_restore_manifest_mismatch_is_unavailable(mutation):
     launch = dispatch.checkpoint_launch(context, image_capable=True)
     with pytest.raises(dispatch.RestoreUnavailable):
         dispatch.verify_restore_manifest(context, ARCH, launch)
+
+
+def _reseal(restore):
+    body = {k: v for k, v in restore["manifest"].items() if k != "manifest_checksum"}
+    restore["manifest"]["manifest_checksum"] = checksum(body)
+    restore["record"]["manifest_checksum"] = (
+        "sha256:" + hashlib.sha256(rfc8785.dumps(restore["manifest"])).hexdigest()
+    )
+
+
+@pytest.mark.parametrize(
+    ("defect", "accepted"),
+    [("none", True), ("provenance_job", False), ("spec", False), ("input", False)],
+)
+def test_manual_retry_restore_of_a_source_job_checkpoint(defect, accepted):
+    """B15: a retried Job restores its source Job's record; only the session may differ."""
+    restore, _ = sealed_restore(claim_context())
+    source_job, source_session = str(new_uuid7()), str(new_uuid7())
+    restore["record"]["job_id"] = source_job
+    restore["manifest"]["provenance"].update(job_id=source_job, session_id=source_session)
+    if defect == "provenance_job":
+        restore["manifest"]["provenance"]["job_id"] = str(new_uuid7())
+    elif defect == "spec":
+        restore["manifest"]["provenance"]["spec_checksum"] = "sha256:" + "0" * 64
+    elif defect == "input":
+        restore["manifest"]["provenance"]["input_checksum"] = "sha256:" + "0" * 64
+    _reseal(restore)
+    context = claim_context(restore=restore)
+    launch = dispatch.checkpoint_launch(context, image_capable=True)
+    if accepted:
+        dispatch.verify_restore_manifest(context, ARCH, launch)
+    else:
+        with pytest.raises(dispatch.RestoreUnavailable):
+            dispatch.verify_restore_manifest(context, ARCH, launch)
 
 
 def test_restore_manifest_bytes_must_match_the_committed_checksum():
@@ -1180,9 +1217,13 @@ def test_invalid_committed_upload_answer_fails_only_that_attempt(tmp_path, answe
 def test_runner_invalid_control_answer_fails_closed(tmp_path):
     harness = started(tmp_path)
     harness.advance(6)
-    # The runner can no longer take a checkpoint: its live state is gone.
-    (harness.fs / "output" / "state.json").unlink()
+    # The runner can no longer take a checkpoint: its live state is invalid (a
+    # missing state waits for the workload's first write, B15-R20).
+    (harness.fs / "output" / "state.json").write_bytes(b"{}")
     harness.agent._result_once()
+    # B15 (B14-R10): the runner's STOPPED{FAILURE} frame, not the INVALID ack, fails it.
+    assert harness.api.failures == []
+    harness.cycle(3)
     assert [(f["failure_class"], f["reason_code"]) for f in harness.api.failures] == [
         ("INTERNAL", "CHECKPOINT_PROTOCOL_ERROR")
     ]

@@ -13,6 +13,8 @@ from .protocol import (
     validate_envelope,
 )
 
+TERMINAL_MESSAGE_TYPES = frozenset({"FAILED", "STOPPED"})
+
 
 class RunnerControlError(RuntimeError):
     """The runner did not accept a deadline control safely."""
@@ -56,6 +58,7 @@ class RunnerControl:
         lease_duration_seconds: int = 45,
         safety_margin_seconds: int = 5,
         timeout_seconds: float = 5.0,
+        keep_terminal: Callable[[dict[str, object]], str] | None = None,
     ) -> DeadlineResult:
         if first_send_monotonic_ns < 0:
             raise ValueError("first_send_monotonic_ns must be non-negative")
@@ -81,7 +84,9 @@ class RunnerControl:
         channel.sendall(encode_frame(frame))
         decoder = FrameDecoder()
         try:
-            ack = self._receive_ack(channel, decoder, sequence, timeout_seconds)
+            ack = self._receive_ack(
+                channel, decoder, sequence, timeout_seconds, keep_terminal=keep_terminal
+            )
             validated = validate_ack(ack)
         except (ProtocolError, TimeoutError, OSError, RuntimeError) as exc:
             raise RunnerControlError("runner deadline acknowledgment unavailable") from exc
@@ -92,8 +97,20 @@ class RunnerControl:
 
     @staticmethod
     def _receive_ack(
-        channel: ControlChannel, decoder: FrameDecoder, sequence: int, timeout_seconds: float
+        channel: ControlChannel,
+        decoder: FrameDecoder,
+        sequence: int,
+        timeout_seconds: float,
+        *,
+        keep_terminal: Callable[[dict[str, object]], str] | None = None,
     ) -> dict:
+        """Wait for one control ACK; a runner terminal frame read meanwhile is kept.
+
+        The runner sends every connection its pending frames. Other frames are
+        left unacknowledged for the IPC loop, but a stopped runner exits once a
+        worker ACKs its STOPPED frame, so this connection may be the last to see
+        it (B15-R16).
+        """
         deadline = time.monotonic() + timeout_seconds
         while True:
             remaining = deadline - time.monotonic()
@@ -104,6 +121,19 @@ class RunnerControl:
             for frame in decoder.feed(data):
                 if frame.get("ack_sequence") == sequence:
                     return frame
+                if keep_terminal is not None and frame.get("type") in TERMINAL_MESSAGE_TYPES:
+                    envelope = validate_envelope(frame)
+                    code = keep_terminal(envelope)
+                    channel.sendall(
+                        encode_frame(
+                            {
+                                "schema_version": 1,
+                                "ack_sequence": envelope["message_sequence"],
+                                "accepted": code in {"ACCEPTED", "DUPLICATE"},
+                                "code": code,
+                            }
+                        )
+                    )
 
     def receive_messages(
         self,
@@ -149,4 +179,4 @@ class RunnerControl:
                 return handled
 
 
-__all__ = ["DeadlineResult", "RunnerControl", "RunnerControlError"]
+__all__ = ["TERMINAL_MESSAGE_TYPES", "DeadlineResult", "RunnerControl", "RunnerControlError"]

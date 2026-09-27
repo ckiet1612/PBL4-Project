@@ -576,9 +576,20 @@ def test_supervisor_registration_after_startup_deadline_never_launches_cpu(
             )
             assert cpu_process_count == 0
             stopped = peer.receive_type("STOPPED", timeout=35)
+            stopped_after_ready = time.monotonic() - ready_at
             assert stopped["payload"]["reason"] == "RUNTIME_LIMIT"
             assert all(frame.get("type") != "STARTED" for frame in peer.pending)
-        stopped_after_ready = time.monotonic() - ready_at
+            # Like the worker, keep the stop frame: an unacknowledged STOPPED keeps
+            # the runner serving for up to its linger bound (B15-R16).
+            peer.send(
+                {
+                    "schema_version": 1,
+                    "ack_sequence": stopped["message_sequence"],
+                    "accepted": True,
+                    "code": "ACCEPTED",
+                }
+            )
+            _wait_for_container_stop(backend.container_id)
         backend.release_supervisor_exec.set()
         starter.join(timeout=10)
         assert not starter.is_alive()

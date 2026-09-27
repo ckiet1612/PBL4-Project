@@ -94,8 +94,6 @@ def process_eligibility_batch(session, now: datetime) -> set:
             .where(
                 s.jobs.c.tenant_id == event["tenant_id"],
                 s.jobs.c.state == "QUEUED",
-                s.jobs.c.desired_state == "RUNNING",
-                s.jobs.c.recovery_intent.is_(None),
                 s.jobs.c.created_at <= event["occurred_at"],
             )
             .order_by(s.jobs.c.job_id)

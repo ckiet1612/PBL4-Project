@@ -8,9 +8,11 @@ from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from nexa.api.dependencies import parse_json_request, resolve_principal, services
-from nexa.api.http import strong_etag
+from nexa.api.http import strong_etag, wire_response
 from nexa.api.schemas import (
+    AttemptPage,
     CheckpointPage,
+    ControlRequest,
     ErrorResponse,
     EventPage,
     Job,
@@ -19,6 +21,7 @@ from nexa.api.schemas import (
     JobSubmitRequest,
     LogicalSession,
     ResultRecord,
+    RetryRequest,
     UuidV7,
 )
 from nexa.application.errors import ApplicationError
@@ -65,9 +68,9 @@ async def list_jobs(
     state: Annotated[JobState | None, Query()] = None,
     template_id: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
     created_after: Annotated[datetime | None, Query()] = None,
-) -> dict:
+) -> JSONResponse:
     principal = await run_in_threadpool(resolve_principal, request, mutation=False)
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _job_service(request).list_jobs,
         principal,
         tenant_id=tenant_id,
@@ -77,6 +80,7 @@ async def list_jobs(
         template_id=template_id,
         created_after=created_after,
     )
+    return wire_response(JobPage, result)
 
 
 @router.post(
@@ -129,6 +133,185 @@ async def submit_job(
     return _result(result)
 
 
+_CONTROL_RESPONSES = {
+    202: {
+        "description": "Control transition committed.",
+        "headers": {"ETag": {"$ref": "#/components/headers/ETag"}},
+    },
+}
+
+
+async def _control(
+    request: Request,
+    *,
+    operation_id: str,
+    method: str,
+    tenant_id,
+    job_id,
+    idempotency_key: str,
+    if_match: str | None,
+    model=ControlRequest,
+) -> Response:
+    body, decoded = await parse_json_request(request, model, settings=services(request).settings)
+    principal = await run_in_threadpool(resolve_principal, request, mutation=True)
+    request_hash = jcs_request_hash(
+        {
+            "operation_id": operation_id,
+            "path": request.url.path,
+            "tenant_id": str(tenant_id),
+            "body": decoded,
+        }
+    )
+    result = await run_in_threadpool(
+        getattr(_job_service(request), method),
+        principal,
+        tenant_id=tenant_id,
+        job_id=job_id,
+        request=body,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+        if_match=if_match,
+    )
+    return _result(result)
+
+
+@router.post(
+    "/jobs/{job_id}/cancel",
+    operation_id="cancelJob",
+    status_code=202,
+    response_model=Job,
+    responses={
+        **_error_responses(400, 401, 403, 404, 409, 412, 422, 428, 500, 503),
+        **_CONTROL_RESPONSES,
+    },
+    openapi_extra={"security": _WRITE_SECURITY},
+)
+async def cancel_job(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+    idempotency_key: str = Header(
+        alias="Idempotency-Key",
+        min_length=16,
+        max_length=128,
+        pattern=r"^[!-~]{16,128}$",
+    ),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _control(
+        request,
+        operation_id="cancelJob",
+        method="cancel_job",
+        tenant_id=tenant_id,
+        job_id=job_id,
+        idempotency_key=idempotency_key,
+        if_match=if_match,
+    )
+
+
+@router.post(
+    "/jobs/{job_id}/pause",
+    operation_id="pauseJob",
+    status_code=202,
+    response_model=Job,
+    responses={
+        **_error_responses(400, 401, 403, 404, 409, 412, 422, 428, 500, 503),
+        **_CONTROL_RESPONSES,
+    },
+    openapi_extra={"security": _WRITE_SECURITY},
+)
+async def pause_job(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+    idempotency_key: str = Header(
+        alias="Idempotency-Key",
+        min_length=16,
+        max_length=128,
+        pattern=r"^[!-~]{16,128}$",
+    ),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _control(
+        request,
+        operation_id="pauseJob",
+        method="pause_job",
+        tenant_id=tenant_id,
+        job_id=job_id,
+        idempotency_key=idempotency_key,
+        if_match=if_match,
+    )
+
+
+@router.post(
+    "/jobs/{job_id}/resume",
+    operation_id="resumeJob",
+    status_code=202,
+    response_model=Job,
+    responses={
+        **_error_responses(400, 401, 403, 404, 409, 412, 422, 428, 500, 503),
+        **_CONTROL_RESPONSES,
+    },
+    openapi_extra={"security": _WRITE_SECURITY},
+)
+async def resume_job(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+    idempotency_key: str = Header(
+        alias="Idempotency-Key",
+        min_length=16,
+        max_length=128,
+        pattern=r"^[!-~]{16,128}$",
+    ),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _control(
+        request,
+        operation_id="resumeJob",
+        method="resume_job",
+        tenant_id=tenant_id,
+        job_id=job_id,
+        idempotency_key=idempotency_key,
+        if_match=if_match,
+    )
+
+
+@router.post(
+    "/jobs/{job_id}/retry",
+    operation_id="retryFailedJob",
+    status_code=202,
+    response_model=Job,
+    responses={
+        **_error_responses(400, 401, 403, 404, 409, 412, 422, 428, 429, 500, 503),
+        **_CONTROL_RESPONSES,
+    },
+    openapi_extra={"security": _WRITE_SECURITY},
+)
+async def retry_failed_job(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+    idempotency_key: str = Header(
+        alias="Idempotency-Key",
+        min_length=16,
+        max_length=128,
+        pattern=r"^[!-~]{16,128}$",
+    ),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _control(
+        request,
+        operation_id="retryFailedJob",
+        method="retry_failed_job",
+        tenant_id=tenant_id,
+        job_id=job_id,
+        idempotency_key=idempotency_key,
+        if_match=if_match,
+        model=RetryRequest,
+    )
+
+
 @router.get(
     "/jobs/{job_id}",
     operation_id="getJob",
@@ -162,14 +345,15 @@ async def get_job_result(
     request: Request,
     job_id: UuidV7,
     tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
-) -> dict:
+) -> JSONResponse:
     principal = await run_in_threadpool(resolve_principal, request, mutation=False)
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _job_service(request).get_result,
         principal,
         tenant_id=tenant_id,
         job_id=job_id,
     )
+    return wire_response(ResultRecord, result)
 
 
 @router.get(
@@ -183,11 +367,12 @@ async def get_logical_session(
     request: Request,
     session_id: UuidV7,
     tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
-) -> dict:
+) -> JSONResponse:
     principal = await run_in_threadpool(resolve_principal, request, mutation=False)
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _job_service(request).get_session, principal, tenant_id=tenant_id, session_id=session_id
     )
+    return wire_response(LogicalSession, result)
 
 
 @router.get(
@@ -203,9 +388,9 @@ async def list_job_events(
     tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
     after_sequence: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
-) -> dict:
+) -> JSONResponse:
     principal = await run_in_threadpool(resolve_principal, request, mutation=False)
-    return await run_in_threadpool(
+    body = await run_in_threadpool(
         _job_service(request).list_events,
         principal,
         tenant_id=tenant_id,
@@ -213,6 +398,35 @@ async def list_job_events(
         after_sequence=after_sequence,
         page_size=page_size,
     )
+    # The service wire body already renders created_at with exactly 3 ms digits (B14-R03).
+    return JSONResponse(body)
+
+
+@router.get(
+    "/jobs/{job_id}/attempts",
+    operation_id="listJobAttempts",
+    response_model=AttemptPage,
+    responses=_error_responses(400, 401, 403, 404, 500, 503),
+    openapi_extra={"security": _READ_SECURITY},
+)
+async def list_job_attempts(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+    cursor: Annotated[str | None, Query(min_length=16, max_length=2048)] = None,
+    page_size: int = Query(default=50, ge=1, le=100),
+) -> JSONResponse:
+    principal = await run_in_threadpool(resolve_principal, request, mutation=False)
+    body = await run_in_threadpool(
+        _job_service(request).list_attempts,
+        principal,
+        tenant_id=tenant_id,
+        job_id=job_id,
+        cursor=cursor,
+        page_size=page_size,
+    )
+    # The service wire body already renders timestamps with exactly 3 ms digits.
+    return JSONResponse(body)
 
 
 @router.get(

@@ -1,4 +1,4 @@
-# B11 coordinator and CPU execution
+# B11/B15 coordinator and CPU execution
 
 The coordinator is a separate process. Run it with `NEXA_DATABASE_URL` after the
 current Alembic schema is ready:
@@ -128,5 +128,73 @@ Restore events (`CHECKPOINT_CORRUPT`, `CHECKPOINT_INCOMPATIBLE`,
 `CHECKPOINT_RESTORE_SELECTED`, `CHECKPOINT_FALLBACK_TO_INPUT`,
 `CHECKPOINT_RESTORE_UNAVAILABLE`) advance the Job event sequence with an audit row
 but, like claim acknowledgment itself, never change the Job version.
-Lease expiry, the reaper, pause/cancel interplay and old-claim recovery stay in
-B15. See [B14 evidence](evidence/B14-cpu-checkpoint-restore.md).
+See [B14 evidence](evidence/B14-cpu-checkpoint-restore.md).
+
+## B15 reaper, retry promotion and retention sweep
+
+Every tick runs at most one probe per second, in the order lease reaper → retry
+promotion → idempotency retention sweep, before the dispatch snapshot. Each step
+re-checks leadership (`_leader`) and the current policy's operational mode inside
+its own write transaction; under `WRITE_FROZEN` none of them writes. Each step
+commits on its own: a failing step, or one lease that cannot be reaped (for
+example its job row locked past `lock_timeout`), is logged
+(`coordinator_reap_lease_failed`) and retried by the next probe; it neither
+stops the other leases and steps nor costs leadership or dispatch (B15-R26).
+
+**Lease reaper** (`coordinator/reaper.py`). An unlocked probe on
+`ix_attempt_leases_active_expiry` returns at most 16 live leases whose
+`expires_at <= clock_timestamp()` (DB time, never worker time). Each lease is then
+handled in its own transaction with the locks leadership → policy → job → logical
+session → attempt → lease → allocation → open authority grants, followed by a
+compare-and-set recheck against a DB time read after those locks: a lease already
+revoked or renewed past `now` is left alone, so a concurrent renewal, cancel,
+failure callback or second reaper that committed first wins and a duplicate reaper
+is a no-op.
+
+- Job `DISPATCHING`/`RUNNING`/`PAUSING` whose fence equals the attempt's fence:
+  the attempt becomes `LOST` with `INFRASTRUCTURE/LEASE_EXPIRED`, the lease and
+  grants are revoked with `LEASE_EXPIRED`, the allocation becomes `QUARANTINED`,
+  and the job moves to `RECOVERING` with `job_fence + 1` and one
+  `ATTEMPT_LOST/LEASE_EXPIRED` event. The desired state is kept, so a pausing job
+  recovers toward `PAUSED`.
+- Any other job, or an attempt already superseded by a higher fence (for example
+  a job that reached `SUCCEEDED` before its cleanup was acknowledged; cancel and
+  worker disable revoke the lease themselves):
+  only the leftover authority is revoked and the allocation quarantined, with one
+  `LEASE_REVOKED/LEASE_EXPIRED` event; attempt state, fence and job version (ETag)
+  stay unchanged, and an active result reservation of that attempt is abandoned,
+  so the revoked authority can publish nothing.
+
+The reaper never releases capacity. A `QUARANTINED` allocation stays inside
+capacity/quota and keeps its ledger segment open, so it is charged until the
+worker (or a new incarnation reconciling the old one) reports verified cleanup;
+only then does cleanup release it with `ALLOCATION_RELEASED/VERIFIED_CLEANUP` and
+resolve `RECOVERING`. An `INFRASTRUCTURE` failure with desired `PAUSED` and a
+committed checkpoint becomes `PAUSED` at no retry cost. Otherwise an
+`INFRASTRUCTURE` failure with retries left becomes `RETRY_WAIT` (backoff
+`min(30, 2^(retry-1))` s plus up to 1 s jitter, one `retry_schedules` row) when the
+template is `restart_safe`, or when a checkpoint exists and no pause is pending; a
+pending pause adds `recovery_intent = CHECKPOINT_FOR_PAUSE`. Everything else ends
+`FAILED`; a reaped attempt stays `LOST`. The worker side is described in
+[worker agent](worker-agent.md#pause-cancel-and-runner-stop-reasons-b15).
+
+**Retry promotion** (`coordinator/retry.py`). A `RETRY_WAIT` job is promotable in
+exactly the two combinations that `ck_jobs_queued_dispatchable` accepts for
+`QUEUED`: desired `RUNNING` without recovery intent, or desired `PAUSED` with
+`recovery_intent = CHECKPOINT_FOR_PAUSE`. The second case is a job that lost its
+attempt while pausing before any checkpoint of a restart-safe template; its next
+attempt is dispatched with `execution_intent = CHECKPOINT_FOR_PAUSE`, enters
+`PAUSING` at start and ends `PAUSED` once that checkpoint commits. Because the
+CHECK makes `state = 'QUEUED'` the complete queue predicate, the B13 snapshot and
+eligibility queries and the four partial queue indexes filter on state alone.
+
+**Idempotency retention sweep** (`coordinator/retention.py`). One transaction
+locks at most 100 `COMPLETED` records of `submitJob`, `cancelJob`, `pauseJob`,
+`resumeJob` and `retryFailedJob` whose `expires_at` is before the transaction's DB
+`now()` and whose job is terminal (`FOR UPDATE OF idempotency_records SKIP
+LOCKED`), then deletes them under leadership. The query walks the partial index
+`ix_idempotency_records_b15_sweep` in expiry order and reads each candidate's job
+state by primary key, so its cost does not grow with the number of queued jobs
+(B15-R18). Terminal paths raise a job's records to `terminal_at + retention`, so
+a record of a live job, a `PENDING` record or a record of any other operation is
+never deleted. See [B15 evidence](evidence/B15-control-recovery.md).

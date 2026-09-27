@@ -47,8 +47,12 @@ trả `409 idempotency_in_progress` cùng `Retry-After: 1`.
 được tính từ khoảng thời gian còn biểu diễn được đến `datetime.max`, nên cấu hình làm expiry
 vượt miền `datetime` bị từ chối lúc load thay vì làm submit phát sinh `OverflowError`. Submit
 dùng giá trị này cho expiry ban đầu thay vì constant nội bộ. Record liên kết resource vẫn phải
-được giữ khi Job active; B15 chịu trách nhiệm terminal transition, gia hạn theo thời điểm
-terminal và sweep không xóa record còn active.
+được giữ khi Job active. **B15 đã triển khai (chờ Task Review):** mọi terminal transition nâng
+`expires_at` của các record `resource_id` thuộc Job lên `terminal_at + retention` trong cùng
+transaction; coordinator leader mỗi giây xóa tối đa 100 record `COMPLETED` đã hết hạn của
+`submitJob`, `cancelJob`, `pauseJob`, `resumeJob`, `retryFailedJob` chỉ khi Job đã terminal
+(`FOR UPDATE SKIP LOCKED`, không ghi khi `WRITE_FROZEN`). Record `PENDING`, operation khác và
+record của Job còn active không bị xóa. Xem [coordinator](coordinator.md#b15-reaper-retry-promotion-and-retention-sweep).
 
 `GET /v1/jobs` dùng keyset `(created_at DESC, job_id DESC)` với cursor ký, TTL và binding
 actor/tenant/filter. Cursor phải chứa timestamp có timezone và UUIDv7. Job/session/event
@@ -67,5 +71,6 @@ replay snapshot durable khi retry cùng key.
 
 B11 dùng Job/Session/Spec/reference/event/counter đã accepted để dispatch và vẫn cần B10
 worker readiness. B12 dùng REST chung cho CLI; B13 nối queue với production fairness/ledger;
-B15 tiếp nối terminal lifecycle, control và retention. Sweep và workload execution vẫn là
-B16; B08 không chứng minh job đã chạy hay có kết quả.
+B15 tiếp nối terminal lifecycle, control (cancel/pause/resume/manual retry) và retention sweep
+idempotency. Parameter sweep (`sweep_parents`/`sweep_children`) và workload AI vẫn là B16;
+B08 không chứng minh job đã chạy hay có kết quả.

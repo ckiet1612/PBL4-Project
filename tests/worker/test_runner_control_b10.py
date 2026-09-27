@@ -158,3 +158,54 @@ def test_runner_control_preserves_partial_frame_until_complete() -> None:
 
     assert RunnerControl().receive_messages(channel, lambda _message: "ACCEPTED") == 1
     assert len(channel.sent) == 1
+
+
+class FramesThenAckChannel(FakeChannel):
+    """A runner sends a new connection its pending frames before the control ACK."""
+
+    def __init__(self, *frames: dict):
+        super().__init__()
+        self.frames = list(frames)
+
+    def recv(self, _maximum: int) -> bytes:
+        raw = json.dumps(self.frames.pop(0), separators=(",", ":")).encode()
+        return struct.pack("!I", len(raw)) + raw
+
+
+def test_control_connection_keeps_only_a_terminal_frame_before_its_ack() -> None:
+    # B15-R16: a stopped runner exits once its STOPPED frame is ACKed, so a
+    # control connection may be the only one that ever reads it.
+    progress = {
+        "schema_version": 1,
+        "message_sequence": 4,
+        "type": "PROGRESS",
+        "payload": {
+            "progress_sequence": 2,
+            "fraction": 0.5,
+            "step": 2,
+            "epoch": None,
+            "item_cursor": None,
+        },
+    }
+    stopped = {
+        "schema_version": 1,
+        "message_sequence": 5,
+        "type": "STOPPED",
+        "payload": {"reason": "RUNTIME_LIMIT", "exit_code": 143, "stopped_monotonic_ns": 9},
+    }
+    channel = FramesThenAckChannel(progress, stopped, _ack(7))
+    kept: list[dict] = []
+
+    def keep(frame: dict) -> str:
+        kept.append(frame)
+        return "OUT_OF_ORDER"
+
+    control = RunnerControl(next_sequence=7, monotonic_ns=lambda: 0)
+    result = control.set_authority_deadline(
+        channel, source_callback_id="cb", first_send_monotonic_ns=0, keep_terminal=keep
+    )
+
+    assert result.control_sequence == 7
+    assert kept == [stopped]
+    acks = [json.loads(raw[4:]) for raw in channel.sent[1:]]
+    assert acks == [_ack(5, accepted=False, code="OUT_OF_ORDER")]

@@ -17,6 +17,11 @@ SUPPORTED_CLI_ROUTES = {
     ("GET", "/v1/jobs/{job_id}/events"),
     ("GET", "/v1/jobs/{job_id}/checkpoints"),
     ("GET", "/v1/jobs/{job_id}/result"),
+    ("POST", "/v1/jobs/{job_id}/cancel"),
+    ("POST", "/v1/jobs/{job_id}/pause"),
+    ("POST", "/v1/jobs/{job_id}/resume"),
+    ("POST", "/v1/jobs/{job_id}/retry"),
+    ("GET", "/v1/jobs/{job_id}/attempts"),
     ("GET", "/v1/admin/tenants"),
     ("POST", "/v1/admin/tenants"),
     ("GET", "/v1/admin/tenants/{tenant_id}"),
@@ -33,19 +38,22 @@ SUPPORTED_CLI_ROUTES = {
     ("GET", "/v1/admin/tenants/{tenant_id}/policy"),
     ("PATCH", "/v1/admin/tenants/{tenant_id}/policy"),
     ("GET", "/v1/admin/audit"),
+    ("GET", "/v1/admin/workers"),
+    ("GET", "/v1/admin/workers/{worker_id}"),
+    ("POST", "/v1/admin/workers/{worker_id}/drain"),
+    ("POST", "/v1/admin/workers/{worker_id}/disable"),
+    ("POST", "/v1/admin/workers/{worker_id}/enable"),
+    ("GET", "/v1/admin/allocations"),
+    ("GET", "/v1/admin/recovery-events"),
 }
 
 
 EXCLUDED_CLI_ROUTES = {
     "/v1/templates",
-    "/v1/jobs/{job_id}/attempts",
     "/v1/jobs/{job_id}/logs",
     "/v1/jobs/{job_id}/progress",
     "/v1/admin/jobs",
-    "/v1/admin/workers",
-    "/v1/admin/allocations",
     "/v1/admin/fairness",
-    "/v1/admin/recovery-events",
 }
 
 

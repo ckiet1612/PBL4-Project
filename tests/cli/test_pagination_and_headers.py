@@ -80,8 +80,8 @@ def test_admin_audit_filters_are_forwarded_unchanged(monkeypatch):
 @pytest.mark.parametrize(
     "args",
     [
+        # B15 wired `admin worker`; its contract tests are in test_control_commands_b15.py.
         ["admin", "job", "list"],
-        ["admin", "worker", "list"],
         ["admin", "allocation", "list"],
         ["admin", "fairness", "query"],
         ["admin", "recovery-event", "list"],

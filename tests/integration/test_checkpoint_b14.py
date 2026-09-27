@@ -88,6 +88,8 @@ class CheckpointFixture:
         restart_safe=True,
         architectures=("linux/amd64",),
         template_id=None,
+        template_values=None,
+        input_media_type="application/json",
     ):
         self.engine = engine
         self.client = client
@@ -121,7 +123,7 @@ class CheckpointFixture:
         content = rfc8785.dumps({"schema_version": 1, "values": [1, 2, 3]})
         store = client.app.state.services.artifact.store
         staged = store.begin_staging(
-            f"b14-{label}-input", len(content), _checksum(content), "application/json"
+            f"b14-{label}-input", len(content), _checksum(content), input_media_type
         )
         store.append(staged, content)
         blob = store.commit_blob(staged)
@@ -133,7 +135,7 @@ class CheckpointFixture:
                     artifact_id=input_id,
                     tenant_id=graph["tenant_id"],
                     kind="INPUT",
-                    media_type="application/json",
+                    media_type=input_media_type,
                     size_bytes=len(content),
                     checksum=blob.checksum,
                     blob_key=blob.blob_key,
@@ -161,6 +163,7 @@ class CheckpointFixture:
                     },
                     checkpointable=checkpointable,
                     restart_safe=restart_safe,
+                    **(template_values or {}),
                 )
             )
             canonical_spec = {"template_id": graph["template_id"], "parameters": PARAMETERS}

@@ -61,8 +61,6 @@ def _clipped_age_exists(tenant_id, users, priority, resume_at):
             probe.c.submitter_user_id.in_(users),
             probe.c.base_priority == priority,
             probe.c.state == "QUEUED",
-            probe.c.desired_state == "RUNNING",
-            probe.c.recovery_intent.is_(None),
             probe.c.eligible_since <= resume_at,
         )
         .limit(1)
@@ -260,8 +258,6 @@ def _batched_window_rows(session, descriptors, now, compatible, *, resumed=False
             ),
             age_probe.c.base_priority == priority,
             age_probe.c.state == "QUEUED",
-            age_probe.c.desired_state == "RUNNING",
-            age_probe.c.recovery_intent.is_(None),
         )
 
     def has_age(priority, cutoff):
@@ -305,8 +301,6 @@ def _batched_window_rows(session, descriptors, now, compatible, *, resumed=False
             .where(
                 s.jobs.c.tenant_id == params.c.tenant_id,
                 s.jobs.c.state == "QUEUED",
-                s.jobs.c.desired_state == "RUNNING",
-                s.jobs.c.recovery_intent.is_(None),
                 s.jobs.c.eligible_since.is_not(None),
                 or_(s.jobs.c.retry_ready_at.is_(None), s.jobs.c.retry_ready_at <= now),
                 tuple_(s.job_specs.c.template_id, s.job_specs.c.template_version).in_(compatible),
@@ -721,8 +715,6 @@ def read_snapshot(session, now, policy, worker, inventory, cursors, *, replay_el
             .where(
                 s.jobs.c.tenant_id == tenant_id,
                 s.jobs.c.state == "QUEUED",
-                s.jobs.c.desired_state == "RUNNING",
-                s.jobs.c.recovery_intent.is_(None),
                 s.jobs.c.eligible_since.is_not(None),
                 or_(s.jobs.c.retry_ready_at.is_(None), s.jobs.c.retry_ready_at <= now),
                 tuple_(s.job_specs.c.template_id, s.job_specs.c.template_version).in_(compatible),

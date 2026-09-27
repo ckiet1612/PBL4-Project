@@ -14,6 +14,7 @@ from nexa.api.schemas import JobSubmitRequest
 from nexa.application.errors import ApplicationError
 from nexa.application.idempotency import begin_idempotency, complete_idempotency
 from nexa.application.identity_service import IdentityService
+from nexa.application.job_control import JobControlMixin
 from nexa.application.json_codec import jcs_request_hash, json_wire_value
 from nexa.config import Settings
 from nexa.domain.identity import (
@@ -26,8 +27,11 @@ from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.locking import clock_timestamp, transaction_timestamp
 from nexa.infrastructure.persistence.schema import (
     admission_counters,
+    allocations,
     artifact_references,
     artifacts,
+    attempt_leases,
+    attempts,
     audit_records,
     checkpoint_corruptions,
     checkpoints,
@@ -77,11 +81,19 @@ class JobOperationResult:
     headers: dict[str, str]
 
 
-class JobService:
-    def __init__(self, session_factory, settings: Settings, identity: IdentityService) -> None:
+class JobService(JobControlMixin):
+    def __init__(
+        self,
+        session_factory,
+        settings: Settings,
+        identity: IdentityService,
+        artifact_store=None,
+    ) -> None:
         self.session_factory = session_factory
         self.settings = settings
         self.identity = identity
+        # Read-only blob verification of a manual-retry checkpoint, outside transactions.
+        self.artifact_store = artifact_store
         self._cursor_key = read_secret_file(settings.server_secret_file)
 
     def _authorize(
@@ -778,6 +790,249 @@ class JobService:
             return None
         return "waiting_for_worker"
 
+    def _admit(self, session: Session, live: Principal, tenant_id: UUID):
+        """Lock policy, admission counters and rate buckets for one new Job of `live`."""
+        global_policy = (
+            session.execute(
+                select(policy_versions)
+                .where(policy_versions.c.is_current.is_(True))
+                .with_for_update()
+            )
+            .mappings()
+            .one()
+        )
+        if global_policy["operational_mode"] in {"ADMISSION_OFF", "WRITE_FROZEN"}:
+            raise ApplicationError(
+                code="state_conflict",
+                status=409,
+                message="New job submissions are disabled in the current operational mode",
+            )
+        tenant_policy = (
+            session.execute(
+                select(tenant_policies)
+                .where(
+                    tenant_policies.c.tenant_id == tenant_id,
+                    tenant_policies.c.is_current.is_(True),
+                )
+                .with_for_update()
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if tenant_policy is None:
+            raise ApplicationError(
+                code="dependency_unavailable",
+                status=503,
+                message="Tenant admission policy is unavailable",
+                retry_after=1,
+            )
+        global_counter = self._counter_lock(session, "GLOBAL", "global")
+        tenant_counter = self._counter_lock(session, "TENANT", str(tenant_id))
+        user_scope_id = f"{tenant_id}:{live.user_id}"
+        user_counter = self._counter_lock(session, "USER", user_scope_id)
+        if global_counter["outstanding"] >= global_policy["global_outstanding_limit"]:
+            raise ApplicationError(
+                code="queue_full",
+                status=503,
+                message="The durable queue is full",
+                retry_after=1,
+            )
+        if tenant_counter["outstanding"] >= tenant_policy["outstanding_limit"]:
+            raise ApplicationError(
+                code="quota_exceeded",
+                status=429,
+                message="Tenant outstanding quota exceeded",
+                retry_after=1,
+            )
+        if user_counter["outstanding"] >= tenant_policy["user_outstanding_limit"]:
+            raise ApplicationError(
+                code="quota_exceeded",
+                status=429,
+                message="User outstanding quota exceeded",
+                retry_after=1,
+            )
+        self._rate_lock(
+            session,
+            scope_type="TENANT",
+            scope_id=str(tenant_id),
+            capacity=Decimal(tenant_policy["tenant_rate_burst"]),
+            refill_rate=Decimal(tenant_policy["tenant_rate_per_second"]),
+            now=clock_timestamp(session),
+        )
+        self._rate_lock(
+            session,
+            scope_type="USER",
+            scope_id=user_scope_id,
+            capacity=Decimal(tenant_policy["user_rate_burst"]),
+            refill_rate=Decimal(tenant_policy["user_rate_per_second"]),
+            now=clock_timestamp(session),
+        )
+        return tenant_policy, global_counter, user_scope_id
+
+    def _create_job(
+        self,
+        session: Session,
+        *,
+        live: Principal,
+        tenant_id: UUID,
+        job_id: UUID,
+        session_id: UUID,
+        spec: Any,
+        spec_payload: dict[str, Any],
+        spec_checksum: str,
+        tenant_policy: dict[str, Any],
+        global_counter: dict[str, Any],
+        user_scope_id: str,
+        now: datetime,
+        retry_of_job_id: UUID | None = None,
+        event_reason: str = "Job accepted",
+        action: str = "job.submit",
+        audit_reason: str = "Job accepted",
+        audit_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Validate and insert a QUEUED Job graph and take its outstanding admission."""
+        audit_metadata = audit_metadata or {}
+        template, _input_artifact, _model_artifact = self._validate_template_and_artifacts(
+            session, tenant_id, spec
+        )
+        resource_limit = {
+            "cpu_millis": tenant_policy["cpu_limit_millis"],
+            "memory_bytes": tenant_policy["memory_limit_bytes"],
+            "gpu_count": tenant_policy["gpu_limit"],
+        }
+        requested = spec.resources.model_dump()
+        if any(requested[key] > resource_limit[key] for key in resource_limit):
+            raise ApplicationError(
+                code="infeasible_request",
+                status=422,
+                message="Requested resources exceed the tenant limit",
+            )
+        waiting_reason = self._waiting_reason(session, spec, self._inventory_requirements(template))
+
+        ready_sequence = int(global_counter["version"])
+        session.execute(
+            insert(jobs).values(
+                job_id=job_id,
+                tenant_id=tenant_id,
+                submitter_user_id=live.user_id,
+                state="QUEUED",
+                desired_state="RUNNING",
+                waiting_reason=waiting_reason,
+                version=1,
+                job_fence=0,
+                event_sequence=1,
+                checkpoint_sequence=0,
+                retry_count=0,
+                max_retries=2,
+                retry_of_job_id=retry_of_job_id,
+                base_priority=spec.priority,
+                ready_sequence=ready_sequence,
+                eligible_since=now,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        session.execute(
+            insert(logical_sessions).values(
+                session_id=session_id, tenant_id=tenant_id, job_id=job_id, created_at=now
+            )
+        )
+        session.execute(
+            insert(job_specs).values(
+                job_id=job_id,
+                tenant_id=tenant_id,
+                canonical_spec=spec_payload,
+                spec_checksum=spec_checksum,
+                template_id=spec.template_id,
+                template_version=spec.template_version,
+                input_artifact_id=spec.input_artifact_id,
+                model_artifact_id=getattr(spec, "model_artifact_id", None),
+                cpu_millis=spec.resources.cpu_millis,
+                memory_bytes=spec.resources.memory_bytes,
+                gpu_count=spec.resources.gpu_count,
+                runtime_limit_seconds=spec.runtime_limit_seconds,
+                checkpoint_interval_seconds=spec.checkpoint_interval_seconds,
+                created_at=now,
+            )
+        )
+        references = [
+            {
+                "tenant_id": tenant_id,
+                "artifact_id": _input_artifact["artifact_id"],
+                "owner_type": "JOB_SPEC",
+                "owner_id": job_id,
+                "purpose": "INPUT",
+                "logical_name": "input.data",
+            }
+        ]
+        if _model_artifact is not None:
+            references.append(
+                {
+                    "tenant_id": tenant_id,
+                    "artifact_id": _model_artifact["artifact_id"],
+                    "owner_type": "JOB_SPEC",
+                    "owner_id": job_id,
+                    "purpose": "MODEL",
+                    "logical_name": "model.data",
+                }
+            )
+        session.execute(insert(artifact_references), references)
+        event_id = new_uuid7()
+        session.execute(
+            insert(events).values(
+                event_id=event_id,
+                tenant_id=tenant_id,
+                job_id=job_id,
+                sequence=1,
+                event_type="JOB_ACCEPTED",
+                reason=event_reason,
+                actor_type="USER",
+                actor_id=str(live.user_id),
+                safe_metadata={},
+                created_at=now,
+            )
+        )
+        session.execute(
+            update(admission_counters)
+            .where(
+                or_(
+                    and_(
+                        admission_counters.c.scope_type == "GLOBAL",
+                        admission_counters.c.scope_id == "global",
+                    ),
+                    and_(
+                        admission_counters.c.scope_type == "TENANT",
+                        admission_counters.c.scope_id == str(tenant_id),
+                    ),
+                    and_(
+                        admission_counters.c.scope_type == "USER",
+                        admission_counters.c.scope_id == user_scope_id,
+                    ),
+                )
+            )
+            .values(
+                outstanding=admission_counters.c.outstanding + 1,
+                version=admission_counters.c.version + 1,
+                updated_at=now,
+            )
+        )
+        session.execute(
+            insert(audit_records).values(
+                audit_id=new_uuid7(),
+                actor_type="USER",
+                actor_id=str(live.user_id),
+                tenant_id=tenant_id,
+                action=action,
+                target_type="JOB",
+                target_id=str(job_id),
+                before_version=None,
+                after_version=1,
+                reason=audit_reason,
+                safe_metadata={"template_id": spec.template_id, **audit_metadata},
+                created_at=now,
+            )
+        )
+
     def submit(
         self,
         principal: Principal,
@@ -813,223 +1068,20 @@ class JobService:
                     headers=dict(outcome.replay.headers),
                 )
 
-            global_policy = (
-                session.execute(
-                    select(policy_versions)
-                    .where(policy_versions.c.is_current.is_(True))
-                    .with_for_update()
-                )
-                .mappings()
-                .one()
-            )
-            if global_policy["operational_mode"] in {"ADMISSION_OFF", "WRITE_FROZEN"}:
-                raise ApplicationError(
-                    code="state_conflict",
-                    status=409,
-                    message="New job submissions are disabled in the current operational mode",
-                )
-            tenant_policy = (
-                session.execute(
-                    select(tenant_policies)
-                    .where(
-                        tenant_policies.c.tenant_id == tenant_id,
-                        tenant_policies.c.is_current.is_(True),
-                    )
-                    .with_for_update()
-                )
-                .mappings()
-                .one_or_none()
-            )
-            if tenant_policy is None:
-                raise ApplicationError(
-                    code="dependency_unavailable",
-                    status=503,
-                    message="Tenant admission policy is unavailable",
-                    retry_after=1,
-                )
-            global_counter = self._counter_lock(session, "GLOBAL", "global")
-            tenant_counter = self._counter_lock(session, "TENANT", str(tenant_id))
-            user_scope_id = f"{tenant_id}:{live.user_id}"
-            user_counter = self._counter_lock(session, "USER", user_scope_id)
-            if global_counter["outstanding"] >= global_policy["global_outstanding_limit"]:
-                raise ApplicationError(
-                    code="queue_full",
-                    status=503,
-                    message="The durable queue is full",
-                    retry_after=1,
-                )
-            if tenant_counter["outstanding"] >= tenant_policy["outstanding_limit"]:
-                raise ApplicationError(
-                    code="quota_exceeded",
-                    status=429,
-                    message="Tenant outstanding quota exceeded",
-                    retry_after=1,
-                )
-            if user_counter["outstanding"] >= tenant_policy["user_outstanding_limit"]:
-                raise ApplicationError(
-                    code="quota_exceeded",
-                    status=429,
-                    message="User outstanding quota exceeded",
-                    retry_after=1,
-                )
-            self._rate_lock(
+            tenant_policy, global_counter, user_scope_id = self._admit(session, live, tenant_id)
+            self._create_job(
                 session,
-                scope_type="TENANT",
-                scope_id=str(tenant_id),
-                capacity=Decimal(tenant_policy["tenant_rate_burst"]),
-                refill_rate=Decimal(tenant_policy["tenant_rate_per_second"]),
-                now=clock_timestamp(session),
-            )
-            self._rate_lock(
-                session,
-                scope_type="USER",
-                scope_id=user_scope_id,
-                capacity=Decimal(tenant_policy["user_rate_burst"]),
-                refill_rate=Decimal(tenant_policy["user_rate_per_second"]),
-                now=clock_timestamp(session),
-            )
-
-            template, _input_artifact, _model_artifact = self._validate_template_and_artifacts(
-                session, tenant_id, spec
-            )
-            resource_limit = {
-                "cpu_millis": tenant_policy["cpu_limit_millis"],
-                "memory_bytes": tenant_policy["memory_limit_bytes"],
-                "gpu_count": tenant_policy["gpu_limit"],
-            }
-            requested = spec.resources.model_dump()
-            if any(requested[key] > resource_limit[key] for key in resource_limit):
-                raise ApplicationError(
-                    code="infeasible_request",
-                    status=422,
-                    message="Requested resources exceed the tenant limit",
-                )
-            waiting_reason = self._waiting_reason(
-                session, spec, self._inventory_requirements(template)
-            )
-
-            ready_sequence = int(global_counter["version"])
-            session.execute(
-                insert(jobs).values(
-                    job_id=job_id,
-                    tenant_id=tenant_id,
-                    submitter_user_id=live.user_id,
-                    state="QUEUED",
-                    desired_state="RUNNING",
-                    waiting_reason=waiting_reason,
-                    version=1,
-                    job_fence=0,
-                    event_sequence=1,
-                    checkpoint_sequence=0,
-                    retry_count=0,
-                    max_retries=2,
-                    retry_of_job_id=None,
-                    base_priority=spec.priority,
-                    ready_sequence=ready_sequence,
-                    eligible_since=now,
-                    created_at=now,
-                    updated_at=now,
-                )
-            )
-            session.execute(
-                insert(logical_sessions).values(
-                    session_id=session_id, tenant_id=tenant_id, job_id=job_id, created_at=now
-                )
-            )
-            session.execute(
-                insert(job_specs).values(
-                    job_id=job_id,
-                    tenant_id=tenant_id,
-                    canonical_spec=spec_payload,
-                    spec_checksum=spec_checksum,
-                    template_id=spec.template_id,
-                    template_version=spec.template_version,
-                    input_artifact_id=spec.input_artifact_id,
-                    model_artifact_id=getattr(spec, "model_artifact_id", None),
-                    cpu_millis=spec.resources.cpu_millis,
-                    memory_bytes=spec.resources.memory_bytes,
-                    gpu_count=spec.resources.gpu_count,
-                    runtime_limit_seconds=spec.runtime_limit_seconds,
-                    checkpoint_interval_seconds=spec.checkpoint_interval_seconds,
-                    created_at=now,
-                )
-            )
-            references = [
-                {
-                    "tenant_id": tenant_id,
-                    "artifact_id": _input_artifact["artifact_id"],
-                    "owner_type": "JOB_SPEC",
-                    "owner_id": job_id,
-                    "purpose": "INPUT",
-                    "logical_name": "input.data",
-                }
-            ]
-            if _model_artifact is not None:
-                references.append(
-                    {
-                        "tenant_id": tenant_id,
-                        "artifact_id": _model_artifact["artifact_id"],
-                        "owner_type": "JOB_SPEC",
-                        "owner_id": job_id,
-                        "purpose": "MODEL",
-                        "logical_name": "model.data",
-                    }
-                )
-            session.execute(insert(artifact_references), references)
-            event_id = new_uuid7()
-            session.execute(
-                insert(events).values(
-                    event_id=event_id,
-                    tenant_id=tenant_id,
-                    job_id=job_id,
-                    sequence=1,
-                    event_type="JOB_ACCEPTED",
-                    reason="Job accepted",
-                    actor_type="USER",
-                    actor_id=str(live.user_id),
-                    safe_metadata={},
-                    created_at=now,
-                )
-            )
-            session.execute(
-                update(admission_counters)
-                .where(
-                    or_(
-                        and_(
-                            admission_counters.c.scope_type == "GLOBAL",
-                            admission_counters.c.scope_id == "global",
-                        ),
-                        and_(
-                            admission_counters.c.scope_type == "TENANT",
-                            admission_counters.c.scope_id == str(tenant_id),
-                        ),
-                        and_(
-                            admission_counters.c.scope_type == "USER",
-                            admission_counters.c.scope_id == user_scope_id,
-                        ),
-                    )
-                )
-                .values(
-                    outstanding=admission_counters.c.outstanding + 1,
-                    version=admission_counters.c.version + 1,
-                    updated_at=now,
-                )
-            )
-            session.execute(
-                insert(audit_records).values(
-                    audit_id=new_uuid7(),
-                    actor_type="USER",
-                    actor_id=str(live.user_id),
-                    tenant_id=tenant_id,
-                    action="job.submit",
-                    target_type="JOB",
-                    target_id=str(job_id),
-                    before_version=None,
-                    after_version=1,
-                    reason="Job accepted",
-                    safe_metadata={"template_id": spec.template_id},
-                    created_at=now,
-                )
+                live=live,
+                tenant_id=tenant_id,
+                job_id=job_id,
+                session_id=session_id,
+                spec=spec,
+                spec_payload=spec_payload,
+                spec_checksum=spec_checksum,
+                tenant_policy=tenant_policy,
+                global_counter=global_counter,
+                user_scope_id=user_scope_id,
+                now=now,
             )
             row = (
                 session.execute(self._job_query(tenant_id).where(jobs.c.job_id == job_id))
@@ -1379,6 +1431,89 @@ class JobService:
                         }
                         for row in visible
                     ],
+                    "page": {"next_cursor": next_cursor, "page_size": page_size},
+                }
+            )
+
+        return run_transaction(self.session_factory, operation)
+
+    def list_attempts(
+        self,
+        principal: Principal,
+        *,
+        tenant_id: UUID,
+        job_id: UUID,
+        cursor: str | None,
+        page_size: int,
+    ) -> dict[str, Any]:
+        """Attempts of one visible job, newest first, keyset on the per-job attempt number."""
+        if not 1 <= page_size <= 100:
+            raise ApplicationError(
+                code="validation_failed", status=422, message="Page size must be between 1 and 100"
+            )
+
+        def operation(session: Session) -> dict[str, Any]:
+            live = self._authorize(session, principal, tenant_id, write=False)
+            now = transaction_timestamp(session)
+            exists = session.execute(
+                select(jobs.c.job_id).where(jobs.c.tenant_id == tenant_id, jobs.c.job_id == job_id)
+            ).scalar_one_or_none()
+            if exists is None:
+                raise ApplicationError(
+                    code="resource_not_found", status=404, message="Job was not found"
+                )
+            binding = {
+                "actor_id": str(live.user_id),
+                "tenant_id": str(tenant_id),
+                "operation_id": "listJobAttempts",
+                "job_id": str(job_id),
+            }
+            # Dispatch creates the attempt, its allocation and its lease in one transaction.
+            lease_id = (
+                select(attempt_leases.c.lease_id)
+                .where(attempt_leases.c.attempt_id == attempts.c.attempt_id)
+                .order_by(attempt_leases.c.issued_at.desc(), attempt_leases.c.lease_id.desc())
+                .limit(1)
+                .scalar_subquery()
+            )
+            statement = (
+                select(
+                    attempts.c.attempt_id,
+                    attempts.c.job_id,
+                    attempts.c.attempt_number,
+                    attempts.c.state,
+                    attempts.c.worker_id,
+                    attempts.c.worker_incarnation_id,
+                    allocations.c.allocation_id,
+                    lease_id.label("lease_id"),
+                    attempts.c.job_fence,
+                    attempts.c.started_at,
+                    attempts.c.ended_at,
+                    attempts.c.failure_class,
+                    attempts.c.created_at,
+                )
+                .join(allocations, allocations.c.attempt_id == attempts.c.attempt_id)
+                .where(attempts.c.tenant_id == tenant_id, attempts.c.job_id == job_id)
+            )
+            if cursor:
+                before = self._decode_sequence_cursor(cursor, binding=binding, now=now)
+                statement = statement.where(attempts.c.attempt_number < before)
+            rows = (
+                session.execute(
+                    statement.order_by(attempts.c.attempt_number.desc()).limit(page_size + 1)
+                )
+                .mappings()
+                .all()
+            )
+            visible = rows[:page_size]
+            next_cursor = None
+            if len(rows) > page_size and visible:
+                next_cursor = self._cursor(now).encode(
+                    binding=binding, position={"sequence": str(visible[-1]["attempt_number"])}
+                )
+            return json_wire_value(
+                {
+                    "items": [dict(row) for row in visible],
                     "page": {"next_cursor": next_cursor, "page_size": page_size},
                 }
             )

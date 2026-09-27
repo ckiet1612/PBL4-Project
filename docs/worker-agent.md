@@ -1,4 +1,4 @@
-# B10/B11/B14 worker agent: implementation boundary
+# B10/B11/B14/B15 worker agent: implementation boundary
 
 This is the B10 worker implementation with scoped verification evidence; it is
 not an accepted production deployment. The REST API persists incarnation,
@@ -6,7 +6,8 @@ bounded reconciliation, heartbeat/inventory, dispatch poll, exact adoption and
 lease renewal in PostgreSQL. The local agent drains nonempty pages, discovers
 only its installation-labelled containers, rebinds an exact live journal
 authority, applies a first-send runner deadline after ACK, renews adopted
-attempts and keeps unresolved B11/B15 work pending. Bare-Linux portability,
+attempts, follows B15 pause/cancel control from renewal answers and keeps
+unresolved failure/cleanup work pending. Bare-Linux portability,
 release acceptance and independent Task Review remain open.
 
 ## Bootstrap and local state
@@ -43,7 +44,18 @@ pending and blocks READY. The server also records completed page traversal and
 rechecks active authority, observed containers and inventory before READY. The
 server ages missing heartbeats by DB time: 15 seconds SUSPECT, 30 seconds
 UNAVAILABLE. Those health states differ from ENABLED/DRAINING/DISABLED admin
-state and do not release capacity or prove a container stopped. A local Linux
+state and do not release capacity or prove a container stopped. A `DRAINING`
+worker gets no new dispatch, but poll still returns an offer committed before
+the drain, which then claims, runs and completes as usual (SM:103, B15-R22). A
+`DISABLED` worker is held at `STARTING`; each heartbeat stores in
+`worker_incarnations.ready_checked_at` whether it passed every READY check
+other than the admin state, and enable requires the latest heartbeat to have
+passed (SM:98, B15-R07). A heartbeat that only moves `last_heartbeat_at` keeps
+the worker version (ETag); a change of health, inventory version or `ready_at`
+bumps it (contracts.md:100, B15-R08). Worker routes return timestamps with
+millisecond precision (B15-R29). Callbacks of one worker lock the worker row
+before inserting their receipt, so two concurrent callbacks cannot deadlock on
+a lock upgrade (B15-R27). A local Linux
 operator can inspect the lock holder with `fuser
 /var/lib/nexa-worker/worker.lock` and query the worker/incarnation through
 authorized admin tools; do not infer authority from a PID file or Docker name.
@@ -67,7 +79,7 @@ one. SIGTERM/SIGINT stops the loops. A failed dependency clears
 local reconciliation readiness; the entrypoint returns code 75 only when the
 supervised run exits with an unrecovered startup/runtime error. This entrypoint
 deliberately has no unsafe fallback for an unknown B09 create/start outcome or
-a missing B11/B15 failure/cleanup acknowledgment.
+a missing failure/cleanup acknowledgment.
 
 Revoked authority uses cleanup only. If the process dies after removal and
 before saving the cleanup callback, the worker resumes `CLEANUP_IN_FLIGHT` or
@@ -115,7 +127,9 @@ running. A runner protocol mismatch fails the attempt
 `INTERNAL/CHECKPOINT_PROTOCOL_ERROR`; the B11 fail path abandons the open
 reservation. Adoption accepts the server's transferred checkpoint reservation
 only when the journal explains it, and never replays the old publish callback
-under the new authority. Checkpoint, cursor and manifest bytes are never logged.
+under the new authority. The API returns the adopt body exactly as stored, with
+three-digit millisecond timestamps like the reserve answer, so a reservation
+the worker journaled compares equal field by field (B15-R19). Checkpoint, cursor and manifest bytes are never logged.
 
 For an attempt whose claim froze `execution_context.restore_checkpoint`, the
 worker re-verifies the manifest against that record, the job input and its
@@ -128,7 +142,15 @@ and fetched again. The executor then mounts it read-only at
 it again before resuming. If the frozen restore cannot be verified or
 downloaded, the attempt fails `INCOMPATIBLE/CHECKPOINT_RESTORE_UNAVAILABLE` and
 never silently restarts from the input. A claim without a restore record
-starts from the input. Launch selection runs inside the startup budget and its
+starts from the input only for the first Attempt of a Job without a
+CheckpointReference, or for a `restart_safe` template (B14-R11). For a later or
+inherited Attempt of a template that is not `restart_safe`, the claim records
+`CHECKPOINT_RESTORE_UNAVAILABLE`. When the poll offered a checkpoint, the worker
+fails that Attempt `INCOMPATIBLE/CHECKPOINT_RESTORE_UNAVAILABLE` with a
+no-container proof. In every other case the API refuses the start callback
+with 409, before the runner accepts an authority deadline, which it needs
+before any compute. The worker then fails the Attempt `TIMEOUT/STARTUP_TIMEOUT`
+and removes the container, so the input is never replayed. Launch selection runs inside the startup budget and its
 failure handling, so a configured image digest that differs from the context
 still fails the attempt with a no-container proof, as before B14.
 
@@ -146,9 +168,100 @@ be delivered to the dead container is discarded only after the failure is
 acknowledged and cleanup is verified, so readiness recovers without losing
 authority work. After a completion callback has been sent, a container exit
 does not fail the attempt; the completion is replayed from the request journaled
-with its callback ID, without reading the stopped container's output again. A dead container found
-after a worker restart that still has another incarnation's pending renewal
-remains unresolved for B15 recovery.
+with its callback ID, without reading the stopped container's output again. A
+dead container found after a worker restart can still have another
+incarnation's pending renewal. Since B15 the reaper revokes that lease at DB
+expiry. The new incarnation then sees the attempt `REVOKED`, proves the exact
+stopped container and releases the allocation. The pending renewal is
+discarded only after that cleanup is verified (B15-R09). A failure the worker
+recorded while the reaper fenced the attempt, for example after a network loss
+during which the runner stopped at its deadline, is rejected as stale (`409`)
+and can never be accepted. It is discarded the same way, only after the exact
+stopped container's cleanup is verified, so it cannot keep reconciliation
+incomplete (B15-R17).
+
+## Pause, cancel and runner stop reasons (B15)
+
+Every renewal ACK carries the Job `desired_state`, which the agent journals
+as `runner_state.control_desired`. Only `RUNNING` clears an earlier pause
+(`pause_checkpoint`, `pause_aborted`). A `CHECKPOINT_FOR_PAUSE` Attempt starts
+with `control_desired = PAUSED`. While `PAUSED` is desired, the agent runs
+the following steps:
+
+1. It opens one checkpoint cycle for the pause and journals
+   `pause_checkpoint` when the server commits it. A server abort of that
+   cycle journals `pause_aborted`, and the cycle is not retried.
+2. It freezes `pause_stop` = `REQUEST_STOP{reason: PAUSE, grace 5 s}` and
+   sends it. A replay resends the same control bytes.
+3. After the runner's `STOPPED{PAUSE}` frame, or an observed container exit
+   after `pause_stop`, it proves the stopped container. The cleanup callback
+   then turns the Job `PAUSED`, the Attempt `CANCELLED/PAUSE`, and releases
+   the allocation.
+
+Once the pause checkpoint commits, the server holds the Attempt `STOPPING`
+and accepts no failure for it (SM:75). Whatever then ends the workload, a
+`STOPPED{PAUSE}` or other terminal frame, an observed exit, or the 40 s
+deadline, the agent force-stops and proves the exact container, and cleanup
+pauses the Job at no retry cost (B15-R21). A `CHECKPOINT_FOR_PAUSE` Attempt
+whose pause checkpoint the server rejects (for example a rejected manifest)
+cannot run on: the server keeps it `PAUSING`, and the agent fails it
+`INTERNAL/CHECKPOINT_PROTOCOL_ERROR` at once instead of waiting for the
+deadline and spending a retry (B15-R28).
+
+A pause that cannot finish within 40 s of monotonic time and has no committed
+pause checkpoint fails the Attempt `INFRASTRUCTURE/RUNNER_UNAVAILABLE`. This timer lives in process memory, so a
+worker restart starts it again. The server then applies the recovery rules in
+[coordinator](coordinator.md#b15-reaper-retry-promotion-and-retention-sweep):
+with a committed checkpoint the Job becomes `PAUSED` at no retry cost;
+without one, a `restart_safe` template consumes one retry as
+`CHECKPOINT_FOR_PAUSE`, and any other template ends `FAILED`.
+
+Cancel does not use a runner control. A renewal answered 409
+`stale_authority` ends the authority (SM:59; B15-R30 replaced the earlier
+`state_conflict` for a revoked or expired lease or a changed desired state).
+Only the attempt's own worker is told that the cancel is committed; another
+worker's callback gets the same `stale_authority` answer before and after the
+cancel (F8). The next reconciliation page reports the attempt `REVOKED`, and the
+worker stops and removes the exact container before its cleanup proof. The
+cleanup callback then commits `CANCELLED`, at most one reconciliation interval
+(≤5 s) after the agent learns of the cancel.
+
+A worker can be `READY` while it holds live authority under desired `PAUSED`,
+that is, a `PAUSING` attempt or a `CHECKPOINT_FOR_PAUSE` offer, so that offer
+stays pollable (B15-R13). The reaper, a cancel or a disable can fence an offer
+the worker never claimed. The reconciliation page then reports it `REVOKED` and
+`UNCLAIMED` (`attempts.claimed_at IS NULL`), and the worker tombstones it with a
+`NO_CONTAINER` proof (B15-R12).
+
+A runner that stops itself names the reason, and the agent maps it:
+
+| Runner stop reason | Attempt failure |
+|---|---|
+| `RUNTIME_LIMIT` | `TIMEOUT/RUNTIME_LIMIT_REACHED` |
+| `LEASE_DEADLINE` | `INFRASTRUCTURE/RUNNER_UNAVAILABLE` (retryable) |
+| `FAILURE` after a rejected checkpoint control | `INTERNAL/CHECKPOINT_PROTOCOL_ERROR` |
+| any other stop | `INTERNAL/WORKLOAD_EXIT_NONZERO` |
+
+A `LEASE_DEADLINE` stop happens when renewals stopped reaching the API. The
+runner enforces it without the agent (B15-R10). The worker cannot tell a
+startup-limit stop from a runtime-limit stop, so both report
+`RUNTIME_LIMIT_REACHED`. A control the runner rejects is journaled as
+`rejected`, together with `checkpoint_rejected`. Its `STOPPED` frame, still
+unread, then names the cause (B14-R10). A checkpoint frame whose control was
+rejected is committed without further processing, because the stopping runner
+acts on no later checkpoint control. Otherwise that pending frame would keep the
+channel closed and `STOPPED` unread (B15-R14).
+
+A stopped runner exits once a worker ACKs its `STOPPED` frame, or after its
+3-second linger ([trusted runner](trusted-runner.md#protocol-and-durable-state)).
+A renewal or result control connection may therefore be the only one that reads
+the frame. Every connection keeps a runner `STOPPED` or `FAILED` frame through
+the same journal update as the IPC loop. When an unfinished frame precedes it,
+for example a pending checkpoint frame, the terminal frame is journaled apart as
+`runner_state.pending_terminal_message` and ACKed `OUT_OF_ORDER`. A second,
+different terminal frame is `INVALID`. Other frames stay unacknowledged for the
+IPC loop. Once the container exit is proven, a kept terminal frame names the
+failure, not the exit code (B15-R16).
 
 ## Local Compose contract
 

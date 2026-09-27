@@ -49,6 +49,7 @@ macOS is suitable for documentation/development/simulator only. It cannot satisf
 | Guest architecture | `aarch64` / image `linux/arm64` | observed | `docker info`, image inspect |
 | Guest cgroups/seccomp | cgroups v2, builtin seccomp | observed | `docker info` |
 | B09 image | `nexa/cpu-iterative@sha256:341d943487940cb67f9e5ef61c2334593d8eab99619fc0f977e4f28a6d0e8e9a` | observed | image inspect and raw B09 evidence |
+| B15 images | CPU `nexa/cpu-iterative@sha256:823af64e3b1389b282a92ebe0f0ae0abff7b202214d5b6d024262d8df255ec89`, worker `nexa/b15-worker:local` image ID `sha256:acf9013035cb3b47bd5c1e732aca632848d62bb5ade719713a3261423c7ce4bf` on engine 29.8.0 | observed, local only (not pushed) | `docs/evidence/raw/B15-images.json` |
 | B09 boundary | Docker Desktop Linux VM, not bare Linux deployment host | observed limitation | B09 evidence report |
 
 The VM evidence covers the production executor/entrypoint, distinct runner/workload UIDs, private control relay, deterministic result handshake, container isolation, CPU throttling, PID/scratch/RAM/log bounds, controller disconnect and authority deadline under partial IPC. PID 1 runs as `1000:1000` with all capabilities dropped and none added; the worker starts the fixed supervisor command as `1001:1000` by exact container ID, and the runner validates its one-shot registration peer. This does not prove bare Linux deployment behavior, reboot/reconciliation, two-host portability, GPU, or release acceptance.

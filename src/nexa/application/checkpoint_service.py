@@ -102,6 +102,23 @@ def worker_architecture(session, worker_id):
     ).scalar_one_or_none()
 
 
+def _checkpoint_phase(job, attempt):
+    """A normal RUN attempt, or a pausing one (user pause or CHECKPOINT_FOR_PAUSE retry)."""
+    if job["state"] == "RUNNING":
+        return (
+            job["desired_state"] == "RUNNING"
+            and job["recovery_intent"] is None
+            and attempt["execution_intent"] == "RUN"
+        )
+    return (
+        job["state"] == "PAUSING"
+        and job["desired_state"] == "PAUSED"
+        and job["recovery_intent"]
+        == (None if attempt["execution_intent"] == "RUN" else "CHECKPOINT_FOR_PAUSE")
+        and attempt["execution_intent"] in {"RUN", "CHECKPOINT_FOR_PAUSE"}
+    )
+
+
 class CheckpointMixin:
     def reserve_checkpoint(self, *, credential, attempt_id, callback_id, payload_hash, authority):
         def operation(session):
@@ -121,14 +138,7 @@ class CheckpointMixin:
             job, attempt, lease, allocation, grant = rows
             now = clock_timestamp(session)
             self._live_authority(job, attempt, lease, allocation, now)
-            # CHECKPOINT_FOR_PAUSE and PAUSING belong to B15; B14 checkpoints only RUN.
-            if (
-                job["state"] != "RUNNING"
-                or job["desired_state"] != "RUNNING"
-                or job["recovery_intent"] is not None
-                or attempt["state"] != "RUNNING"
-                or attempt["execution_intent"] != "RUN"
-            ):
+            if attempt["state"] != "RUNNING" or not _checkpoint_phase(job, attempt):
                 _conflict("Attempt cannot reserve a checkpoint now")
             _, template = spec_and_template(session, job["job_id"])
             if not template["checkpointable"]:
@@ -355,13 +365,9 @@ class CheckpointMixin:
             job, attempt, lease, allocation, grant = rows
             now = clock_timestamp(session)
             self._live_authority(job, attempt, lease, allocation, now)
-            if (
-                job["state"] != "RUNNING"
-                or job["desired_state"] != "RUNNING"
-                or attempt["state"] != "CHECKPOINTING"
-                or attempt["execution_intent"] != "RUN"
-            ):
+            if attempt["state"] != "CHECKPOINTING" or not _checkpoint_phase(job, attempt):
                 _conflict("Attempt has no checkpoint in progress")
+            pausing = job["state"] == "PAUSING"
             reservation = (
                 session.execute(
                     select(s.checkpoint_reservations)
@@ -400,9 +406,27 @@ class CheckpointMixin:
                     .where(s.attempts.c.attempt_id == attempt_id)
                     .values(state="RUNNING", updated_at=now)
                 )
-                _event(
-                    session, job, authority.worker_id, now, "CHECKPOINT_REJECTED", exc.reason_code
-                )
+                if pausing and attempt["execution_intent"] == "RUN":
+                    # The container is still healthy: abort the pause and keep running.
+                    _event(
+                        session,
+                        job,
+                        authority.worker_id,
+                        now,
+                        "PAUSE_ABORTED",
+                        exc.reason_code,
+                        state="RUNNING",
+                        desired_state="RUNNING",
+                    )
+                else:
+                    _event(
+                        session,
+                        job,
+                        authority.worker_id,
+                        now,
+                        "CHECKPOINT_REJECTED",
+                        exc.reason_code,
+                    )
                 body = {"error": {"code": exc.code, "message": exc.message}}
                 self._complete_callback(session, receipt, body)
                 return body
@@ -442,10 +466,12 @@ class CheckpointMixin:
                         logical_name=name,
                     )
                 )
+            # A pause checkpoint ends the attempt's work: the runner is asked to stop and
+            # only verified cleanup moves the job to PAUSED.
             session.execute(
                 update(s.attempts)
                 .where(s.attempts.c.attempt_id == attempt_id)
-                .values(state="RUNNING", updated_at=now)
+                .values(state="STOPPING" if pausing else "RUNNING", updated_at=now)
             )
             _event(
                 session,

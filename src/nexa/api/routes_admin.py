@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Request, Response
@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from nexa.api.dependencies import parse_json_request, resolve_principal, services
 from nexa.api.http import strong_etag
 from nexa.api.schemas import (
+    AdminReasonRequest,
     GlobalPolicyUpdate,
     MembershipWriteRequest,
     TenantCreateRequest,
@@ -301,4 +302,116 @@ def admin_list_audit_records(
         action=action,
         from_at=from_at,
         to_at=to_at,
+    )
+
+
+@router.get("/workers", operation_id="adminListWorkers")
+def admin_list_workers(
+    request: Request,
+    cursor: str | None = Query(default=None, min_length=16, max_length=2048),
+    page_size: int = Query(default=50, ge=1, le=100),
+) -> Response:
+    principal = resolve_principal(request, mutation=False)
+    return JSONResponse(
+        services(request).admin.list_workers(principal, page_size=page_size, cursor=cursor)
+    )
+
+
+@router.get("/workers/{worker_id}", operation_id="adminGetWorker")
+def admin_get_worker(request: Request, worker_id: UUID) -> Response:
+    principal = resolve_principal(request, mutation=False)
+    body = services(request).admin.get_worker(principal, worker_id)
+    return JSONResponse(body, headers={"ETag": strong_etag(body["version"])})
+
+
+async def _worker_mutation(
+    request: Request,
+    worker_id: UUID,
+    idempotency_key: str,
+    if_match: str | None,
+    *,
+    method: str,
+    status_code: int,
+) -> Response:
+    api = services(request)
+    principal = await run_in_threadpool(resolve_principal, request, mutation=True)
+    body, decoded = await parse_json_request(request, AdminReasonRequest, settings=api.settings)
+    updated = await run_in_threadpool(
+        getattr(api.admin, method),
+        principal,
+        worker_id=worker_id,
+        reason=body.reason,
+        expected_version=VersionPrecondition(if_match),
+        idempotency_key=idempotency_key,
+        request_hash=jcs_request_hash({**decoded, "worker_id": str(worker_id)}),
+    )
+    return JSONResponse(
+        updated, status_code=status_code, headers={"ETag": strong_etag(updated["version"])}
+    )
+
+
+@router.post("/workers/{worker_id}/drain", operation_id="adminDrainWorker", status_code=202)
+async def admin_drain_worker(
+    request: Request,
+    worker_id: UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _worker_mutation(
+        request, worker_id, idempotency_key, if_match, method="drain_worker", status_code=202
+    )
+
+
+@router.post("/workers/{worker_id}/disable", operation_id="adminDisableWorker", status_code=202)
+async def admin_disable_worker(
+    request: Request,
+    worker_id: UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _worker_mutation(
+        request, worker_id, idempotency_key, if_match, method="disable_worker", status_code=202
+    )
+
+
+@router.post("/workers/{worker_id}/enable", operation_id="adminEnableWorker")
+async def admin_enable_worker(
+    request: Request,
+    worker_id: UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> Response:
+    return await _worker_mutation(
+        request, worker_id, idempotency_key, if_match, method="enable_worker", status_code=200
+    )
+
+
+@router.get("/allocations", operation_id="adminListAllocations")
+def admin_list_allocations(
+    request: Request,
+    cursor: str | None = Query(default=None, min_length=16, max_length=2048),
+    page_size: int = Query(default=50, ge=1, le=100),
+    state: Literal["HELD", "QUARANTINED", "RELEASED"] | None = Query(default=None),
+) -> Response:
+    principal = resolve_principal(request, mutation=False)
+    return JSONResponse(
+        services(request).admin.list_allocations(
+            principal, page_size=page_size, cursor=cursor, state=state
+        )
+    )
+
+
+@router.get("/recovery-events", operation_id="adminListRecoveryEvents")
+def admin_list_recovery_events(
+    request: Request,
+    from_at: Annotated[datetime, Query(alias="from")],
+    to_at: Annotated[datetime, Query(alias="to")],
+    cursor: str | None = Query(default=None, min_length=16, max_length=2048),
+    page_size: int = Query(default=50, ge=1, le=100),
+) -> Response:
+    principal = resolve_principal(request, mutation=False)
+    return JSONResponse(
+        services(request).admin.list_recovery_events(
+            principal, page_size=page_size, cursor=cursor, from_at=from_at, to_at=to_at
+        )
     )

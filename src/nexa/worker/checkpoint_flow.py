@@ -19,6 +19,8 @@ from .models import CpuCheckpointLaunch
 from .result_flow import checksum, descriptor_key
 
 CHECKPOINT_DEADLINE_NS = 60 * 1_000_000_000
+# A pause reserve refused while the Attempt is not RUNNING is retried this soon.
+PAUSE_RETRY_NS = 1_000_000_000
 MANIFEST_MAX_BYTES = 64 * 1024
 _PROVENANCE_CONTEXT = {
     "tenant_id": "tenant_id",
@@ -107,7 +109,9 @@ def _cycle_holds(cycle, reservation):
 
 
 class CheckpointFlow:
-    def __init__(self, journal, client, read_output, control, *, monotonic_ns, next_due):
+    def __init__(
+        self, journal, client, read_output, control, *, monotonic_ns, next_due, pause_retry=None
+    ):
         self.journal = journal
         self.client = client
         self.read_output = read_output
@@ -115,6 +119,8 @@ class CheckpointFlow:
         self.monotonic_ns = monotonic_ns
         # In-memory monotonic schedule; a restarted worker waits one full interval.
         self.next_due = next_due
+        # In-memory backoff after a refused pause reserve; a restart retries at once.
+        self.pause_retry = {} if pause_retry is None else pause_retry
 
     @staticmethod
     def _flow(record):
@@ -141,8 +147,13 @@ class CheckpointFlow:
     def _interval_ns(self, record):
         return int(record.execution_binding["checkpoint"]["interval_seconds"]) * 1_000_000_000
 
-    def tick(self, attempt_id):
-        """Resume an open cycle, or start one when the interval is due."""
+    def tick(self, attempt_id, *, pause=False):
+        """Resume an open cycle, or start one when the interval is due.
+
+        With ``pause`` the server desires PAUSED: an open cycle becomes the pause
+        checkpoint, otherwise one opens at once, even for a disabled schedule or
+        a finished workload, until one commits or the server aborts the pause.
+        """
         record = self.journal.load(attempt_id)
         if record.execution_binding.get("checkpoint") is None:
             return
@@ -153,6 +164,20 @@ class CheckpointFlow:
             self._resume(attempt_id, cycle)
             return
         progress = state.get("latest_progress")
+        if pause:
+            retry = self.pause_retry.get(attempt_id)
+            if (
+                progress is None
+                or state.get("result_flow")
+                or state.get("failure_resolution") is not None
+                or flow.get("pause_checkpoint") is not None
+                or flow.get("pause_aborted")
+                or flow.get("pause_rejected")
+                or (retry is not None and self.monotonic_ns() < retry)
+            ):
+                return
+            self._open(attempt_id, "PAUSE")
+            return
         if (
             flow.get("disabled")
             or state.get("result_flow")
@@ -169,7 +194,11 @@ class CheckpointFlow:
             return
         if now < due:
             return
+        self._open(attempt_id, "INTERVAL")
+
+    def _open(self, attempt_id, reason):
         cycle = {
+            "reason": reason,
             "reserve_callback_id": str(new_uuid7()),
             "reservation": None,
             "request": None,
@@ -196,6 +225,9 @@ class CheckpointFlow:
             except WorkerApiError as exc:
                 if exc.status != 409:
                     raise
+                if cycle.get("reason") == "PAUSE":
+                    self._pause_refused(attempt_id)
+                    return
                 # Nothing is reserved under this callback; retry next interval.
                 self._update_flow(attempt_id, lambda value: {**value, "cycle": None})
                 self.next_due[attempt_id] = self.monotonic_ns() + self._interval_ns(record)
@@ -226,7 +258,7 @@ class CheckpointFlow:
         request = cycle.get("request")
         if request is None:
             request = {
-                "reason": "INTERVAL",
+                "reason": cycle.get("reason", "INTERVAL"),
                 "reservation_callback_id": cycle["reserve_callback_id"],
                 "checkpoint_id": reservation["checkpoint_id"],
                 "checkpoint_sequence": reservation["sequence"],
@@ -240,6 +272,24 @@ class CheckpointFlow:
             "REQUEST_CHECKPOINT",
             request,
         )
+
+    def _pause_refused(self, attempt_id):
+        """Close a pause cycle whose reserve the server refused with 409.
+
+        A publish while PAUSING moves the Attempt to STOPPING, after which every
+        reserve conflicts; the last committed checkpoint of this Attempt is then
+        the pause checkpoint. The server re-checks that at cleanup.
+        """
+
+        def change(flow):
+            flow = {**flow, "cycle": None}
+            last = flow.get("last_outcome")
+            if last is not None and last["outcome"] == "COMMITTED":
+                flow["pause_checkpoint"] = last["checkpoint_id"]
+            return flow
+
+        self._update_flow(attempt_id, change)
+        self.pause_retry[attempt_id] = self.monotonic_ns() + PAUSE_RETRY_NS
 
     def process(self, attempt_id, envelope):
         """Handle a checkpoint frame; the caller commits its sequence afterwards."""
@@ -507,6 +557,17 @@ class CheckpointFlow:
             }
             if disable:
                 flow["disabled"] = True
+            if local.get("control_desired") == "PAUSED":
+                # Publish while PAUSING either stops the Attempt (COMMITTED) or
+                # aborts the pause and returns it to RUNNING (REJECTED). A
+                # CHECKPOINT_FOR_PAUSE Attempt cannot run on, so the server keeps
+                # it PAUSING and the worker fails it instead (B15-R28).
+                if outcome == "COMMITTED":
+                    flow["pause_checkpoint"] = reservation["checkpoint_id"]
+                elif local.get("checkpoint_for_pause"):
+                    flow["pause_rejected"] = True
+                else:
+                    flow["pause_aborted"] = True
             active = local.get("active_reservations") or {"result": None}
             return {
                 **local,

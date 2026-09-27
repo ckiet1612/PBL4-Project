@@ -28,6 +28,7 @@ from nexa.application.checkpoint_validation import (
     validate_cpu_state,
 )
 from nexa.application.execution_cleanup import _event
+from nexa.application.job_recovery import restorable_scope, restore_order
 from nexa.infrastructure.artifacts.store import ArtifactError
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.locking import clock_timestamp
@@ -63,6 +64,142 @@ def _read_blob(store, row, limit):
     ):
         return None, "CHECKPOINT_CHECKSUM_MISMATCH"
     return raw, None
+
+
+def _inherits(session, job_id):
+    return (
+        session.execute(
+            select(s.checkpoint_references.c.source_checkpoint_id)
+            .where(s.checkpoint_references.c.target_job_id == job_id)
+            .limit(1)
+        ).first()
+        is not None
+    )
+
+
+def restore_candidates(session, job, spec, template, rows):
+    """Metadata and expected provenance of each checkpoint row, in the given order.
+
+    Provenance names the job/session that produced the checkpoint; spec, input,
+    template, adapter and image are the (identical, immutable) ones of `job`.
+    """
+    if not rows:
+        return []
+    ids = [row["checkpoint_id"] for row in rows]
+    fences = dict(
+        session.execute(
+            select(s.attempts.c.attempt_id, s.attempts.c.job_fence).where(
+                s.attempts.c.attempt_id.in_({row["attempt_id"] for row in rows})
+            )
+        ).all()
+    )
+    sessions = dict(
+        session.execute(
+            select(s.logical_sessions.c.job_id, s.logical_sessions.c.session_id).where(
+                s.logical_sessions.c.job_id.in_({row["job_id"] for row in rows})
+            )
+        ).all()
+    )
+    references = session.execute(
+        select(
+            s.artifact_references.c.owner_id,
+            s.artifact_references.c.artifact_id,
+            s.artifact_references.c.logical_name,
+        ).where(
+            s.artifact_references.c.tenant_id == job["tenant_id"],
+            s.artifact_references.c.owner_type == "CHECKPOINT",
+            s.artifact_references.c.owner_id.in_(ids),
+            s.artifact_references.c.purpose == "CHECKPOINT_FILE",
+        )
+    ).all()
+    artifact_ids = {row["manifest_artifact_id"] for row in rows}
+    artifact_ids |= {reference.artifact_id for reference in references}
+    artifacts = {
+        str(row["artifact_id"]): dict(row)
+        for row in session.execute(
+            select(s.artifacts).where(
+                s.artifacts.c.tenant_id == job["tenant_id"],
+                s.artifacts.c.artifact_id.in_(artifact_ids),
+            )
+        ).mappings()
+    }
+    input_checksum = session.execute(
+        select(s.artifacts.c.checksum).where(
+            s.artifacts.c.artifact_id == spec["input_artifact_id"],
+            s.artifacts.c.tenant_id == job["tenant_id"],
+        )
+    ).scalar_one()
+    candidates = []
+    for row in rows:
+        owned = [r for r in references if r.owner_id == row["checkpoint_id"]]
+        candidates.append(
+            {
+                "row": row,
+                "manifest": artifacts.get(str(row["manifest_artifact_id"])),
+                "references": sorted((str(r.artifact_id), r.logical_name) for r in owned),
+                "files": {
+                    str(r.artifact_id): artifacts[str(r.artifact_id)]
+                    for r in owned
+                    if str(r.artifact_id) in artifacts
+                },
+                # Provenance names the Attempt and fence that produced the checkpoint.
+                "provenance": checkpoint_provenance(
+                    job={"tenant_id": job["tenant_id"], "job_id": row["job_id"]},
+                    spec=spec,
+                    template=template,
+                    session_id=sessions[row["job_id"]],
+                    input_checksum=input_checksum,
+                    attempt_id=row["attempt_id"],
+                    fence=fences[row["attempt_id"]],
+                ),
+            }
+        )
+    return candidates
+
+
+def verify_candidate(store, plan, candidate, compatibility):
+    """Return ("VALID", (manifest, files)) or (outcome, reason) for one candidate."""
+    row, manifest_row = candidate["row"], candidate["manifest"]
+    if (
+        manifest_row is None
+        or manifest_row["state"] != "COMMITTED"
+        or manifest_row["kind"] != "CHECKPOINT_MANIFEST"
+        or manifest_row["checksum"] != row["manifest_checksum"]
+    ):
+        return "CORRUPT", "CHECKPOINT_MANIFEST_INVALID"
+    raw, reason = _read_blob(store, manifest_row, CHECKPOINT_MANIFEST_MAX_BYTES)
+    if reason is not None:
+        return "CORRUPT", reason
+    try:
+        manifest = parse_checkpoint_manifest(raw)
+        entries = validate_checkpoint_manifest(
+            manifest,
+            raw=raw,
+            artifact=manifest_row,
+            checkpoint_id=row["checkpoint_id"],
+            sequence=row["sequence"],
+            provenance=candidate["provenance"],
+            compatibility=compatibility,
+            parameters=plan["parameters"],
+        )
+        if (
+            sorted((e["artifact_id"], e["logical_name"]) for e in entries)
+            != candidate["references"]
+        ):
+            return "CORRUPT", "CHECKPOINT_FILES_INVALID"
+        files = check_file_artifacts(entries, candidate["files"], tenant_id=plan["tenant_id"])
+    except CheckpointManifestError as exc:
+        outcome = "INCOMPATIBLE" if exc.reason_code in _INCOMPATIBLE else "CORRUPT"
+        return outcome, exc.reason_code
+    for file_row in files:
+        content, reason = _read_blob(store, file_row, CPU_STATE_MAX_BYTES)
+        if reason is not None:
+            return "CORRUPT", reason
+        try:
+            validate_cpu_state(content, manifest=manifest)
+        except CheckpointManifestError as exc:
+            return "CORRUPT", exc.reason_code
+    return "VALID", (manifest, files)
 
 
 class CheckpointRestoreMixin:
@@ -108,134 +245,24 @@ class CheckpointRestoreMixin:
                 dict(row)
                 for row in session.execute(
                     select(s.checkpoints)
-                    .where(s.checkpoints.c.job_id == job["job_id"], _not_corrupt())
-                    .order_by(s.checkpoints.c.sequence.desc())
+                    .where(restorable_scope(job["job_id"]), _not_corrupt())
+                    .order_by(*restore_order(job["job_id"]))
                 ).mappings()
             ]
-            plan = {
+            return {
                 "attempt_number": attempt["attempt_number"],
                 "restart_safe": bool(template["restart_safe"]),
+                # A manual retry that referenced a checkpoint must restore it or
+                # fall back visibly, exactly like a later Attempt of the same Job.
+                "inherited": _inherits(session, job["job_id"]),
                 "tenant_id": job["tenant_id"],
                 "template": template,
                 "architecture": worker_architecture(session, authority.worker_id),
                 "parameters": spec["canonical_spec"].get("parameters") or {},
-                "candidates": [],
+                "candidates": restore_candidates(session, job, spec, template, rows),
             }
-            if not rows:
-                return plan
-            ids = [row["checkpoint_id"] for row in rows]
-            fences = dict(
-                session.execute(
-                    select(s.attempts.c.attempt_id, s.attempts.c.job_fence).where(
-                        s.attempts.c.attempt_id.in_({row["attempt_id"] for row in rows})
-                    )
-                ).all()
-            )
-            references = session.execute(
-                select(
-                    s.artifact_references.c.owner_id,
-                    s.artifact_references.c.artifact_id,
-                    s.artifact_references.c.logical_name,
-                ).where(
-                    s.artifact_references.c.tenant_id == job["tenant_id"],
-                    s.artifact_references.c.owner_type == "CHECKPOINT",
-                    s.artifact_references.c.owner_id.in_(ids),
-                    s.artifact_references.c.purpose == "CHECKPOINT_FILE",
-                )
-            ).all()
-            artifact_ids = {row["manifest_artifact_id"] for row in rows}
-            artifact_ids |= {reference.artifact_id for reference in references}
-            artifacts = {
-                str(row["artifact_id"]): dict(row)
-                for row in session.execute(
-                    select(s.artifacts).where(
-                        s.artifacts.c.tenant_id == job["tenant_id"],
-                        s.artifacts.c.artifact_id.in_(artifact_ids),
-                    )
-                ).mappings()
-            }
-            session_id = session.execute(
-                select(s.logical_sessions.c.session_id).where(
-                    s.logical_sessions.c.job_id == job["job_id"]
-                )
-            ).scalar_one()
-            input_checksum = session.execute(
-                select(s.artifacts.c.checksum).where(
-                    s.artifacts.c.artifact_id == spec["input_artifact_id"],
-                    s.artifacts.c.tenant_id == job["tenant_id"],
-                )
-            ).scalar_one()
-            for row in rows:
-                owned = [r for r in references if r.owner_id == row["checkpoint_id"]]
-                plan["candidates"].append(
-                    {
-                        "row": row,
-                        "manifest": artifacts.get(str(row["manifest_artifact_id"])),
-                        "references": sorted((str(r.artifact_id), r.logical_name) for r in owned),
-                        "files": {
-                            str(r.artifact_id): artifacts[str(r.artifact_id)]
-                            for r in owned
-                            if str(r.artifact_id) in artifacts
-                        },
-                        # Provenance names the Attempt and fence that produced the checkpoint.
-                        "provenance": checkpoint_provenance(
-                            job=job,
-                            spec=spec,
-                            template=template,
-                            session_id=session_id,
-                            input_checksum=input_checksum,
-                            attempt_id=row["attempt_id"],
-                            fence=fences[row["attempt_id"]],
-                        ),
-                    }
-                )
-            return plan
 
         return run_transaction(self.session_factory, operation)
-
-    def _verify_candidate(self, plan, candidate, compatibility):
-        """Return ("VALID", (manifest, files)) or (outcome, reason) for one candidate."""
-        row, manifest_row = candidate["row"], candidate["manifest"]
-        if (
-            manifest_row is None
-            or manifest_row["state"] != "COMMITTED"
-            or manifest_row["kind"] != "CHECKPOINT_MANIFEST"
-            or manifest_row["checksum"] != row["manifest_checksum"]
-        ):
-            return "CORRUPT", "CHECKPOINT_MANIFEST_INVALID"
-        raw, reason = _read_blob(self.artifact_store, manifest_row, CHECKPOINT_MANIFEST_MAX_BYTES)
-        if reason is not None:
-            return "CORRUPT", reason
-        try:
-            manifest = parse_checkpoint_manifest(raw)
-            entries = validate_checkpoint_manifest(
-                manifest,
-                raw=raw,
-                artifact=manifest_row,
-                checkpoint_id=row["checkpoint_id"],
-                sequence=row["sequence"],
-                provenance=candidate["provenance"],
-                compatibility=compatibility,
-                parameters=plan["parameters"],
-            )
-            if (
-                sorted((e["artifact_id"], e["logical_name"]) for e in entries)
-                != candidate["references"]
-            ):
-                return "CORRUPT", "CHECKPOINT_FILES_INVALID"
-            files = check_file_artifacts(entries, candidate["files"], tenant_id=plan["tenant_id"])
-        except CheckpointManifestError as exc:
-            outcome = "INCOMPATIBLE" if exc.reason_code in _INCOMPATIBLE else "CORRUPT"
-            return outcome, exc.reason_code
-        for file_row in files:
-            content, reason = _read_blob(self.artifact_store, file_row, CPU_STATE_MAX_BYTES)
-            if reason is not None:
-                return "CORRUPT", reason
-            try:
-                validate_cpu_state(content, manifest=manifest)
-            except CheckpointManifestError as exc:
-                return "CORRUPT", exc.reason_code
-        return "VALID", (manifest, files)
 
     def _scan_restore(self, plan):
         """Verify newest first outside transactions and stop at the first valid checkpoint."""
@@ -258,7 +285,7 @@ class CheckpointRestoreMixin:
             if row["compatibility"] in rejected:
                 # Same stored environment fails the same way; no new reason to emit.
                 continue
-            outcome, value = self._verify_candidate(plan, candidate, compatibility)
+            outcome, value = verify_candidate(self.artifact_store, plan, candidate, compatibility)
             if outcome == "CORRUPT":
                 scan["marks"].append((row["checkpoint_id"], value))
             elif outcome == "INCOMPATIBLE":
@@ -298,7 +325,7 @@ class CheckpointRestoreMixin:
                 owned = session.execute(
                     select(s.checkpoints.c.checkpoint_id).where(
                         s.checkpoints.c.checkpoint_id == checkpoint_id,
-                        s.checkpoints.c.job_id == job["job_id"],
+                        restorable_scope(job["job_id"]),
                     )
                 ).first()
                 if owned is None:
@@ -340,6 +367,7 @@ class CheckpointRestoreMixin:
             self._mark_corrupt(credential=credential, authority=authority, marks=scan["marks"])
         scan["attempt_number"] = plan["attempt_number"]
         scan["restart_safe"] = plan["restart_safe"]
+        scan["inherited"] = plan["inherited"]
         return scan
 
     @staticmethod
@@ -350,8 +378,8 @@ class CheckpointRestoreMixin:
         current = list(
             session.execute(
                 select(s.checkpoints.c.checkpoint_id)
-                .where(s.checkpoints.c.job_id == job["job_id"], _not_corrupt())
-                .order_by(s.checkpoints.c.sequence.desc())
+                .where(restorable_scope(job["job_id"]), _not_corrupt())
+                .order_by(*restore_order(job["job_id"]))
             ).scalars()
         )
         if current != scan["remaining"]:
@@ -381,9 +409,9 @@ class CheckpointRestoreMixin:
         events = [("CHECKPOINT_INCOMPATIBLE", reason) for reason in scan["incompatible"]]
         if restore is not None:
             events.append(("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"))
-        elif scan["attempt_number"] > 1 and scan["restart_safe"]:
+        elif (scan["attempt_number"] > 1 or scan["inherited"]) and scan["restart_safe"]:
             events.append(("CHECKPOINT_FALLBACK_TO_INPUT", "CHECKPOINT_FALLBACK_TO_INPUT"))
-        elif scan["attempt_number"] > 1:
+        elif scan["attempt_number"] > 1 or scan["inherited"]:
             # The poll offer named a checkpoint, so the worker fails this Attempt
             # INCOMPATIBLE through NoContainerProof before any Docker create. Start
             # is also refused, so input is never replayed for a non-restart-safe Job.

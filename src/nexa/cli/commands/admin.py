@@ -318,18 +318,17 @@ def _register_entity_groups(group: typer.Typer) -> None:
     policy = typer.Typer(no_args_is_help=True)
     tenant_policy = typer.Typer(no_args_is_help=True)
     worker = typer.Typer(no_args_is_help=True)
-    allocation = typer.Typer(no_args_is_help=True)
     fairness = typer.Typer(no_args_is_help=True)
-    recovery = typer.Typer(no_args_is_help=True)
     audit = typer.Typer(no_args_is_help=True)
-    # Contract operations without a FastAPI route stay unregistered until their
-    # backend service and API integration evidence exist.
+    # Contract operations without a FastAPI route (admin job, fairness) stay
+    # unregistered until their backend service and API integration evidence exist.
     for sub, name in (
         (tenant, "tenant"),
         (user, "user"),
         (membership, "membership"),
         (policy, "policy"),
         (tenant_policy, "tenant-policy"),
+        (worker, "worker"),
         (audit, "audit"),
     ):
         group.add_typer(sub, name=name)
@@ -712,6 +711,8 @@ def _register_entity_groups(group: typer.Typer) -> None:
                     values={"reason": reason},
                     required={"reason"},
                 )
+                if not isinstance(body["reason"], str) or not 1 <= len(body["reason"]) <= 256:
+                    raise CliError("reason must be 1 to 256 characters", exit_code=2)
             except CliError as exc:
                 _error(ctx, exc)
             _request(
@@ -727,7 +728,7 @@ def _register_entity_groups(group: typer.Typer) -> None:
     worker_action("disable", "worker_disable")
     worker_action("enable", "worker_enable")
 
-    @allocation.command("list")
+    @group.command("allocations")
     def list_allocations(
         ctx: Context,
         cursor: Annotated[str | None, typer.Option("--cursor")] = None,
@@ -750,7 +751,7 @@ def _register_entity_groups(group: typer.Typer) -> None:
         query = {"from": from_, "to": to, "bucket_seconds": bucket_seconds, "tenant_id": tenant_id}
         _request(ctx, "fairness_query", query={k: v for k, v in query.items() if v is not None})
 
-    @recovery.command("list")
+    @group.command("recovery-events")
     def list_recovery_events(
         ctx: Context,
         from_: Annotated[str, typer.Option("--from")],
@@ -758,8 +759,9 @@ def _register_entity_groups(group: typer.Typer) -> None:
         cursor: Annotated[str | None, typer.Option("--cursor")] = None,
         page_size: Annotated[int, typer.Option("--page-size")] = 50,
     ) -> None:
+        # The contract requires both window bounds; they pass through unchanged.
         query = _page(ctx, cursor, page_size)
-        query.update({k: v for k, v in {"from": from_, "to": to}.items() if v is not None})
+        query.update({"from": from_, "to": to})
         _request(ctx, "recovery_list", query=query)
 
     @audit.command("list")

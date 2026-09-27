@@ -527,6 +527,96 @@ class JobPage(BaseModel):
     page: PageInfo
 
 
+class ControlRequest(StrictRequest):
+    reason: str = Field(min_length=1, max_length=256)
+
+
+class RetryRequest(StrictRequest):
+    reason: str = Field(min_length=1, max_length=256)
+    checkpoint_id: UuidV7 | None
+
+
+class AdminReasonRequest(StrictRequest):
+    reason: str = Field(min_length=1, max_length=256)
+
+
+AttemptState = Literal[
+    "CREATED",
+    "CLAIMED",
+    "STARTING",
+    "RUNNING",
+    "CHECKPOINTING",
+    "STOPPING",
+    "SUCCEEDED",
+    "FAILED",
+    "LOST",
+    "CANCELLED",
+]
+
+
+class Attempt(BaseModel):
+    model_config = ConfigDict(title="Attempt", extra="forbid")
+
+    attempt_id: UuidV7
+    job_id: UuidV7
+    attempt_number: int = Field(ge=1, le=100)
+    state: AttemptState
+    worker_id: UuidV7
+    worker_incarnation_id: UuidV7
+    allocation_id: UuidV7
+    lease_id: UuidV7
+    job_fence: int = Field(ge=1)
+    started_at: datetime | None
+    ended_at: datetime | None
+    failure_class: (
+        Literal[
+            "INFRASTRUCTURE",
+            "TIMEOUT",
+            "OOM",
+            "INVALID_INPUT",
+            "USER_CANCEL",
+            "INCOMPATIBLE",
+            "INTERNAL",
+        ]
+        | None
+    )
+    created_at: datetime
+
+
+class AttemptPage(BaseModel):
+    model_config = ConfigDict(title="AttemptPage", extra="forbid")
+
+    items: list[Attempt] = Field(max_length=100)
+    page: PageInfo
+
+
+class Worker(BaseModel):
+    model_config = ConfigDict(title="Worker", extra="forbid")
+
+    worker_id: UuidV7
+    current_incarnation_id: UuidV7 | None
+    health: Literal["STARTING", "READY", "SUSPECT", "UNAVAILABLE"]
+    admin_state: Literal["ENABLED", "DRAINING", "DISABLED"]
+    inventory: WorkerInventory | None
+    version: int = Field(ge=1)
+    last_heartbeat_at: datetime | None
+    ready_at: datetime | None
+
+
+class WorkerPage(BaseModel):
+    model_config = ConfigDict(title="WorkerPage", extra="forbid")
+
+    items: list[Worker] = Field(max_length=100)
+    page: PageInfo
+
+
+class AllocationPage(BaseModel):
+    model_config = ConfigDict(title="AllocationPage", extra="forbid")
+
+    items: list[Allocation] = Field(max_length=100)
+    page: PageInfo
+
+
 class LogicalSession(BaseModel):
     model_config = ConfigDict(title="LogicalSession", extra="forbid")
 

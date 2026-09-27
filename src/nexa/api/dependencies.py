@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from fastapi import Request
 from pydantic import BaseModel, ValidationError
 
-from nexa.application.admin_service import AdminService
+from nexa.application.admin_workers import AdminWorkerService
 from nexa.application.errors import ApplicationError
 from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
@@ -21,7 +21,7 @@ from nexa.domain.identity import Principal
 class ApiServices:
     settings: Settings
     identity: IdentityService
-    admin: AdminService
+    admin: AdminWorkerService
     policy: PolicyService
     artifact: object | None = None
     jobs: JobService | None = None

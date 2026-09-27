@@ -19,6 +19,8 @@ from ..output import emit_success
 
 _MAX_PAGE_SIZE = 100
 _RANGE_PATTERN = re.compile(r"^bytes=[0-9]+-[0-9]*$")
+_IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[!-~]{16,128}$")
+_MAX_REASON_LENGTH = 256
 
 
 def _state(ctx: Context) -> dict:
@@ -59,6 +61,28 @@ def _query_page(ctx: Context, cursor: str | None, page_size: int) -> dict[str, o
     if cursor is not None:
         query["cursor"] = cursor
     return query
+
+
+def _strict_page(ctx: Context, cursor: str | None, page_size: int) -> dict[str, object]:
+    if page_size < 1 or page_size > _MAX_PAGE_SIZE:
+        _error(ctx, CliError("page size must be between 1 and 100", exit_code=2))
+    query: dict[str, object] = {"page_size": page_size}
+    if cursor is not None:
+        query["cursor"] = cursor
+    return query
+
+
+def _control_input(reason: str, if_match: str | None, idempotency_key: str | None) -> str:
+    """Validate a B15 control locally; the free-text reason is never echoed."""
+    if not 1 <= len(reason) <= _MAX_REASON_LENGTH:
+        raise CliError("reason must be 1 to 256 characters", exit_code=2)
+    if if_match is None:
+        raise CliError("--if-match is required for this operation", exit_code=2)
+    if idempotency_key is None:
+        return new_idempotency_key()
+    if not _IDEMPOTENCY_KEY_PATTERN.fullmatch(idempotency_key):
+        raise CliError("idempotency key must be 16 to 128 visible ASCII characters", exit_code=2)
+    return idempotency_key
 
 
 def _with_headers(response) -> object:
@@ -286,6 +310,47 @@ def register(group: typer.Typer) -> None:
         query = _query_page(ctx, cursor, page_size)
         _read(ctx, "GET", f"/v1/jobs/{job_id}/checkpoints", query=query, tenant=tenant)
 
+    @group.command("attempts")
+    def list_attempts(
+        ctx: Context,
+        job_id: Annotated[str, typer.Argument()],
+        cursor: Annotated[str | None, typer.Option("--cursor")] = None,
+        page_size: Annotated[int, typer.Option("--page-size")] = 50,
+        tenant: Annotated[str | None, typer.Option("--tenant")] = None,
+    ) -> None:
+        query = _strict_page(ctx, cursor, page_size)
+        _read(ctx, "GET", f"/v1/jobs/{job_id}/attempts", query=query, tenant=tenant)
+
+    def control(command: str, summary: str) -> None:
+        @group.command(command, help=summary)
+        def run_control(
+            ctx: Context,
+            job_id: Annotated[str, typer.Argument()],
+            reason: Annotated[str, typer.Option("--reason")],
+            if_match: Annotated[str | None, typer.Option("--if-match")] = None,
+            idempotency_key: Annotated[str | None, typer.Option("--idempotency-key")] = None,
+            tenant: Annotated[str | None, typer.Option("--tenant")] = None,
+        ) -> None:
+            _control(ctx, job_id, command, {"reason": reason}, if_match, idempotency_key, tenant)
+
+    control("cancel", "Request cancellation of a job.")
+    control("pause", "Pause a job at a checkpoint.")
+    control("resume", "Resume a paused job from its checkpoint.")
+
+    @group.command("retry")
+    def retry_job(
+        ctx: Context,
+        job_id: Annotated[str, typer.Argument()],
+        reason: Annotated[str, typer.Option("--reason")],
+        checkpoint_id: Annotated[str | None, typer.Option("--checkpoint-id")] = None,
+        if_match: Annotated[str | None, typer.Option("--if-match")] = None,
+        idempotency_key: Annotated[str | None, typer.Option("--idempotency-key")] = None,
+        tenant: Annotated[str | None, typer.Option("--tenant")] = None,
+    ) -> None:
+        """Retry a FAILED job as a new job and session."""
+        body = {"reason": reason, "checkpoint_id": checkpoint_id}
+        _control(ctx, job_id, "retry", body, if_match, idempotency_key, tenant)
+
     @group.command("result")
     def get_result(
         ctx: Context,
@@ -335,6 +400,35 @@ def register(group: typer.Typer) -> None:
         finally:
             if client is not None:
                 client.close()
+
+
+def _control(
+    ctx: Context,
+    job_id: str,
+    command: str,
+    body: dict[str, object],
+    if_match: str | None,
+    idempotency_key: str | None,
+    tenant: str | None,
+) -> None:
+    client = None
+    try:
+        key = _control_input(str(body["reason"]), if_match, idempotency_key)
+        client = _client(ctx, tenant)
+        response = client.request_json(
+            "POST",
+            f"/v1/jobs/{job_id}/{command}",
+            json_body=body,
+            headers={"If-Match": if_match},
+            mutation=True,
+            idempotency_key=key,
+        )
+        emit_success(_with_headers(response), mode=_state(ctx).get("output", OutputMode.HUMAN))
+    except CliError as exc:
+        _error(ctx, exc)
+    finally:
+        if client is not None:
+            client.close()
 
 
 def _read(

@@ -75,6 +75,21 @@ EXPECTED_B14_OPERATIONS = {
     "workerPublishCheckpoint",
 }
 
+EXPECTED_B15_OPERATIONS = {
+    "cancelJob",
+    "pauseJob",
+    "resumeJob",
+    "retryFailedJob",
+    "listJobAttempts",
+    "adminListWorkers",
+    "adminGetWorker",
+    "adminDrainWorker",
+    "adminDisableWorker",
+    "adminEnableWorker",
+    "adminListAllocations",
+    "adminListRecoveryEvents",
+}
+
 _DUMMY_ID = "018f05c4-a922-7d0d-9f55-f9084a72d0f9"
 ADMIN_OPERATION_CASES = (
     ("GET", "/v1/admin/tenants", None, 200, 403),
@@ -128,6 +143,19 @@ ADMIN_OPERATION_CASES = (
         200,
         403,
     ),
+    ("GET", "/v1/admin/workers", None, 200, 403),
+    ("GET", f"/v1/admin/workers/{_DUMMY_ID}", None, 404, 403),
+    ("POST", f"/v1/admin/workers/{_DUMMY_ID}/drain", {"reason": "matrix"}, 403, 404),
+    ("POST", f"/v1/admin/workers/{_DUMMY_ID}/disable", {"reason": "matrix"}, 403, 404),
+    ("POST", f"/v1/admin/workers/{_DUMMY_ID}/enable", {"reason": "matrix"}, 403, 404),
+    ("GET", "/v1/admin/allocations?state=HELD", None, 200, 403),
+    (
+        "GET",
+        "/v1/admin/recovery-events?from=2026-09-20T00:00:00Z&to=2026-09-21T00:00:00Z",
+        None,
+        200,
+        403,
+    ),
 )
 
 
@@ -146,6 +174,7 @@ def test_b06_through_b11_operation_ids_are_registered(migrated_postgres_engine, 
         | EXPECTED_B10_OPERATIONS
         | EXPECTED_B11_OPERATIONS
         | EXPECTED_B14_OPERATIONS
+        | EXPECTED_B15_OPERATIONS
     )
 
 

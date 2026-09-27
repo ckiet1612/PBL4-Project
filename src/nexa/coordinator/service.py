@@ -1,10 +1,11 @@
 """Leadership is independent from worker incarnation and attempt authority."""
 
+import logging
 import time
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
 from nexa.infrastructure.persistence.ids import new_uuid7
@@ -13,6 +14,7 @@ from nexa.infrastructure.persistence.schema import coordinator_leadership
 from nexa.infrastructure.persistence.transactions import run_transaction
 
 _RETRY_PROBE_SECONDS = 1.0
+_LOG = logging.getLogger(__name__)
 
 
 class LeadershipLost(RuntimeError):
@@ -209,6 +211,76 @@ class CoordinatorService:
 
         return run_transaction(self.session_factory, operation)
 
+    def reap_leases(self, epoch: int) -> int:
+        """Revoke and fence expired leases, one transaction per lease, under live leadership."""
+        from nexa.coordinator.reaper import expired_leases, reap_lease_locked
+        from nexa.infrastructure.persistence import schema as s
+
+        def probe(session):
+            self._timeouts(session)
+            return expired_leases(session)
+
+        def reap(lease_id):
+            def operation(session):
+                self._timeouts(session)
+                self._leader(session, epoch)
+                mode = session.execute(
+                    select(s.policy_versions.c.operational_mode)
+                    .where(s.policy_versions.c.is_current.is_(True))
+                    .with_for_update()
+                ).scalar_one()
+                if mode == "WRITE_FROZEN":
+                    return False
+                reaped = reap_lease_locked(
+                    session,
+                    lease_id=lease_id,
+                    holder_id=self.holder_id,
+                    now_fn=lambda: self._leader(session, epoch),
+                )
+                return reaped
+
+            return run_transaction(self.session_factory, operation)
+
+        reaped = 0
+        for lease_id in run_transaction(self.session_factory, probe):
+            try:
+                reaped += reap(lease_id)
+            except LeadershipLost:
+                raise
+            except Exception:
+                # One lease (e.g. its job locked past lock_timeout) must not stop the
+                # others; it is still due, so a later probe returns it (B15-R26).
+                _LOG.warning("coordinator_reap_lease_failed")
+        return reaped
+
+    def sweep_idempotency(self, epoch: int) -> int:
+        """Delete one bounded batch of expired job-request records under live leadership."""
+        from nexa.coordinator.retention import expired_records
+        from nexa.infrastructure.persistence import schema as s
+
+        def operation(session):
+            self._timeouts(session)
+            record_ids = expired_records(session)
+            if not record_ids:
+                return 0
+            self._leader(session, epoch)
+            mode = session.execute(
+                select(s.policy_versions.c.operational_mode)
+                .where(s.policy_versions.c.is_current.is_(True))
+                .with_for_update(read=True)
+            ).scalar_one()
+            if mode == "WRITE_FROZEN":
+                return 0
+            session.execute(
+                delete(s.idempotency_records).where(
+                    s.idempotency_records.c.idempotency_id.in_(record_ids)
+                )
+            )
+            self._leader(session, epoch)
+            return len(record_ids)
+
+        return run_transaction(self.session_factory, operation)
+
     def tick(self, epoch: int):
         from nexa.application.job_service import JobService
         from nexa.coordinator.accounting import account_locked, account_now_locked, epoch_ms
@@ -255,10 +327,22 @@ class CoordinatorService:
             self._leader(session, epoch)
             return snapshot, epoch_ms(now), reservation_replay_pending(session, snapshot)
 
-        # At most one retry probe per second keeps the idle tick path unchanged.
+        # At most one retry/reaper/sweep probe per second keeps the idle tick path unchanged.
         if time.monotonic() >= self._retry_probe_at:
             self._retry_probe_at = time.monotonic() + _RETRY_PROBE_SECONDS
-            self.promote_retries(epoch)
+            # Each maintenance step commits on its own; a failure in one is retried on
+            # the next probe and never keeps dispatch from running (B15-R26).
+            for name, step in (
+                ("reap", self.reap_leases),
+                ("promote", self.promote_retries),
+                ("sweep", self.sweep_idempotency),
+            ):
+                try:
+                    step(epoch)
+                except LeadershipLost:
+                    raise
+                except Exception:
+                    _LOG.warning("coordinator_maintenance_failed", extra={"step": name})
         prepared = run_transaction(self.session_factory, snapshot_operation)
         if prepared is None:
             return NoDecision("worker_or_mode_unavailable")

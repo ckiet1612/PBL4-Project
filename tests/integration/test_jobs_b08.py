@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -743,6 +744,9 @@ def test_submit_is_durable_replayable_and_queryable(migrated_postgres_engine, tm
         listed = restarted.get("/v1/jobs", headers={"X-Nexa-Tenant-Id": tenant_id})
         assert listed.status_code == 200
         assert [item["job_id"] for item in listed.json()["items"]] == [job["job_id"]]
+        # B15-R29: the list writes exactly three millisecond digits.
+        (item,) = listed.json()["items"]
+        assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$", item["created_at"])
 
 
 def test_same_key_different_payload_is_conflict_without_second_job(

@@ -1,0 +1,3457 @@
+{
+ "C0_baseline": {
+  "checksum": "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+  "seconds": 52.2,
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e211-69c8-7b13-a5c1-8bc5d54dbe0d",
+     "checkpoints": [
+      [
+       "01a0e211-91d3-793a-bb86-bf6c2228e192",
+       1
+      ],
+      [
+       "01a0e211-b121-701e-889f-22439fb51af8",
+       2
+      ],
+      [
+       "01a0e211-d77e-710c-a27e-984da9fe6808",
+       3
+      ],
+      [
+       "01a0e211-f7df-7829-9269-73574ce54299",
+       4
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:54:33.487+00:00",
+      "issued": "2026-09-27T08:53:07.094+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:53:58.683+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:53:06.809",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:53:07.094",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:53:09.034",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:53:20.023",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:53:30.094",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     6,
+     "08:53:38.148",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:53:48.305",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     8,
+     "08:53:52.700",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     9,
+     "08:53:58.683",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 4,
+    "desired_state": "RUNNING",
+    "event_sequence": 9,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 9
+   },
+   "job_id": "01a0e211-687a-7140-81d8-9ab1a5c3a71d",
+   "ledger_segments": {
+    "charged": "14.13727633435848973763383309",
+    "count": 11
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C10_full_restart": {
+  "checksums": [
+   "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+   "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b"
+  ],
+  "epoch_after": 2,
+  "epoch_before": 1,
+  "retry_counts": [
+   0,
+   0
+  ],
+  "states_at_stop": [
+   "RUNNING",
+   "QUEUED"
+  ],
+  "timelines": [
+   {
+    "allocations": [
+     {
+      "allocation_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d56",
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     }
+    ],
+    "attempt_intents": [
+     {
+      "attempt_number": 1,
+      "execution_intent": "RUN"
+     }
+    ],
+    "attempts": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "attempt_number": 1,
+      "failure_class": null,
+      "failure_reason": null,
+      "job_fence": 1,
+      "state": "SUCCEEDED",
+      "worker_incarnation_id": "01a0e21c-8fa2-7ea1-a718-7bcc5bc76da9"
+     }
+    ],
+    "checkpoints": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "checkpoint_id": "01a0e21c-6849-7712-8ad6-9f4f89464353",
+      "corrupt": null,
+      "sequence": 1
+     },
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "checkpoint_id": "01a0e21c-b0b4-70c4-8722-6b49b885e703",
+      "corrupt": null,
+      "sequence": 2
+     },
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "checkpoint_id": "01a0e21c-cdf2-7ab8-a05c-f78bc1546e8f",
+      "corrupt": null,
+      "sequence": 3
+     }
+    ],
+    "containers": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "container_id": "b46a39607ce8",
+      "stopped": true,
+      "verified": true
+     }
+    ],
+    "coordinator_epoch": 2,
+    "counters": [
+     1,
+     1
+    ],
+    "events": [
+     {
+      "at": "2026-09-27T09:04:50.212+00:00",
+      "event_type": "JOB_ACCEPTED",
+      "reason": "Job accepted",
+      "sequence": 1
+     },
+     {
+      "at": "2026-09-27T09:04:50.575+00:00",
+      "event_type": "JOB_DISPATCHING",
+      "reason": null,
+      "sequence": 2
+     },
+     {
+      "at": "2026-09-27T09:04:59.963+00:00",
+      "event_type": "ATTEMPT_STARTED",
+      "reason": "attempt_started",
+      "sequence": 3
+     },
+     {
+      "at": "2026-09-27T09:05:10.493+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 4
+     },
+     {
+      "at": "2026-09-27T09:05:28.561+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 5
+     },
+     {
+      "at": "2026-09-27T09:05:38.464+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 6
+     },
+     {
+      "at": "2026-09-27T09:05:40.181+00:00",
+      "event_type": "RESULT_RECOGNIZED",
+      "reason": "result_recognized",
+      "sequence": 7
+     },
+     {
+      "at": "2026-09-27T09:05:46.189+00:00",
+      "event_type": "ALLOCATION_RELEASED",
+      "reason": "VERIFIED_CLEANUP",
+      "sequence": 8
+     }
+    ],
+    "grants": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "ended": true,
+      "job_fence": 1,
+      "worker_incarnation_id": "01a0e217-0e73-7291-abb9-867e81681dfa"
+     },
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "ended": true,
+      "job_fence": 1,
+      "worker_incarnation_id": "01a0e21c-8fa2-7ea1-a718-7bcc5bc76da9"
+     }
+    ],
+    "job": {
+     "checkpoint_sequence": 3,
+     "desired_state": "RUNNING",
+     "event_sequence": 8,
+     "job_fence": 1,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": null,
+     "state": "SUCCEEDED",
+     "terminal": true,
+     "version": 8
+    },
+    "job_id": "01a0e21c-2424-7cca-939d-10bb1267c0e5",
+    "lease_times": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "expires_at": "2026-09-27T09:06:21.426+00:00",
+      "issued_at": "2026-09-27T09:04:50.575+00:00",
+      "revoked_at": "2026-09-27T09:05:46.189+00:00"
+     }
+    ],
+    "leases": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "current_worker_incarnation_id": "01a0e21c-8fa2-7ea1-a718-7bcc5bc76da9",
+      "job_fence": 1,
+      "lease_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d57",
+      "revoke_reason": null,
+      "revoked": true
+     }
+    ],
+    "ledger_segments": {
+     "charged": "15.24027381920589754150628996",
+     "count": 11
+    },
+    "reservations": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "sequence": 1,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "sequence": 2,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "sequence": 3,
+      "state": "COMMITTED"
+     }
+    ],
+    "restores": {
+     "01a0e21c-25cd-70a5-8b75-5160d50b9d55": null
+    },
+    "results": [
+     {
+      "attempt_id": "01a0e21c-25cd-70a5-8b75-5160d50b9d55",
+      "result_id": "01a0e21c-e1d1-76c9-a183-e99cc0facc6a"
+     }
+    ],
+    "retries": [],
+    "submit_idempotency_key": "b15-docker-c10-first",
+    "submit_idempotency_records": 1
+   },
+   {
+    "allocations": [
+     {
+      "allocation_id": "01a0e21c-ff8b-7c53-973f-61044fb17c68",
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     }
+    ],
+    "attempt_intents": [
+     {
+      "attempt_number": 1,
+      "execution_intent": "RUN"
+     }
+    ],
+    "attempts": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "attempt_number": 1,
+      "failure_class": null,
+      "failure_reason": null,
+      "job_fence": 1,
+      "state": "SUCCEEDED",
+      "worker_incarnation_id": "01a0e21c-8fa2-7ea1-a718-7bcc5bc76da9"
+     }
+    ],
+    "checkpoints": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "checkpoint_id": "01a0e21d-3dbe-78b5-bf37-3d7c0414aa33",
+      "corrupt": null,
+      "sequence": 1
+     },
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "checkpoint_id": "01a0e21d-63a8-7bc0-a1c3-ea498e9db5c1",
+      "corrupt": null,
+      "sequence": 2
+     },
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "checkpoint_id": "01a0e21d-81ee-74db-a238-40b3a9c75dea",
+      "corrupt": null,
+      "sequence": 3
+     },
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "checkpoint_id": "01a0e21d-aae0-7060-8cda-51c6370131a7",
+      "corrupt": null,
+      "sequence": 4
+     }
+    ],
+    "containers": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "container_id": "de6426119e8c",
+      "stopped": true,
+      "verified": true
+     }
+    ],
+    "coordinator_epoch": 2,
+    "counters": [
+     0,
+     0
+    ],
+    "events": [
+     {
+      "at": "2026-09-27T09:04:50.275+00:00",
+      "event_type": "JOB_ACCEPTED",
+      "reason": "Job accepted",
+      "sequence": 1
+     },
+     {
+      "at": "2026-09-27T09:05:46.326+00:00",
+      "event_type": "JOB_DISPATCHING",
+      "reason": null,
+      "sequence": 2
+     },
+     {
+      "at": "2026-09-27T09:05:54.341+00:00",
+      "event_type": "ATTEMPT_STARTED",
+      "reason": "attempt_started",
+      "sequence": 3
+     },
+     {
+      "at": "2026-09-27T09:06:04.832+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 4
+     },
+     {
+      "at": "2026-09-27T09:06:14.537+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 5
+     },
+     {
+      "at": "2026-09-27T09:06:22.835+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 6
+     },
+     {
+      "at": "2026-09-27T09:06:32.693+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 7
+     },
+     {
+      "at": "2026-09-27T09:06:37.631+00:00",
+      "event_type": "RESULT_RECOGNIZED",
+      "reason": "result_recognized",
+      "sequence": 8
+     },
+     {
+      "at": "2026-09-27T09:06:43.466+00:00",
+      "event_type": "ALLOCATION_RELEASED",
+      "reason": "VERIFIED_CLEANUP",
+      "sequence": 9
+     }
+    ],
+    "grants": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "ended": true,
+      "job_fence": 1,
+      "worker_incarnation_id": "01a0e21c-8fa2-7ea1-a718-7bcc5bc76da9"
+     }
+    ],
+    "job": {
+     "checkpoint_sequence": 4,
+     "desired_state": "RUNNING",
+     "event_sequence": 9,
+     "job_fence": 1,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": null,
+     "state": "SUCCEEDED",
+     "terminal": true,
+     "version": 9
+    },
+    "job_id": "01a0e21c-2464-7031-9e33-81dc65a16da5",
+    "lease_times": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "expires_at": "2026-09-27T09:07:18.222+00:00",
+      "issued_at": "2026-09-27T09:05:46.326+00:00",
+      "revoked_at": "2026-09-27T09:06:43.466+00:00"
+     }
+    ],
+    "leases": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "current_worker_incarnation_id": "01a0e21c-8fa2-7ea1-a718-7bcc5bc76da9",
+      "job_fence": 1,
+      "lease_id": "01a0e21c-ff8b-7c53-973f-61044fb17c69",
+      "revoke_reason": null,
+      "revoked": true
+     }
+    ],
+    "ledger_segments": {
+     "charged": "15.65845373520021910888749972",
+     "count": 12
+    },
+    "reservations": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "sequence": 1,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "sequence": 2,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "sequence": 3,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "sequence": 4,
+      "state": "COMMITTED"
+     }
+    ],
+    "restores": {
+     "01a0e21c-ff8b-7c53-973f-61044fb17c67": null
+    },
+    "results": [
+     {
+      "attempt_id": "01a0e21c-ff8b-7c53-973f-61044fb17c67",
+      "result_id": "01a0e21d-c1a7-7950-a493-7b3183209bf7"
+     }
+    ],
+    "retries": [],
+    "submit_idempotency_key": "b15-docker-c10-second",
+    "submit_idempotency_records": 1
+   }
+  ]
+ },
+ "C1_pause_resume": {
+  "checksum": "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+  "paused": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e212-34e1-7ba5-a930-c4e6788411ab",
+     "checkpoints": [
+      [
+       "01a0e212-7b23-71a0-bfec-ae45314398c8",
+       1
+      ],
+      [
+       "01a0e212-a251-7fe5-89ed-c306b75ee6f2",
+       2
+      ]
+     ],
+     "failure": [
+      null,
+      "PAUSE"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:55:17.514+00:00",
+      "issued": "2026-09-27T08:53:59.090+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:54:35.447+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "CANCELLED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": null,
+   "events": [
+    [
+     1,
+     "08:53:58.963",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:53:59.090",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:54:08.924",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:54:21.934",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:54:22.033",
+     "PAUSE_REQUESTED",
+     "USER_PAUSE"
+    ],
+    [
+     6,
+     "08:54:34.156",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:54:35.447",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "PAUSED",
+    "event_sequence": 7,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "PAUSED",
+    "terminal": false,
+    "version": 7
+   },
+   "job_id": "01a0e212-3434-72aa-b566-274592eb004b",
+   "ledger_segments": null,
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ]
+   ],
+   "results": 0,
+   "retries": [],
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e212-34e1-7ba5-a930-c4e6788411ab",
+     "checkpoints": [
+      [
+       "01a0e212-7b23-71a0-bfec-ae45314398c8",
+       1
+      ],
+      [
+       "01a0e212-a251-7fe5-89ed-c306b75ee6f2",
+       2
+      ]
+     ],
+     "failure": [
+      null,
+      "PAUSE"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:55:17.514+00:00",
+      "issued": "2026-09-27T08:53:59.090+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:54:35.447+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "CANCELLED"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e212-c648-7f52-b780-b32c331dee32",
+     "checkpoints": [
+      [
+       "01a0e212-ebe6-7c1e-b5f2-658f82a61f89",
+       3
+      ],
+      [
+       "01a0e213-127a-783a-89c1-e55287ec460c",
+       4
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 2,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:55:46.288+00:00",
+      "issued": "2026-09-27T08:54:36.300+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:55:09.308+00:00"
+     },
+     "n": 2,
+     "restore": {
+      "checkpoint_id": "01a0e212-a251-7fe5-89ed-c306b75ee6f2",
+      "sequence": 2
+     },
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:53:58.963",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:53:59.090",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:54:08.924",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:54:21.934",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:54:22.033",
+     "PAUSE_REQUESTED",
+     "USER_PAUSE"
+    ],
+    [
+     6,
+     "08:54:34.156",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:54:35.447",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     8,
+     "08:54:36.031",
+     "JOB_RESUMED",
+     "USER_RESUME"
+    ],
+    [
+     9,
+     "08:54:36.300",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     10,
+     "08:54:36.597",
+     "CHECKPOINT_RESTORE_SELECTED",
+     "CHECKPOINT_RESTORED"
+    ],
+    [
+     11,
+     "08:54:37.861",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     12,
+     "08:54:48.680",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     13,
+     "08:55:01.062",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     14,
+     "08:55:03.433",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     15,
+     "08:55:09.308",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 4,
+    "desired_state": "RUNNING",
+    "event_sequence": 15,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 14
+   },
+   "job_id": "01a0e212-3434-72aa-b566-274592eb004b",
+   "ledger_segments": {
+    "charged": "19.00855168607215958151875075",
+    "count": 15
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C2_cancel_running": {
+  "replayed": true,
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e213-5c88-7560-a735-b778b7ef2531",
+     "checkpoints": [],
+     "failure": [
+      "USER_CANCEL",
+      "USER_CANCEL"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:56:01.238+00:00",
+      "issued": "2026-09-27T08:55:14.762+00:00",
+      "revoke_reason": "USER_CANCEL",
+      "revoked": "2026-09-27T08:55:16.338+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "CANCELLED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:55:09.559",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:55:14.762",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:55:16.215",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:55:16.338",
+     "CANCEL_REQUESTED",
+     "USER_CANCEL"
+    ],
+    [
+     5,
+     "08:55:25.102",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 0,
+    "desired_state": "CANCELLED",
+    "event_sequence": 5,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "CANCELLED",
+    "terminal": true,
+    "version": 5
+   },
+   "job_id": "01a0e213-47f7-735f-be01-ab70cc5ba6e3",
+   "ledger_segments": {
+    "charged": "2.833538880328496072556820915",
+    "count": 3
+   },
+   "reservations": [],
+   "results": 0,
+   "retries": [],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C3_worker_dead_past_lease": {
+  "checksum": "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+  "lease_expires_at": "2026-09-27T08:59:12.230+00:00",
+  "quarantined_charge": {
+   "after_3s": "17.78634826186857230070604076",
+   "before": "16.94944035659553293846343621"
+  },
+  "reaped": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": null,
+      "state": "QUARANTINED"
+     },
+     "attempt_id": "01a0e216-0c36-7ff0-91ff-cf9f19201876",
+     "checkpoints": [
+      [
+       "01a0e216-4c18-7850-8ea3-ce694c226977",
+       1
+      ]
+     ],
+     "failure": [
+      "INFRASTRUCTURE",
+      "LEASE_EXPIRED"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:59:12.230+00:00",
+      "issued": "2026-09-27T08:58:10.821+00:00",
+      "revoke_reason": "LEASE_EXPIRED",
+      "revoked": "2026-09-27T08:59:12.694+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "LOST"
+    }
+   ],
+   "containers_stopped_verified": false,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": null,
+   "events": [
+    [
+     1,
+     "08:58:10.517",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:58:10.821",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:58:19.456",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:58:32.108",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:59:12.694",
+     "ATTEMPT_LOST",
+     "LEASE_EXPIRED"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "RUNNING",
+    "event_sequence": 5,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "RECOVERING",
+    "terminal": false,
+    "version": 5
+   },
+   "job_id": "01a0e216-0ad6-7652-bfae-8cdada318d78",
+   "ledger_segments": null,
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ]
+   ],
+   "results": 0,
+   "retries": [],
+   "submit_idempotency_records": 1
+  },
+  "runner_finished_at": "2026-09-27T08:59:10.412+00:00",
+  "runner_finished_source": "container FinishedAt",
+  "runner_stop_margin_seconds": 1.818,
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e216-0c36-7ff0-91ff-cf9f19201876",
+     "checkpoints": [
+      [
+       "01a0e216-4c18-7850-8ea3-ce694c226977",
+       1
+      ]
+     ],
+     "failure": [
+      "INFRASTRUCTURE",
+      "LEASE_EXPIRED"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:59:12.230+00:00",
+      "issued": "2026-09-27T08:58:10.821+00:00",
+      "revoke_reason": "LEASE_EXPIRED",
+      "revoked": "2026-09-27T08:59:12.694+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "LOST"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e217-3792-7c6a-b327-253375418d79",
+     "checkpoints": [
+      [
+       "01a0e217-5b80-7c61-98cd-71c918476ce0",
+       2
+      ],
+      [
+       "01a0e217-8217-7419-9c6e-286ca8ce5a50",
+       3
+      ],
+      [
+       "01a0e217-a1a5-7192-a76c-02f52fdd8f0f",
+       4
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 3,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:00:45.331+00:00",
+      "issued": "2026-09-27T08:59:27.460+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T09:00:06.305+00:00"
+     },
+     "n": 2,
+     "restore": {
+      "checkpoint_id": "01a0e216-4c18-7850-8ea3-ce694c226977",
+      "sequence": 1
+     },
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:58:10.517",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:58:10.821",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:58:19.456",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:58:32.108",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:59:12.694",
+     "ATTEMPT_LOST",
+     "LEASE_EXPIRED"
+    ],
+    [
+     6,
+     "08:59:17.336",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     7,
+     "08:59:19.784",
+     "RETRY_READY",
+     "BACKOFF_ELAPSED"
+    ],
+    [
+     8,
+     "08:59:27.460",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     9,
+     "08:59:28.284",
+     "CHECKPOINT_RESTORE_SELECTED",
+     "CHECKPOINT_RESTORED"
+    ],
+    [
+     10,
+     "08:59:29.007",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     11,
+     "08:59:39.335",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     12,
+     "08:59:49.495",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     13,
+     "08:59:57.225",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     14,
+     "09:00:00.553",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     15,
+     "09:00:06.305",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 4,
+    "desired_state": "RUNNING",
+    "event_sequence": 15,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 14
+   },
+   "job_id": "01a0e216-0ad6-7652-bfae-8cdada318d78",
+   "ledger_segments": {
+    "charged": "28.87250062199326365614957945",
+    "count": 14
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_records": 1
+  },
+  "worker_dead_seconds_until_reaped": 94.0
+ },
+ "C4_pause_crash_after_checkpoint": {
+  "checksum": "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+  "crash_path": "workload SIGKILL after pause publish commit, worker frozen",
+  "paused": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e213-abb7-7ee5-a91e-3d5726c3c76e",
+     "checkpoints": [
+      [
+       "01a0e213-cf9f-752e-8bd3-499f48be673a",
+       1
+      ],
+      [
+       "01a0e213-e995-73ee-b8d5-cfa86991a813",
+       2
+      ]
+     ],
+     "failure": [
+      null,
+      "PAUSE"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:56:41.078+00:00",
+      "issued": "2026-09-27T08:55:35.040+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:55:56.502+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "CANCELLED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": null,
+   "events": [
+    [
+     1,
+     "08:55:25.295",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:55:35.040",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:55:36.499",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:55:46.906",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:55:46.976",
+     "PAUSE_REQUESTED",
+     "USER_PAUSE"
+    ],
+    [
+     6,
+     "08:55:55.649",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:55:56.502",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "PAUSED",
+    "event_sequence": 7,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "PAUSED",
+    "terminal": false,
+    "version": 7
+   },
+   "job_id": "01a0e213-856f-75b2-abdf-b38ffb1cb890",
+   "ledger_segments": null,
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ]
+   ],
+   "results": 0,
+   "retries": [],
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e213-abb7-7ee5-a91e-3d5726c3c76e",
+     "checkpoints": [
+      [
+       "01a0e213-cf9f-752e-8bd3-499f48be673a",
+       1
+      ],
+      [
+       "01a0e213-e995-73ee-b8d5-cfa86991a813",
+       2
+      ]
+     ],
+     "failure": [
+      null,
+      "PAUSE"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:56:41.078+00:00",
+      "issued": "2026-09-27T08:55:35.040+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:55:56.502+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "CANCELLED"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e214-006d-75cd-b5fc-c745c4de9941",
+     "checkpoints": [
+      [
+       "01a0e214-2386-72bf-ac68-55f2507bf0a2",
+       3
+      ],
+      [
+       "01a0e214-462e-73ef-b537-cc18c25d84d1",
+       4
+      ],
+      [
+       "01a0e214-63ee-7457-bf65-144014c0a7c2",
+       5
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 2,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:57:08.001+00:00",
+      "issued": "2026-09-27T08:55:56.739+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:56:32.458+00:00"
+     },
+     "n": 2,
+     "restore": {
+      "checkpoint_id": "01a0e213-e995-73ee-b8d5-cfa86991a813",
+      "sequence": 2
+     },
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:55:25.295",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:55:35.040",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:55:36.499",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:55:46.906",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:55:46.976",
+     "PAUSE_REQUESTED",
+     "USER_PAUSE"
+    ],
+    [
+     6,
+     "08:55:55.649",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:55:56.502",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     8,
+     "08:55:56.589",
+     "JOB_RESUMED",
+     "USER_RESUME"
+    ],
+    [
+     9,
+     "08:55:56.739",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     10,
+     "08:55:57.563",
+     "CHECKPOINT_RESTORE_SELECTED",
+     "CHECKPOINT_RESTORED"
+    ],
+    [
+     11,
+     "08:55:58.073",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     12,
+     "08:56:08.712",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     13,
+     "08:56:17.114",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     14,
+     "08:56:24.619",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     15,
+     "08:56:26.612",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     16,
+     "08:56:32.458",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0e213-856f-75b2-abdf-b38ffb1cb890",
+   "ledger_segments": {
+    "charged": "15.66968923753034177223129369",
+    "count": 13
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ],
+    [
+     5,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [],
+   "submit_idempotency_records": 1
+  },
+  "workload_exit_code": 137,
+  "workload_finished_at": "2026-09-27 08:55:55.876634+00:00"
+ },
+ "C5a_pause_crash_before_checkpoint_restart_safe": {
+  "paused": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e214-8d47-7f18-b773-da18b4ca54e6",
+     "checkpoints": [],
+     "failure": [
+      "INFRASTRUCTURE",
+      "RUNNER_UNAVAILABLE"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:57:27.287+00:00",
+      "issued": "2026-09-27T08:56:32.793+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:56:43.430+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "FAILED"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e214-befb-7a2c-b9cf-f18593a1255b",
+     "checkpoints": [
+      [
+       "01a0e214-df2e-7d4d-960d-051abefe0d5e",
+       1
+      ]
+     ],
+     "failure": [
+      null,
+      "PAUSE"
+     ],
+     "fence": 3,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "CHECKPOINT_FOR_PAUSE",
+     "lease": {
+      "expires": "2026-09-27T08:57:42.659+00:00",
+      "issued": "2026-09-27T08:56:45.520+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:56:58.172+00:00"
+     },
+     "n": 2,
+     "restore": null,
+     "state": "CANCELLED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": null,
+   "events": [
+    [
+     1,
+     "08:56:32.701",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:56:32.793",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:56:42.274",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:56:42.978",
+     "PAUSE_REQUESTED",
+     "USER_PAUSE"
+    ],
+    [
+     5,
+     "08:56:43.430",
+     "ATTEMPT_FAILED",
+     "RUNNER_UNAVAILABLE"
+    ],
+    [
+     6,
+     "08:56:43.617",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     7,
+     "08:56:45.389",
+     "RETRY_READY",
+     "BACKOFF_ELAPSED"
+    ],
+    [
+     8,
+     "08:56:45.520",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     9,
+     "08:56:52.061",
+     "CHECKPOINT_FALLBACK_TO_INPUT",
+     "CHECKPOINT_FALLBACK_TO_INPUT"
+    ],
+    [
+     10,
+     "08:56:52.731",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     11,
+     "08:56:56.539",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     12,
+     "08:56:58.172",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "PAUSED",
+    "event_sequence": 12,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "PAUSED",
+    "terminal": false,
+    "version": 11
+   },
+   "job_id": "01a0e214-8cbd-7852-9558-080ff1637cc2",
+   "ledger_segments": null,
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ]
+   ],
+   "results": 0,
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e214-8d47-7f18-b773-da18b4ca54e6",
+     "checkpoints": [],
+     "failure": [
+      "INFRASTRUCTURE",
+      "RUNNER_UNAVAILABLE"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:57:27.287+00:00",
+      "issued": "2026-09-27T08:56:32.793+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:56:43.430+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "FAILED"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e214-befb-7a2c-b9cf-f18593a1255b",
+     "checkpoints": [
+      [
+       "01a0e214-df2e-7d4d-960d-051abefe0d5e",
+       1
+      ]
+     ],
+     "failure": [
+      null,
+      "PAUSE"
+     ],
+     "fence": 3,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "CHECKPOINT_FOR_PAUSE",
+     "lease": {
+      "expires": "2026-09-27T08:57:42.659+00:00",
+      "issued": "2026-09-27T08:56:45.520+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:56:58.172+00:00"
+     },
+     "n": 2,
+     "restore": null,
+     "state": "CANCELLED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:56:32.701",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:56:32.793",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:56:42.274",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:56:42.978",
+     "PAUSE_REQUESTED",
+     "USER_PAUSE"
+    ],
+    [
+     5,
+     "08:56:43.430",
+     "ATTEMPT_FAILED",
+     "RUNNER_UNAVAILABLE"
+    ],
+    [
+     6,
+     "08:56:43.617",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     7,
+     "08:56:45.389",
+     "RETRY_READY",
+     "BACKOFF_ELAPSED"
+    ],
+    [
+     8,
+     "08:56:45.520",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     9,
+     "08:56:52.061",
+     "CHECKPOINT_FALLBACK_TO_INPUT",
+     "CHECKPOINT_FALLBACK_TO_INPUT"
+    ],
+    [
+     10,
+     "08:56:52.731",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     11,
+     "08:56:56.539",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     12,
+     "08:56:58.172",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     13,
+     "08:56:58.444",
+     "JOB_CANCELLED",
+     "USER_CANCEL"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "CANCELLED",
+    "event_sequence": 13,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "CANCELLED",
+    "terminal": true,
+    "version": 12
+   },
+   "job_id": "01a0e214-8cbd-7852-9558-080ff1637cc2",
+   "ledger_segments": {
+    "charged": "6.433284212242918162412372126",
+    "count": 7
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ]
+   ],
+   "results": 0,
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C6_drain_disable_enable": {
+  "checksums": [
+   "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+   "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b"
+  ],
+  "enable_attempts": 6,
+  "fenced": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": null,
+      "state": "QUARANTINED"
+     },
+     "attempt_id": "01a0e219-cee5-7ccc-b166-76a3042f0b13",
+     "checkpoints": [
+      [
+       "01a0e219-f388-7f69-9a1b-9846be36e210",
+       1
+      ]
+     ],
+     "failure": [
+      "INFRASTRUCTURE",
+      "WORKER_DISABLED"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:03:16.649+00:00",
+      "issued": "2026-09-27T09:02:17.251+00:00",
+      "revoke_reason": "WORKER_DISABLED",
+      "revoked": "2026-09-27T09:02:36.229+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "STOPPING"
+    }
+   ],
+   "containers_stopped_verified": false,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": null,
+   "events": [
+    [
+     1,
+     "09:02:08.331",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "09:02:17.251",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "09:02:18.920",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "09:02:29.004",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "09:02:36.229",
+     "ATTEMPT_FENCED",
+     "WORKER_DISABLED"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "RUNNING",
+    "event_sequence": 5,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "RECOVERING",
+    "terminal": false,
+    "version": 5
+   },
+   "job_id": "01a0e219-abce-7809-8172-43f7a78a95a7",
+   "ledger_segments": null,
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "ABANDONED"
+    ]
+   ],
+   "results": 0,
+   "retries": [],
+   "submit_idempotency_records": 1
+  },
+  "queued_timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e21a-6cdf-74f4-8ba1-5ca87f0bffa4",
+     "checkpoints": [
+      [
+       "01a0e21a-93cd-7130-9a72-9b3c0eff0e1a",
+       1
+      ],
+      [
+       "01a0e21a-b935-752d-8af8-b62e3943bca2",
+       2
+      ],
+      [
+       "01a0e21a-e641-757a-b826-dcf9460453ca",
+       3
+      ],
+      [
+       "01a0e21b-0d04-7ec0-8a07-e2a9601b7c03",
+       4
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 1,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:04:34.535+00:00",
+      "issued": "2026-09-27T09:02:57.644+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T09:03:56.966+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "09:02:29.091",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "09:02:57.644",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "09:02:59.449",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "09:03:11.332",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "09:03:21.467",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     6,
+     "09:03:33.091",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "09:03:45.312",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     8,
+     "09:03:50.863",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     9,
+     "09:03:56.966",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 4,
+    "desired_state": "RUNNING",
+    "event_sequence": 9,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 9
+   },
+   "job_id": "01a0e219-fce2-744e-936e-c73061c079b1",
+   "ledger_segments": {
+    "charged": "16.25640168847650328976941299",
+    "count": 12
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [],
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e219-cee5-7ccc-b166-76a3042f0b13",
+     "checkpoints": [
+      [
+       "01a0e219-f388-7f69-9a1b-9846be36e210",
+       1
+      ]
+     ],
+     "failure": [
+      "INFRASTRUCTURE",
+      "WORKER_DISABLED"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:03:16.649+00:00",
+      "issued": "2026-09-27T09:02:17.251+00:00",
+      "revoke_reason": "WORKER_DISABLED",
+      "revoked": "2026-09-27T09:02:36.229+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "FAILED"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e21b-54f9-7661-b767-34880b377eba",
+     "checkpoints": [
+      [
+       "01a0e21b-94b9-760e-a744-f7c409d97caa",
+       3
+      ],
+      [
+       "01a0e21b-b71a-7e40-a4c6-f4c058a1d911",
+       4
+      ],
+      [
+       "01a0e21b-d5e3-7c5f-91ff-a8194d675b2d",
+       5
+      ],
+      [
+       "01a0e21b-f7f2-79dc-b170-9cb03da9118d",
+       6
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 3,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:05:27.009+00:00",
+      "issued": "2026-09-27T09:03:57.131+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T09:04:49.723+00:00"
+     },
+     "n": 2,
+     "restore": {
+      "checkpoint_id": "01a0e219-f388-7f69-9a1b-9846be36e210",
+      "sequence": 1
+     },
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "09:02:08.331",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "09:02:17.251",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "09:02:18.920",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "09:02:29.004",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "09:02:36.229",
+     "ATTEMPT_FENCED",
+     "WORKER_DISABLED"
+    ],
+    [
+     6,
+     "09:02:42.485",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     7,
+     "09:02:44.508",
+     "RETRY_READY",
+     "BACKOFF_ELAPSED"
+    ],
+    [
+     8,
+     "09:03:57.131",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     9,
+     "09:04:03.847",
+     "CHECKPOINT_RESTORE_SELECTED",
+     "CHECKPOINT_RESTORED"
+    ],
+    [
+     10,
+     "09:04:05.331",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     11,
+     "09:04:17.041",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     12,
+     "09:04:25.070",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     13,
+     "09:04:33.234",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     14,
+     "09:04:41.510",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     15,
+     "09:04:43.944",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     16,
+     "09:04:49.723",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 6,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0e219-abce-7809-8172-43f7a78a95a7",
+   "ledger_segments": {
+    "charged": "21.32717571571039993644169676",
+    "count": 18
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "ABANDONED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ],
+    [
+     5,
+     "COMMITTED"
+    ],
+    [
+     6,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C7a_manual_retry_with_checkpoint": {
+  "checkpoint": {
+   "checkpoint_id": "01a0e215-6c0d-752e-b97c-1b2fa7580980",
+   "sequence": 3
+  },
+  "checksum": "sha256:cf8e1539ec92351bba39d477f73de5f2a5c8a74619f68e6efa964135842dd3c7",
+  "source_job_id": "01a0e214-f280-7566-b642-b38864731045",
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e215-9db7-7a03-8495-157486e14be8",
+     "checkpoints": [
+      [
+       "01a0e215-bf8e-7b1c-9641-58bc051cc4f0",
+       1
+      ],
+      [
+       "01a0e215-e0e2-7244-9c5a-f3517ed09c19",
+       2
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:58:47.765+00:00",
+      "issued": "2026-09-27T08:57:42.513+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:58:10.162+00:00"
+     },
+     "n": 1,
+     "restore": {
+      "checkpoint_id": "01a0e215-6c0d-752e-b97c-1b2fa7580980",
+      "sequence": 3
+     },
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:57:37.692",
+     "JOB_ACCEPTED",
+     "MANUAL_RETRY"
+    ],
+    [
+     2,
+     "08:57:42.513",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:57:42.638",
+     "CHECKPOINT_RESTORE_SELECTED",
+     "CHECKPOINT_RESTORED"
+    ],
+    [
+     4,
+     "08:57:43.443",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     5,
+     "08:57:54.546",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     6,
+     "08:58:01.769",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:58:04.279",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     8,
+     "08:58:10.162",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "RUNNING",
+    "event_sequence": 8,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": "01a0e214-f280-7566-b642-b38864731045",
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 7
+   },
+   "job_id": "01a0e215-8a9e-72bb-865c-34412f5aa8f1",
+   "ledger_segments": {
+    "charged": "7.576839120135646799818524319",
+    "count": 6
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C8_timeout": {
+  "derived_from_C0": {
+   "checkpoint_gap_seconds": 10.989,
+   "compute_seconds": 43.666
+  },
+  "runtime_limit_seconds": 36,
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e214-f397-759c-ac4e-593089093f17",
+     "checkpoints": [
+      [
+       "01a0e215-17ff-705f-bcf4-84a0c7409707",
+       1
+      ],
+      [
+       "01a0e215-4831-79de-b826-a681001a5d7d",
+       2
+      ],
+      [
+       "01a0e215-6c0d-752e-b97c-1b2fa7580980",
+       3
+      ]
+     ],
+     "failure": [
+      "TIMEOUT",
+      "RUNTIME_LIMIT_REACHED"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e211-50ee-735e-82a2-7b62f0052b4b",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T08:58:20.122+00:00",
+      "issued": "2026-09-27T08:56:58.984+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T08:57:37.168+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "FAILED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "08:56:58.752",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "08:56:58.984",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "08:57:00.324",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "08:57:15.065",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "08:57:24.500",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     6,
+     "08:57:34.578",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     7,
+     "08:57:37.168",
+     "ATTEMPT_FAILED",
+     "RUNTIME_LIMIT_REACHED"
+    ],
+    [
+     8,
+     "08:57:37.389",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 3,
+    "desired_state": "RUNNING",
+    "event_sequence": 8,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "FAILED",
+    "terminal": true,
+    "version": 8
+   },
+   "job_id": "01a0e214-f280-7566-b642-b38864731045",
+   "ledger_segments": {
+    "charged": "10.52437724361855818825384015",
+    "count": 9
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ]
+   ],
+   "results": 0,
+   "retries": [],
+   "submit_idempotency_records": 1
+  }
+ },
+ "C9_network_loss": {
+  "checksum": "sha256:9d8bc2f997fb2932343f489631ef32cfaa6b5a32fc244f88987c6feb4a00308b",
+  "compute_gap_seconds": 20.044,
+  "new_runner_started_at": "2026-09-27T09:01:22.832+00:00",
+  "old_lease_expires_at": "2026-09-27T09:01:07.652+00:00",
+  "old_runner_finished_at": "2026-09-27T09:01:02.788+00:00",
+  "old_runner_finished_source": "container FinishedAt",
+  "reaped_fence": 2,
+  "runner_stop_margin_seconds": 4.864,
+  "same_worker_incarnation": true,
+  "timeline": {
+   "attempts": [
+    {
+     "allocation": {
+      "quarantined": true,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e217-d1b2-74e9-957c-a5545a63f9fe",
+     "checkpoints": [
+      [
+       "01a0e218-0cc9-73aa-9f05-ce2cb109bfce",
+       1
+      ]
+     ],
+     "failure": [
+      "INFRASTRUCTURE",
+      "LEASE_EXPIRED"
+     ],
+     "fence": 1,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:01:07.652+00:00",
+      "issued": "2026-09-27T09:00:06.920+00:00",
+      "revoke_reason": "LEASE_EXPIRED",
+      "revoked": "2026-09-27T09:01:08.224+00:00"
+     },
+     "n": 1,
+     "restore": null,
+     "state": "LOST"
+    },
+    {
+     "allocation": {
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     },
+     "attempt_id": "01a0e218-f4ef-7aa9-8645-b0e1d84ed642",
+     "checkpoints": [
+      [
+       "01a0e219-1b3b-7adb-8260-37dae284e035",
+       2
+      ],
+      [
+       "01a0e219-40d0-7de5-b590-383699dd4775",
+       3
+      ],
+      [
+       "01a0e219-64c1-7937-a907-b5a65dfb6898",
+       4
+      ],
+      [
+       "01a0e219-82f7-7ec2-b3d6-730896a53608",
+       5
+      ]
+     ],
+     "failure": [
+      null,
+      null
+     ],
+     "fence": 3,
+     "incarnation": "01a0e217-0e73-7291-abb9-867e81681dfa",
+     "intent": "RUN",
+     "lease": {
+      "expires": "2026-09-27T09:02:43.419+00:00",
+      "issued": "2026-09-27T09:01:21.471+00:00",
+      "revoke_reason": null,
+      "revoked": "2026-09-27T09:02:08.049+00:00"
+     },
+     "n": 2,
+     "restore": {
+      "checkpoint_id": "01a0e218-0cc9-73aa-9f05-ce2cb109bfce",
+      "sequence": 1
+     },
+     "state": "SUCCEEDED"
+    }
+   ],
+   "containers_stopped_verified": true,
+   "coordinator_epoch": 1,
+   "counters_outstanding_active": [
+    0,
+    0
+   ],
+   "events": [
+    [
+     1,
+     "09:00:06.716",
+     "JOB_ACCEPTED",
+     "Job accepted"
+    ],
+    [
+     2,
+     "09:00:06.920",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     3,
+     "09:00:14.002",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     4,
+     "09:00:25.283",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     5,
+     "09:01:08.224",
+     "ATTEMPT_LOST",
+     "LEASE_EXPIRED"
+    ],
+    [
+     6,
+     "09:01:13.662",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ],
+    [
+     7,
+     "09:01:15.283",
+     "RETRY_READY",
+     "BACKOFF_ELAPSED"
+    ],
+    [
+     8,
+     "09:01:21.471",
+     "JOB_DISPATCHING",
+     null
+    ],
+    [
+     9,
+     "09:01:22.487",
+     "CHECKPOINT_RESTORE_SELECTED",
+     "CHECKPOINT_RESTORED"
+    ],
+    [
+     10,
+     "09:01:23.103",
+     "ATTEMPT_STARTED",
+     "attempt_started"
+    ],
+    [
+     11,
+     "09:01:35.595",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     12,
+     "09:01:44.812",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     13,
+     "09:01:52.710",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     14,
+     "09:01:59.958",
+     "CHECKPOINT_COMMITTED",
+     "CHECKPOINT_COMMITTED"
+    ],
+    [
+     15,
+     "09:02:02.081",
+     "RESULT_RECOGNIZED",
+     "result_recognized"
+    ],
+    [
+     16,
+     "09:02:08.049",
+     "ALLOCATION_RELEASED",
+     "VERIFIED_CLEANUP"
+    ]
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0e217-d0bc-7483-b0c1-15e1b0ba7fc9",
+   "ledger_segments": {
+    "charged": "31.05383229389024902728616499",
+    "count": 16
+   },
+   "reservations": [
+    [
+     1,
+     "COMMITTED"
+    ],
+    [
+     2,
+     "COMMITTED"
+    ],
+    [
+     3,
+     "COMMITTED"
+    ],
+    [
+     4,
+     "COMMITTED"
+    ],
+    [
+     5,
+     "COMMITTED"
+    ]
+   ],
+   "results": 1,
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_records": 1
+  }
+ },
+ "accepted_jobs": {
+  "count": 13,
+  "states": [
+   "CANCELLED",
+   "CANCELLED",
+   "FAILED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED"
+  ]
+ },
+ "architecture": "linux/arm64",
+ "checkpoint_interval_seconds": 5,
+ "epochs": [
+  1,
+  2
+ ],
+ "failed_scenario": null,
+ "fairness_scores": [
+  "14.137276334358489737633833088369039579678905124591",
+  "33.145828020430649319152583833192905722547099002498",
+  "35.979366900759145391709404747219846916481462509995",
+  "51.649056138289487163940698430486241927154657840957",
+  "58.082340350532405326353070555988802030520529959138",
+  "68.606717594150963514606910711037610207798018402598",
+  "76.183556714286610314425435029406168918735273394741",
+  "105.05605733627987397057501447833059098768348801272",
+  "136.10988963017012299786117946648658480747479097887",
+  "173.69346703435702622407228920700563034574462524614",
+  "204.59219458876314287446607889174390185259909554836"
+ ],
+ "image": "nexa/cpu-iterative@sha256:c30fa52a0e0dd7ecdc25bf4ceae4ffe2ef711c1c4630029d60dd8b7535342024",
+ "iterations": 250000000,
+ "not_restart_safe_database": {
+  "C5b_baseline": {
+   "checksum": "sha256:4b56616380581c1906310c01dd840dabc9ef5f5ab97d7dd017497bf8ef9a333c",
+   "timeline": {
+    "attempts": [
+     {
+      "allocation": {
+       "quarantined": false,
+       "release_reason": "VERIFIED_CLEANUP",
+       "state": "RELEASED"
+      },
+      "attempt_id": "01a0e21e-0748-7c44-b9ce-f954181d208d",
+      "checkpoints": [
+       [
+        "01a0e21e-2921-71a8-9501-41887ca8ab13",
+        1
+       ],
+       [
+        "01a0e21e-47ae-7adb-87d3-e74e162a1051",
+        2
+       ],
+       [
+        "01a0e21e-6c32-725b-88bc-2ed78d0f5624",
+        3
+       ],
+       [
+        "01a0e21e-958e-720a-b6eb-785503a5bc34",
+        4
+       ]
+      ],
+      "failure": [
+       null,
+       null
+      ],
+      "fence": 1,
+      "incarnation": "01a0e21d-ef7c-7641-997e-d7df32d45c3e",
+      "intent": "RUN",
+      "lease": {
+       "expires": "2026-09-27T09:08:18.552+00:00",
+       "issued": "2026-09-27T09:06:53.815+00:00",
+       "revoke_reason": null,
+       "revoked": "2026-09-27T09:07:41.272+00:00"
+      },
+      "n": 1,
+      "restore": null,
+      "state": "SUCCEEDED"
+     }
+    ],
+    "containers_stopped_verified": true,
+    "coordinator_epoch": 1,
+    "counters_outstanding_active": [
+     0,
+     0
+    ],
+    "events": [
+     [
+      1,
+      "09:06:53.418",
+      "JOB_ACCEPTED",
+      "Job accepted"
+     ],
+     [
+      2,
+      "09:06:53.815",
+      "JOB_DISPATCHING",
+      null
+     ],
+     [
+      3,
+      "09:06:54.808",
+      "ATTEMPT_STARTED",
+      "attempt_started"
+     ],
+     [
+      4,
+      "09:07:05.050",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      5,
+      "09:07:14.593",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      6,
+      "09:07:24.169",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      7,
+      "09:07:32.486",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      8,
+      "09:07:35.508",
+      "RESULT_RECOGNIZED",
+      "result_recognized"
+     ],
+     [
+      9,
+      "09:07:41.272",
+      "ALLOCATION_RELEASED",
+      "VERIFIED_CLEANUP"
+     ]
+    ],
+    "job": {
+     "checkpoint_sequence": 4,
+     "desired_state": "RUNNING",
+     "event_sequence": 9,
+     "job_fence": 1,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": null,
+     "state": "SUCCEEDED",
+     "terminal": true,
+     "version": 9
+    },
+    "job_id": "01a0e21e-0569-7a2c-8d9d-3786b94af13b",
+    "ledger_segments": {
+     "charged": "13.00495692879588376357147487",
+     "count": 10
+    },
+    "reservations": [
+     [
+      1,
+      "COMMITTED"
+     ],
+     [
+      2,
+      "COMMITTED"
+     ],
+     [
+      3,
+      "COMMITTED"
+     ],
+     [
+      4,
+      "COMMITTED"
+     ]
+    ],
+    "results": 1,
+    "retries": [],
+    "submit_idempotency_records": 1
+   }
+  },
+  "C5b_pause_crash_before_checkpoint_not_restart_safe": {
+   "timeline": {
+    "attempts": [
+     {
+      "allocation": {
+       "quarantined": true,
+       "release_reason": "VERIFIED_CLEANUP",
+       "state": "RELEASED"
+      },
+      "attempt_id": "01a0e21e-c2c3-7966-a3b5-60bed65c2539",
+      "checkpoints": [],
+      "failure": [
+       "INFRASTRUCTURE",
+       "RUNNER_UNAVAILABLE"
+      ],
+      "fence": 1,
+      "incarnation": "01a0e21d-ef7c-7641-997e-d7df32d45c3e",
+      "intent": "RUN",
+      "lease": {
+       "expires": "2026-09-27T09:08:34.885+00:00",
+       "issued": "2026-09-27T09:07:41.848+00:00",
+       "revoke_reason": null,
+       "revoked": "2026-09-27T09:07:50.754+00:00"
+      },
+      "n": 1,
+      "restore": null,
+      "state": "FAILED"
+     }
+    ],
+    "containers_stopped_verified": true,
+    "coordinator_epoch": 1,
+    "counters_outstanding_active": [
+     0,
+     0
+    ],
+    "events": [
+     [
+      1,
+      "09:07:41.751",
+      "JOB_ACCEPTED",
+      "Job accepted"
+     ],
+     [
+      2,
+      "09:07:41.848",
+      "JOB_DISPATCHING",
+      null
+     ],
+     [
+      3,
+      "09:07:49.868",
+      "ATTEMPT_STARTED",
+      "attempt_started"
+     ],
+     [
+      4,
+      "09:07:50.469",
+      "PAUSE_REQUESTED",
+      "USER_PAUSE"
+     ],
+     [
+      5,
+      "09:07:50.754",
+      "ATTEMPT_FAILED",
+      "RUNNER_UNAVAILABLE"
+     ],
+     [
+      6,
+      "09:07:50.919",
+      "ALLOCATION_RELEASED",
+      "VERIFIED_CLEANUP"
+     ]
+    ],
+    "job": {
+     "checkpoint_sequence": 0,
+     "desired_state": "PAUSED",
+     "event_sequence": 6,
+     "job_fence": 2,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": null,
+     "state": "FAILED",
+     "terminal": true,
+     "version": 6
+    },
+    "job_id": "01a0e21e-c237-76de-a5ab-beb5b05b346a",
+    "ledger_segments": {
+     "charged": "2.485786381379089736379392892",
+     "count": 3
+    },
+    "reservations": [],
+    "results": 0,
+    "retries": [],
+    "submit_idempotency_records": 1
+   }
+  },
+  "C7b_manual_retry_without_checkpoint": {
+   "checksum": "sha256:4b56616380581c1906310c01dd840dabc9ef5f5ab97d7dd017497bf8ef9a333c",
+   "source_job_id": "01a0e21e-c237-76de-a5ab-beb5b05b346a",
+   "timeline": {
+    "attempts": [
+     {
+      "allocation": {
+       "quarantined": false,
+       "release_reason": "VERIFIED_CLEANUP",
+       "state": "RELEASED"
+      },
+      "attempt_id": "01a0e21e-e79b-7714-90b8-7fbabdfa2ba9",
+      "checkpoints": [
+       [
+        "01a0e21f-078e-7cec-af00-54cf1622e436",
+        1
+       ],
+       [
+        "01a0e21f-25d3-7489-897e-aa8868f154d8",
+        2
+       ],
+       [
+        "01a0e21f-4b92-7843-90c9-9d89d1062742",
+        3
+       ],
+       [
+        "01a0e21f-71e3-7a71-b737-dfad0964144c",
+        4
+       ]
+      ],
+      "failure": [
+       null,
+       null
+      ],
+      "fence": 1,
+      "incarnation": "01a0e21d-ef7c-7641-997e-d7df32d45c3e",
+      "intent": "RUN",
+      "lease": {
+       "expires": "2026-09-27T09:09:17.045+00:00",
+       "issued": "2026-09-27T09:07:51.274+00:00",
+       "revoke_reason": null,
+       "revoked": "2026-09-27T09:08:38.885+00:00"
+      },
+      "n": 1,
+      "restore": null,
+      "state": "SUCCEEDED"
+     }
+    ],
+    "containers_stopped_verified": true,
+    "coordinator_epoch": 1,
+    "counters_outstanding_active": [
+     0,
+     0
+    ],
+    "events": [
+     [
+      1,
+      "09:07:51.134",
+      "JOB_ACCEPTED",
+      "MANUAL_RETRY"
+     ],
+     [
+      2,
+      "09:07:51.274",
+      "JOB_DISPATCHING",
+      null
+     ],
+     [
+      3,
+      "09:07:51.739",
+      "ATTEMPT_STARTED",
+      "attempt_started"
+     ],
+     [
+      4,
+      "09:08:02.028",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      5,
+      "09:08:09.780",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      6,
+      "09:08:19.563",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      7,
+      "09:08:30.856",
+      "CHECKPOINT_COMMITTED",
+      "CHECKPOINT_COMMITTED"
+     ],
+     [
+      8,
+      "09:08:33.198",
+      "RESULT_RECOGNIZED",
+      "result_recognized"
+     ],
+     [
+      9,
+      "09:08:38.885",
+      "ALLOCATION_RELEASED",
+      "VERIFIED_CLEANUP"
+     ]
+    ],
+    "job": {
+     "checkpoint_sequence": 4,
+     "desired_state": "RUNNING",
+     "event_sequence": 9,
+     "job_fence": 1,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": "01a0e21e-c237-76de-a5ab-beb5b05b346a",
+     "state": "SUCCEEDED",
+     "terminal": true,
+     "version": 9
+    },
+    "job_id": "01a0e21e-e6de-770f-999a-50f3012fc030",
+    "ledger_segments": {
+     "charged": "13.04715857169439327954572539",
+     "count": 10
+    },
+    "reservations": [
+     [
+      1,
+      "COMMITTED"
+     ],
+     [
+      2,
+      "COMMITTED"
+     ],
+     [
+      3,
+      "COMMITTED"
+     ],
+     [
+      4,
+      "COMMITTED"
+     ]
+    ],
+    "results": 1,
+    "retries": [],
+    "submit_idempotency_records": 1
+   }
+  },
+  "architecture": "linux/arm64",
+  "checkpoint_interval_seconds": 5,
+  "epochs": [
+   1
+  ],
+  "failed_scenario": null,
+  "image": "nexa/cpu-iterative@sha256:c30fa52a0e0dd7ecdc25bf4ceae4ffe2ef711c1c4630029d60dd8b7535342024",
+  "iterations": 250000000,
+  "restart_safe": false,
+  "worker_image": "nexa/b15-worker:local"
+ },
+ "not_run": {
+  "C8_log_flood": "the cpu-iterative fixture has no log-volume mode",
+  "C8_oom": "the cpu-iterative fixture has no memory-exhaustion mode"
+ },
+ "worker_image": "nexa/b15-worker:local"
+}

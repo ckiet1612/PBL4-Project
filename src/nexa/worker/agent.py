@@ -22,7 +22,7 @@ from .executor import DockerExecutor, runtime_identity_digest
 from .journal import ExecutionJournal, JournalRecord
 from .models import Authority, ContainerIdentity, ResourceVector
 from .protocol import SequenceState, canonical_envelope_effect
-from .runner_control import RunnerControl, RunnerControlError
+from .runner_control import TERMINAL_MESSAGE_TYPES, RunnerControl, RunnerControlError
 from .state import PendingOperationStore
 
 LOG = logging.getLogger(__name__)
@@ -93,6 +93,9 @@ class WorkerAgent(WorkerExecutionMixin):
         }
         self._adopted: dict[str, Authority] = {}
         self._checkpoint_due: dict[str, int] = {}
+        # In-memory pause schedule; a restarted worker starts a fresh pause deadline.
+        self._pause_deadline: dict[str, int] = {}
+        self._pause_retry: dict[str, int] = {}
         self._containers: dict[str, ContainerIdentity] = {}
         self._replayable_claims: set[str] = set()
         self._reconcile_complete = False
@@ -125,6 +128,8 @@ class WorkerAgent(WorkerExecutionMixin):
         }
         agent._adopted = {}
         agent._checkpoint_due = {}
+        agent._pause_deadline = {}
+        agent._pause_retry = {}
         agent._containers = {}
         agent._replayable_claims = set()
         agent._reconcile_complete = False
@@ -214,6 +219,10 @@ class WorkerAgent(WorkerExecutionMixin):
                 }
                 if self.state is not None:
                     for callback_id, record in list(self.state.operations.items()):
+                        # A verified cleanup earlier in this pass may have
+                        # discarded its attempt's failure (B15-R17).
+                        if callback_id not in self.state.operations:
+                            continue
                         if record["operation"] in {
                             "failure",
                             "cleanup",
@@ -654,6 +663,7 @@ class WorkerAgent(WorkerExecutionMixin):
                     first_send_monotonic_ns=first_send,
                     lease_duration_seconds=int(acknowledgment["lease_duration_seconds"]),
                     safety_margin_seconds=int(acknowledgment["safety_margin_seconds"]),
+                    keep_terminal=lambda frame: self._record_runner_message(attempt_id, frame),
                 )
         except RunnerControlError:
             return False
@@ -770,7 +780,7 @@ class WorkerAgent(WorkerExecutionMixin):
             return False
         self.state.finish(callback_id)
         if record["operation"] == "cleanup":
-            self._discard_failed_renewals(payload["attempt_id"])
+            self._discard_released_authority(payload["attempt_id"])
         return True
 
     def _stop_orphan(self, identity: ContainerIdentity) -> bool:
@@ -885,27 +895,22 @@ class WorkerAgent(WorkerExecutionMixin):
                     callback_id, attempt_id=attempt_id, completion_ack=result["completion_ack"]
                 )
 
-    def _discard_failed_renewals(self, attempt_id: str) -> None:
-        """A renewal whose deadline never reached a dead runner ends with its attempt.
+    def _discard_released_authority(self, attempt_id: str) -> None:
+        """Renewals and failures still pending for a released attempt end with it.
 
-        Called only after verified cleanup; the durable failure ACK proves the
-        server already revoked the lease the renewal was extending.
+        Called only after verified cleanup: the server accepts that proof only
+        once the lease is revoked (failure, cancel, pause, disable or expiry),
+        so no pending renewal can extend it again (B15-R09) and no failure can
+        be accepted for it, for example one recorded while the reaper fenced
+        the attempt during a network loss (B15-R17).
         """
-        if self.journal is None or not self.journal.exists(attempt_id):
-            return
-        failure = (self.journal.load(attempt_id).runner_state or {}).get("failure_resolution")
-        if not failure or failure.get("acknowledged") is not True:
-            return
-        for callback_id, pending in self.state.operations.items():
+        for callback_id, pending in list(self.state.operations.items()):
             if (
-                pending["operation"] == "renew"
+                pending["operation"] in {"renew", "failure"}
                 and pending["payload"].get("attempt_id") == attempt_id
             ):
-                self.state.discard_failed_renewal(
-                    callback_id,
-                    attempt_id=attempt_id,
-                    failure_acknowledged=True,
-                    cleanup_verified=True,
+                self.state.discard_released_authority(
+                    callback_id, attempt_id=attempt_id, cleanup_verified=True
                 )
 
     def _restore_completion_receipt(self, attempt_id: str, item: dict) -> bool:
@@ -993,6 +998,7 @@ class WorkerAgent(WorkerExecutionMixin):
         acknowledgment = self.client.renew(attempt_id, callback_id, body)
         sequence = self._next_control_sequence(record)
         self.state.acknowledge(callback_id, acknowledgment, control_sequence=sequence)
+        self._observe_desired_state(attempt_id, acknowledgment.get("desired_state"))
         identity = record.container
         if identity is None or not self._apply_deadline(
             attempt_id,
@@ -1004,6 +1010,29 @@ class WorkerAgent(WorkerExecutionMixin):
         ):
             return
         self.state.finish(callback_id)
+
+    def _observe_desired_state(self, attempt_id: str, desired: object) -> None:
+        """Journal the server's desired state from a renewal ACK (B15 pause/resume).
+
+        Only RUNNING clears a pause: a PAUSED answer racing the publish that
+        aborted the pause must not start a second pause checkpoint.
+        """
+        if not isinstance(desired, str):
+            return
+
+        def change(local: dict) -> dict:
+            updated = {**local, "control_desired": desired}
+            if desired == "RUNNING":
+                flow = dict(local.get("checkpoint_flow") or {})
+                flow.pop("pause_checkpoint", None)
+                flow.pop("pause_aborted", None)
+                updated["checkpoint_flow"] = flow
+            return updated
+
+        self.journal.update_runner_state(attempt_id, change)
+        if desired == "RUNNING":
+            self._pause_deadline.pop(attempt_id, None)
+            self._pause_retry.pop(attempt_id, None)
 
     def heartbeat_once(self) -> dict:
         pending = [
@@ -1214,9 +1243,23 @@ class WorkerAgent(WorkerExecutionMixin):
             sequence = int(envelope["message_sequence"])
             effect = canonical_envelope_effect(envelope)
             outcome = sequence_state.classify(sequence, effect)
+            message_type = envelope["type"]
+            if (
+                outcome == "OUT_OF_ORDER"
+                and message_type in TERMINAL_MESSAGE_TYPES
+                and sequence > int(sequence_state.snapshot()["highest"]) + 1
+            ):
+                # A terminal frame behind an unfinished one is kept apart: the
+                # runner exits once it is ACKed, and if the container exits first
+                # it, not the exit code, names the cause (B15-R16).
+                kept = runner_state.get("pending_terminal_message")
+                if kept is not None and kept != envelope:
+                    outcome = "INVALID"
+                    return runner_state
+                runner_state["pending_terminal_message"] = dict(envelope)
+                return runner_state
             if outcome != "ACCEPTED":
                 return runner_state
-            message_type = envelope["type"]
             if message_type in {
                 "RESULT_PREPARE",
                 "RESULT_FILE_BATCH",

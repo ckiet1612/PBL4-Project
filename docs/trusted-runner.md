@@ -68,6 +68,18 @@ Malformed pending state fails closed on reload. A disconnected peer may connect
 again and receives the same unacknowledged message bytes/sequence without a
 second effect or new reservation.
 
+Since B15 a runner that reaches `STOPPED` keeps serving for at most
+`STOP_FRAME_LINGER_SECONDS` (3 s). It exits earlier once any worker ACK names the
+`STOPPED` sequence with a code other than `INVALID`. The worker ACKs a terminal
+frame it keeps behind an unfinished one with `OUT_OF_ORDER`. Sending the frame
+is not delivery: a renewal or result control connection reads only its own ACK.
+A peer that never ACKs cannot hold the container open past the linger, so the
+B09 bounds hold: the container stops within 7 s of a controller disconnect and
+within 8 s of an unacknowledged `STOPPED`. Before B15 the runner exited as soon
+as it stopped. A stop with no worker connected then ended the container with
+exit 0 and no stop reason, which the worker reports as `RUNNER_PROTOCOL_ERROR`
+(B15-R14, B15-R16).
+
 ## Authority and watchdog
 
 The runner begins in `WAITING_AUTHORITY`; Docker start alone never authorizes
@@ -97,7 +109,11 @@ zero or after the shorter grace expires, and reports one final exit status; the
 runner does not queue an unread second kill command. The supervisor verifies
 group absence before `STOPPED`, handles descendants even if the direct workload
 parent exits first, and kills remaining compute when the runner/supervisor pipe
-closes.
+closes. A workload that already exited, for example one that finished while no
+worker was connected, leaves a supervisor that has reported its exit and closed
+its socket; a later deadline stop then sends no `TERM` and still emits `STOPPED`
+with the reported exit status. Before B15 that `TERM` failed and left the
+runner `STOPPING` with no stop frame (B15-R15).
 
 ## CPU result boundary
 
@@ -139,8 +155,8 @@ REQUEST_CHECKPOINT -> CHECKPOINT_FILES_READY -> BIND_ARTIFACT_BATCH(CHECKPOINT)
 -> FINALIZE_CHECKPOINT_MANIFEST -> CHECKPOINT_READY
 ```
 
-`REQUEST_CHECKPOINT` is refused for pause (B15), before the workload starts,
-after the result is reserved, past its frozen monotonic deadline, while a
+`REQUEST_CHECKPOINT` is refused before the workload starts, after the result
+is reserved, past its frozen monotonic deadline, while a
 previous cycle is incomplete, or when the sequence does not advance. The runner
 reads the live snapshot as a regular non-symlink file of at most 4 KiB and
 validates it against the spec and input checksums. It rejects a cursor below
@@ -154,6 +170,22 @@ open, `RESULT_PREPARE` is deferred until `CHECKPOINT_READY`, because the server
 refuses a result reservation for a checkpointing attempt. The pending cycle,
 descriptor and bindings are part of the persisted runner state and replay
 byte-identically after a controller reconnect.
+
+Since B15 the runner accepts `REQUEST_CHECKPOINT{reason: PAUSE}` through the same
+cycle; it does not stop the workload by itself. A request that arrives before
+the workload's first `state.json` write (a pause right after launch) waits for
+that write until the request's frozen deadline and is then staged as usual; an
+invalid snapshot still fails closed, a second request while one waits is
+rejected, and a result staged meanwhile is deferred until `CHECKPOINT_READY`
+(B15-R20). After the server commits that
+checkpoint the worker sends `REQUEST_STOP{reason: PAUSE}`, and the runner stops
+the workload within the requested grace and reports `STOPPED{PAUSE}`. The runner
+also stops itself with `RUNTIME_LIMIT`, `LEASE_DEADLINE` (its monotonic authority
+deadline passed before a renewal extended it) or `FAILURE` (for example after a
+rejected checkpoint control). The worker maps each reason to an Attempt failure
+as listed in [worker agent](worker-agent.md#pause-cancel-and-runner-stop-reasons-b15).
+Cancel does not reach the runner as a control: the worker stops the exact
+container after the server revokes the authority.
 
 On restore, the worker mounts the verified state read-only at
 `/input/restore-state.json`. The runner re-checks its checksum, step and

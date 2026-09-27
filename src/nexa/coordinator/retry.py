@@ -6,7 +6,7 @@ follow the tick/cleanup order (policy -> GLOBAL counter -> job -> schedule), so
 promotion adds no new lock cycle. Outstanding counters do not change.
 """
 
-from sqlalchemy import exists, select, update
+from sqlalchemy import and_, exists, or_, select, update
 
 from nexa.application.job_service import JobService
 from nexa.coordinator.dispatch import _event
@@ -15,6 +15,8 @@ from nexa.infrastructure.persistence import schema as s
 
 BATCH_SIZE = 16
 _BLOCKED = ("waiting_for_compatibility", "waiting_for_quota")
+# SM:35 — a retry enters the queue to run, or to checkpoint for a pending pause (SM:31).
+_PROMOTABLE = (("RUNNING", None), ("PAUSED", "CHECKPOINT_FOR_PAUSE"))
 
 
 def _due(now):
@@ -23,8 +25,13 @@ def _due(now):
         s.retry_schedules.c.ready_at <= now,
         s.retry_schedules.c.retry_number == s.jobs.c.retry_count,
         s.jobs.c.state == "RETRY_WAIT",
-        s.jobs.c.desired_state == "RUNNING",
-        s.jobs.c.recovery_intent.is_(None),
+        or_(
+            and_(s.jobs.c.desired_state == "RUNNING", s.jobs.c.recovery_intent.is_(None)),
+            and_(
+                s.jobs.c.desired_state == "PAUSED",
+                s.jobs.c.recovery_intent == "CHECKPOINT_FOR_PAUSE",
+            ),
+        ),
     )
 
 
@@ -149,31 +156,16 @@ def promote_due_locked(session, *, now, holder_id, limit=BATCH_SIZE) -> int:
             or schedule["closed_at"] is not None
             or schedule["ready_at"] > now
             or job["state"] != "RETRY_WAIT"
-            or job["desired_state"] != "RUNNING"
-            or job["recovery_intent"] is not None
+            or (job["desired_state"], job["recovery_intent"]) not in _PROMOTABLE
         ):
             continue
         blocked = _blocked_reason(session, job, inventory)
         if blocked is not None:
             if job["waiting_reason"] != blocked:
-                session.execute(
-                    update(s.jobs).where(s.jobs.c.job_id == job_id).values(waiting_reason=blocked)
+                _event(
+                    session, job, now, holder_id, "RETRY_BLOCKED", blocked, waiting_reason=blocked
                 )
-                _event(session, job, now, holder_id, "RETRY_BLOCKED", blocked)
             continue
-        changed = session.execute(
-            update(s.jobs)
-            .where(
-                s.jobs.c.job_id == job_id,
-                s.jobs.c.state == "RETRY_WAIT",
-                s.jobs.c.version == job["version"],
-            )
-            .values(
-                state="QUEUED",
-                ready_sequence=sequence,
-                waiting_reason=None if ready else "waiting_for_worker",
-            )
-        ).rowcount
         closed = session.execute(
             update(s.retry_schedules)
             .where(
@@ -183,9 +175,20 @@ def promote_due_locked(session, *, now, holder_id, limit=BATCH_SIZE) -> int:
             )
             .values(closed_at=now)
         ).rowcount
-        if changed != 1 or closed != 1:
+        if closed != 1:
             raise RuntimeError("retry promotion lost its compare-and-set")
-        _event(session, job, now, holder_id, "RETRY_READY", "BACKOFF_ELAPSED")
+        # The job row is locked and re-checked above; one UPDATE only (B15-R04).
+        _event(
+            session,
+            job,
+            now,
+            holder_id,
+            "RETRY_READY",
+            "BACKOFF_ELAPSED",
+            state="QUEUED",
+            ready_sequence=sequence,
+            waiting_reason=None if ready else "waiting_for_worker",
+        )
         sequence += 1
         promoted += 1
     if promoted:

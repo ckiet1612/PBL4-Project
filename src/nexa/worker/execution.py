@@ -29,8 +29,17 @@ from .result_flow import ResultFlow
 from .runner_control import RunnerControl, RunnerControlError
 
 _CHECKPOINT_FRAMES = {"CHECKPOINT_FILES_READY", "CHECKPOINT_READY"}
+# A pause that commits no checkpoint and stops nothing ends as a runner failure.
+PAUSE_DEADLINE_NS = 40 * 1_000_000_000
+PAUSE_STOP_GRACE_NS = 5 * 1_000_000_000
 # Runner FAILED reasons forwarded verbatim; any other runner text stays internal.
 _FORWARDED_FAILURES = {("INCOMPATIBLE", "CHECKPOINT_RESTORE_UNAVAILABLE")}
+# A runner that stops on its own deadline names the cause; any other stop is internal.
+_STOP_FAILURES = {
+    "RUNTIME_LIMIT": ("TIMEOUT", "RUNTIME_LIMIT_REACHED"),
+    # Renewals stopped reaching the API: lost authority is retryable infrastructure.
+    "LEASE_DEADLINE": ("INFRASTRUCTURE", "RUNNER_UNAVAILABLE"),
+}
 
 
 def _matches_descriptor(path, descriptor):
@@ -154,6 +163,9 @@ class WorkerExecutionMixin:
                 restore_file=restore_file,
                 restore_source=directory / "restore-state.json",
             )
+            if source.exists() and not _matches_descriptor(source, artifact):
+                # A worker killed mid-download leaves a partial private file.
+                source.unlink()
             if not source.exists():
                 self.client.download_execution(authority, artifact, source)
             # Executor performs descriptor verification on every prepare/start replay.
@@ -191,8 +203,14 @@ class WorkerExecutionMixin:
                     attempt_id, identity, start_callback, first_send, acknowledgment, sequence
                 ):
                     raise RunnerControlError("start authority deadline was not accepted")
+                # A CHECKPOINT_FOR_PAUSE Attempt exists only to checkpoint and stop.
+                paused = (
+                    {"control_desired": "PAUSED", "checkpoint_for_pause": True}
+                    if context.get("execution_intent") == "CHECKPOINT_FOR_PAUSE"
+                    else {}
+                )
                 self.journal.update_runner_state(
-                    attempt_id, lambda state: {**state, "start_acknowledged": True}
+                    attempt_id, lambda state: {**state, "start_acknowledged": True, **paused}
                 )
                 self._adopted[attempt_id] = authority
                 self.state.finish(start_callback)
@@ -294,7 +312,11 @@ class WorkerExecutionMixin:
             connection.sendall(encode_frame(frame))
             ack = validate_ack(
                 RunnerControl._receive_ack(
-                    connection, FrameDecoder(), frame["control_sequence"], 5.0
+                    connection,
+                    FrameDecoder(),
+                    frame["control_sequence"],
+                    5.0,
+                    keep_terminal=lambda message: self._record_runner_message(attempt_id, message),
                 )
             )
         if not ack["accepted"]:
@@ -305,9 +327,21 @@ class WorkerExecutionMixin:
         state = self.journal.load(attempt_id).runner_state or {}
         controls = state.get("result_controls", {})
         for key, entry in controls.items():
-            if entry["acknowledged"]:
+            if entry["acknowledged"] or entry.get("rejected"):
                 continue
-            self._control_exchange(attempt_id, entry["frame"])
+            try:
+                self._control_exchange(attempt_id, entry["frame"])
+            except RunnerControlRejected:
+
+                def reject(local, key=key):
+                    current = dict(local.get("result_controls", {}))
+                    current[key] = {**current[key], "rejected": True}
+                    return {**local, "result_controls": current}
+
+                # A rejected sequence was never committed by the runner; it is
+                # not resent, and the runner stops after any rejection.
+                self.journal.update_runner_state(attempt_id, reject)
+                raise
 
             def commit(local, key=key, entry=entry):
                 current = dict(local.get("result_controls", {}))
@@ -337,6 +371,8 @@ class WorkerExecutionMixin:
                 frame = controls[key]["frame"]
                 if frame["type"] != type_ or frame["payload"] != payload:
                     raise ValueError("result control replay payload changed")
+                if controls[key].get("rejected"):
+                    raise RunnerControlRejected("INVALID")
                 return
             frame = {
                 "schema_version": 1,
@@ -381,6 +417,7 @@ class WorkerExecutionMixin:
             self._send_result_control,
             monotonic_ns=self.monotonic_ns,
             next_due=self._checkpoint_due,
+            pause_retry=self._pause_retry,
         )
         first_error = None
         for attempt_id in tuple(self._adopted):
@@ -438,6 +475,48 @@ class WorkerExecutionMixin:
             return
         envelope = state.get("pending_execution_message")
         exited = state.get("container_exit")
+        kept = state.get("pending_terminal_message")
+        if (
+            exited is not None
+            and kept is not None
+            and (envelope is None or envelope["type"] not in {"FAILED", "STOPPED"})
+        ):
+            # The runner is gone; the terminal frame it handed a connection
+            # names the cause, so frames before it no longer matter (B15-R16).
+            envelope = kept
+        pausing = state.get("control_desired") == "PAUSED"
+        # The committed pause checkpoint moved the Attempt to STOPPING: the server
+        # accepts no failure any more (SM:75), only the cleanup that pauses (SM:23).
+        stopping = (
+            pausing and (state.get("checkpoint_flow") or {}).get("pause_checkpoint") is not None
+        )
+        if pausing and (state.get("checkpoint_flow") or {}).get("pause_rejected"):
+            # A deterministic manifest defect of a CHECKPOINT_FOR_PAUSE Attempt:
+            # no retry can produce the pause checkpoint (B15-R28).
+            if self._execution_failed(
+                attempt_id, failure_class="INTERNAL", reason_code="CHECKPOINT_PROTOCOL_ERROR"
+            ):
+                self._pause_deadline.pop(attempt_id, None)
+            return
+        if pausing:
+            now = self.monotonic_ns()
+            deadline = self._pause_deadline.setdefault(attempt_id, now + PAUSE_DEADLINE_NS)
+            if stopping and (
+                now >= deadline
+                or exited is not None
+                or (envelope is not None and envelope["type"] in {"FAILED", "STOPPED"})
+            ):
+                # Whatever ended the workload, a forced stop proves it (B15-R21).
+                self._paused(attempt_id, record)
+                return
+            if now >= deadline:
+                # No committed checkpoint or no confirmed stop: the pause
+                # cannot finish, so the runner is treated as unavailable.
+                if self._execution_failed(
+                    attempt_id, failure_class="INFRASTRUCTURE", reason_code="RUNNER_UNAVAILABLE"
+                ):
+                    self._pause_deadline.pop(attempt_id, None)
+                return
         if (
             exited is not None
             and state.get("result_flow", {}).get("completion_callback_id") is None
@@ -448,6 +527,9 @@ class WorkerExecutionMixin:
             self._execution_failed(
                 attempt_id, failure_class=failure_class, reason_code=reason_code, exited=exited
             )
+            return
+        if envelope is None and pausing:
+            self._pause_step(attempt_id, state, checkpoints)
             return
         if envelope is None:
             deferred = state.get("deferred_result_prepare")
@@ -460,21 +542,38 @@ class WorkerExecutionMixin:
             self._checkpoint_step(attempt_id, lambda: checkpoints.tick(attempt_id))
             return
         if envelope["type"] in {"FAILED", "STOPPED"}:
+            stop_reason = (
+                envelope["payload"].get("reason") if envelope["type"] == "STOPPED" else None
+            )
+            if stop_reason == "PAUSE" and state.get("pause_stop") is not None:
+                self._paused(attempt_id, record)
+                return
             payload = envelope["payload"] if envelope["type"] == "FAILED" else {}
             reason = (payload.get("failure_class"), payload.get("reason_code"))
-            failure_class, reason_code = (
-                reason if reason in _FORWARDED_FAILURES else ("INTERNAL", "WORKLOAD_EXIT_NONZERO")
-            )
+            if stop_reason == "FAILURE" and state.get("checkpoint_rejected"):
+                # The runner rejected this worker's checkpoint control itself.
+                reason = ("INTERNAL", "CHECKPOINT_PROTOCOL_ERROR")
+            elif stop_reason in _STOP_FAILURES:
+                reason = _STOP_FAILURES[stop_reason]
+            elif reason not in _FORWARDED_FAILURES:
+                reason = ("INTERNAL", "WORKLOAD_EXIT_NONZERO")
+            failure_class, reason_code = reason
             self._execution_failed(attempt_id, failure_class=failure_class, reason_code=reason_code)
             return
         if envelope["type"] in _CHECKPOINT_FRAMES:
-            if not self._checkpoint_step(
+            # A runner that rejected this cycle's control is stopping (B15-R14):
+            # its later checkpoint frames drive nothing, and holding one pending
+            # would keep its STOPPED frame, which names the cause, unread.
+            if not state.get("checkpoint_rejected") and not self._checkpoint_step(
                 attempt_id, lambda: checkpoints.process(attempt_id, envelope)
             ):
                 return
-        elif envelope["type"] == "RESULT_PREPARE" and checkpoints.cycle_open(attempt_id):
+        elif envelope["type"] == "RESULT_PREPARE" and (
+            pausing or checkpoints.cycle_open(attempt_id)
+        ):
             # The server refuses a result reservation while CHECKPOINTING and
-            # the runner still owes this cycle's frames after RESULT_PREPARE.
+            # the runner still owes this cycle's frames after RESULT_PREPARE;
+            # a pause reserves no result unless the server aborts it.
             self.journal.update_runner_state(
                 attempt_id, lambda local: {**local, "deferred_result_prepare": dict(envelope)}
             )
@@ -508,15 +607,51 @@ class WorkerExecutionMixin:
             return False
         return True
 
+    def _pause_step(self, attempt_id, state, checkpoints):
+        """Checkpoint for pause, then ask the runner to stop the workload for PAUSE."""
+        flow = state.get("checkpoint_flow") or {}
+        if flow.get("pause_checkpoint") is None:
+            self._checkpoint_step(attempt_id, lambda: checkpoints.tick(attempt_id, pause=True))
+            return
+        stop = state.get("pause_stop")
+        if stop is None:
+            # Frozen once: a replay must resend the byte-identical control.
+            stop = {
+                "reason": "PAUSE",
+                "grace_deadline_monotonic_ns": self.monotonic_ns() + PAUSE_STOP_GRACE_NS,
+            }
+            self.journal.update_runner_state(
+                attempt_id, lambda local: {**local, "pause_stop": stop}
+            )
+        self._checkpoint_step(
+            attempt_id,
+            lambda: self._send_result_control(attempt_id, "stop:PAUSE", "REQUEST_STOP", stop),
+        )
+
+    def _paused(self, attempt_id, record):
+        """The workload stopped for PAUSE: prove the container stopped, then release."""
+        if record.container is not None and self._stop_orphan(record.container):
+            self._adopted.pop(attempt_id, None)
+            self._containers.pop(record.container.container_id, None)
+            self._pause_deadline.pop(attempt_id, None)
+            self._pause_retry.pop(attempt_id, None)
+
     def _checkpoint_step(self, attempt_id, step):
         """Run one checkpoint step; a definite protocol defect fails the attempt closed."""
         try:
             step()
         except AuthorityControlPending:
             return False
-        except (CheckpointProtocolError, RunnerControlRejected) as exc:
-            if isinstance(exc, RunnerControlRejected) and exc.code != "INVALID":
+        except RunnerControlRejected as exc:
+            if exc.code != "INVALID":
                 raise
+            # A stopping runner rejects every control (B14-R10); its STOPPED
+            # frame, still unread, names the cause. FAILURE means this control.
+            self.journal.update_runner_state(
+                attempt_id, lambda local: {**local, "checkpoint_rejected": True}
+            )
+            return False
+        except CheckpointProtocolError:
             # The failure callback also ends the server reservation (ABANDONED).
             self._execution_failed(
                 attempt_id, failure_class="INTERNAL", reason_code="CHECKPOINT_PROTOCOL_ERROR"
@@ -585,7 +720,10 @@ class WorkerExecutionMixin:
                     "observed_at": exited["observed_at"],
                     "exit_code": exited["exit_code"],
                     "oom_killed": exited["oom_killed"],
-                    "runtime_limit_reached": False,
+                    # Only the runner's own runtime-limit stop reports this
+                    # failure; the server rejects a contradicting observation.
+                    "runtime_limit_reached": (failure_class, reason_code)
+                    == ("TIMEOUT", "RUNTIME_LIMIT_REACHED"),
                 }
             body = {
                 "authority": asdict(authority),

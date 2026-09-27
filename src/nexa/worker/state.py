@@ -239,24 +239,24 @@ class PendingOperationStore:
             del operations[callback_id]
             self._commit(operations)
 
-    def discard_failed_renewal(
-        self,
-        callback_id: str,
-        *,
-        attempt_id: str,
-        failure_acknowledged: bool,
-        cleanup_verified: bool,
+    def discard_released_authority(
+        self, callback_id: str, *, attempt_id: str, cleanup_verified: bool
     ) -> None:
-        """Discard a renewal only after its attempt's failure ACK and exact cleanup."""
-        if not failure_acknowledged or not cleanup_verified:
-            raise ValueError("failure acknowledgment and verified cleanup are required")
+        """Discard a renewal or failure only after the server verified its attempt's cleanup.
+
+        A verified cleanup ends the lease the callback depends on, whether the
+        server revoked it for a failure, a cancel, a disable or an expiry, so
+        the callback can never be accepted again (B15-R09, B15-R17).
+        """
+        if not cleanup_verified:
+            raise ValueError("verified cleanup is required")
         with self._lock:
             current = self._operations[callback_id]
             if (
-                current["operation"] != "renew"
+                current["operation"] not in {"renew", "failure"}
                 or current["payload"].get("attempt_id") != attempt_id
             ):
-                raise ValueError("failed renewal identity mismatch")
+                raise ValueError("released authority callback identity mismatch")
             operations = dict(self._operations)
             del operations[callback_id]
             self._commit(operations)

@@ -1,0 +1,104 @@
+{
+ "task": "B15",
+ "environment": "Docker Desktop Linux VM (desktop-linux), engine 29.8.0 linux/arm64, kernel 7.0.12-linuxkit, 8 CPU, 4106604544 B RAM",
+ "checked_at": "2026-09-27T15:45:00+07:00",
+ "baseline_images_b14": {
+  "cpu_image": "nexa/cpu-iterative@sha256:e0e6222eb899498c447eeee9f44ac053a62af271da2d1b95316b09117a999b6f",
+  "worker_image_id": "sha256:c55c25da63cd2debffebff97008522364c292d348ee4c267305f97318a308b42",
+  "source": "docs/evidence/raw/B14-images.json"
+ },
+ "cpu_image": {
+  "tag": "nexa/cpu-iterative:b15",
+  "repo_digest": "nexa/cpu-iterative@sha256:c30fa52a0e0dd7ecdc25bf4ceae4ffe2ef711c1c4630029d60dd8b7535342024",
+  "image_id": "sha256:c30fa52a0e0dd7ecdc25bf4ceae4ffe2ef711c1c4630029d60dd8b7535342024",
+  "size_bytes": 207595475,
+  "created": "2026-09-27T08:39:53.357766221Z",
+  "user": "1000:1000",
+  "entrypoint": [
+   "python",
+   "-m",
+   "nexa.workloads.trusted_runner"
+  ],
+  "label_io.nexa.runner.checkpoint": "cpu-state-v1",
+  "base": "python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9",
+  "package_path": "/opt/nexa/nexa"
+ },
+ "worker_image": {
+  "tag": "nexa/b15-worker:local",
+  "image_id": "sha256:bcefa221f16a392b97ec8defe2fa16c066a5e1ce37dd6c4f1a25fe05257aeae3",
+  "size_bytes": 428551519,
+  "created": "2026-09-27T08:40:01.87167196Z",
+  "cmd": [
+   "nexa-worker"
+  ],
+  "package_path": "/opt/nexa/.venv/lib/python3.12/site-packages/nexa"
+ },
+ "package_comparison": {
+  "py_files": 127,
+  "cpu_image_matches_src": true,
+  "worker_image_matches_src": true,
+  "src_manifest_sha256": "785796991f407918fcac839eccc9303900baaab8a1095dc454bf9ba9b0b105a0",
+  "method": "(cd src && find nexa -name '*.py' -not -path '*/__pycache__/*' | LC_ALL=C sort | xargs shasum -a 256) vs the same listing with sha256sum inside each image (--network none); diff after whitespace normalization; manifest hash is sha256 of the source listing",
+  "round1_rechecks": {
+   "recheck_after_b15_r18": {
+    "checked_at": "2026-09-27T07:50:00+07:00",
+    "src_manifest_sha256": "5e1703ae0733c522fe254cad48288942cd02aadaf615623566372d1dad88801d",
+    "py_files": 127,
+    "differing_files": [
+     "nexa/coordinator/retention.py"
+    ],
+    "note": "B15-R18 changed the coordinator sweep query after the final image build. Neither image executes it: the worker image runs nexa-worker, the CPU image runs the trusted runner; the Docker harness runs API and coordinator in-process from src. Images were not rebuilt."
+   },
+   "recheck_after_b15_r19": {
+    "checked_at": "2026-09-27T08:55:00+07:00",
+    "src_manifest_sha256": "0a0dd664de09be7c03bcad84e50920ab93b69ef24b5bc6d60544170a2f6da705",
+    "py_files": 127,
+    "differing_files": [
+     "nexa/api/routes_worker.py",
+     "nexa/coordinator/retention.py"
+    ],
+    "note": "B15-R19 changed the adopt route after the final image build. Neither image serves the API: the worker image runs nexa-worker as an API client, the CPU image runs the trusted runner; the Docker harness runs API and coordinator in-process from src. Images were not rebuilt."
+   }
+  },
+  "checked_at": "2026-09-27T15:45:00+07:00",
+  "note": "round-2 build after every round-1 review fix; the round1_rechecks entries describe the superseded round-1 images"
+ },
+ "pushed": false,
+ "superseded_builds": [
+  {
+   "cpu_image_id": "sha256:6ae679a1f99eda374b002ccadb10e6876b601ca437132c64fa1c861e496c4fa7",
+   "worker_image_id": "sha256:c101dab9c3b88d63dd16245875f5e423b18f793ccd31717bd693e394a235acb1",
+   "reason": "rebuilt after the B15-R10 observation-flag fix (Docker C8, run 4)"
+  },
+  {
+   "cpu_image_id": "sha256:7c73d9f885d56859e3231ac5a01e90a98af8988bcc984791457b2f82b5d8106b",
+   "worker_image_id": "sha256:b526c512d8d2ba3b3785ddb0caf76abf3e3c7b79262e0d53a4748b3aaa1cb191",
+   "reason": "rebuilt after the B15-R13 server readiness fix (Docker C5a, run 7)"
+  },
+  {
+   "cpu_image_id": "sha256:c32920dd5b48aa2e6ff8ee398886d5a1a928ede50d12dbfbec718918030611c6",
+   "worker_image_id": "sha256:02c6ad99901f781ba4eba3aec6c12f10056775b678d091dee7a123f15fbf1619",
+   "reason": "rebuilt after the B15-R14 runner stop-frame delivery and worker rejected-checkpoint-frame fix (Docker C8, run 9)"
+  },
+  {
+   "cpu_image_id": "sha256:90cb39435dd2cd97757442a4c4e8a7d177f66146f3822fe9a1193e21128ddcd9",
+   "worker_image_id": "sha256:a69f0d3417f526ad1ee856d6650b6d7e4bde5f690bf14bb67f19c55ea779651a",
+   "reason": "rebuilt after the B15-R15 runner stop-after-supervisor-exit fix (Docker C3, runs 10-11)"
+  },
+  {
+   "cpu_image_id": "sha256:632a32dd4759fd7b73f211139303d19f3ec2ace8c01f8b97e9b399f539eb6c00",
+   "worker_image_id": "sha256:e1e1812c2dc422a999d470828a7f7f70ba4cecf41083da6f95d34ffc4b7b22f9",
+   "reason": "rebuilt after the B15-R16 acknowledged stop-frame linger and worker terminal-frame fix (Docker C8, run 12; B09 controller-disconnect gate)"
+  },
+  {
+   "cpu_image_id": "sha256:c2e2af24303f81be77922af9053e265ed92c52e98b75ef52b0cfa7541bc34a33",
+   "worker_image_id": "sha256:bfaee2cc49e7e57dd1461204beb04708fb9534fdf64857fb18b21c1e7114ecac",
+   "reason": "rebuilt after the B15-R17 fix: a stale failure is discarded after verified cleanup (Docker C9, run 13)"
+  },
+  {
+   "cpu_image_id": "sha256:823af64e3b1389b282a92ebe0f0ae0abff7b202214d5b6d024262d8df255ec89",
+   "worker_image_id": "sha256:acf9013035cb3b47bd5c1e732aca632848d62bb5ade719713a3261423c7ce4bf",
+   "reason": "round-1 final build (Docker runs 14-17); rebuilt for the round-1 review fixes B15-R20 (runner waits for the first state write), R21 (worker pauses after a committed pause checkpoint), R28 (rejected checkpoint-for-pause manifest), R29/R30 (worker routes)"
+  }
+ ]
+}

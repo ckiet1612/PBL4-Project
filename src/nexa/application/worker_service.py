@@ -105,7 +105,7 @@ class WorkerService:
     ) -> dict[str, Any]:
         if worker["current_incarnation_id"] != incarnation_id:
             raise ApplicationError(
-                code="state_conflict", status=409, message="Worker incarnation is stale"
+                code="stale_authority", status=409, message="Worker incarnation is stale"
             )
         incarnation = (
             session.execute(
@@ -119,7 +119,7 @@ class WorkerService:
         )
         if incarnation is None or incarnation["ended_at"] is not None:
             raise ApplicationError(
-                code="state_conflict", status=409, message="Worker incarnation is stale"
+                code="stale_authority", status=409, message="Worker incarnation is stale"
             )
         if require_reconciling and incarnation["reconcile_completed_at"] is not None:
             raise ApplicationError(
@@ -140,6 +140,11 @@ class WorkerService:
         # The receipt insert takes a worker FK KEY SHARE lock, so take policy
         # first here too; otherwise start/renew can deadlock with dispatch.
         WorkerService._mode(session, exclusive=operation_id in _EXCLUSIVE_POLICY_CALLBACKS)
+        # Lock the worker row before the receipt's FK KEY SHARE; upgrading that to
+        # _worker_auth's FOR UPDATE deadlocks two callbacks of one worker (B15-R27).
+        session.execute(
+            select(workers.c.worker_id).where(workers.c.worker_id == worker_id).with_for_update()
+        )
         receipt_id = new_uuid7()
         inserted = session.execute(
             pg_insert(callback_receipts)
@@ -518,7 +523,9 @@ class WorkerService:
         )
         if container is not None:
             claim_state = "STARTED"
-        elif attempt["state"] == "CREATED":
+        elif attempt["claimed_at"] is None:
+            # A reaper, cancel or disable can fence an offer that was never
+            # claimed; the worker must still tombstone it (B15-R12).
             claim_state = "UNCLAIMED"
         else:
             claim_state = "CLAIMED"
@@ -709,7 +716,10 @@ class WorkerService:
                 select(jobs.c.desired_state).where(jobs.c.job_id == allocation["job_id"])
             ).scalar_one()
             if (
-                desired != "RUNNING"
+                # A PAUSING attempt and a CHECKPOINT_FOR_PAUSE offer hold live
+                # authority under desired PAUSED; the offer must stay pollable
+                # (B15-R13). A cancel revokes the lease, so CANCELLED stays out.
+                desired not in {"RUNNING", "PAUSED"}
                 or attempt["worker_incarnation_id"] != incarnation_id
                 or lease["current_worker_incarnation_id"] != incarnation_id
                 or lease["revoked_at"] is not None
@@ -855,12 +865,13 @@ class WorkerService:
                 (item.container_id, item.runtime_identity_digest)
                 for item in request.observed_containers
             }
-            ready = (
+            # Every READY check but the admin state; enable of a DISABLED worker reads
+            # it from the incarnation (B15-R07).
+            passes = (
                 request.observed_health == "READY"
                 and request.reconcile_complete
                 and storage_ready
                 and self._inventory_can_be_ready(inventory)
-                and worker["admin_state"] != "DISABLED"
                 and incarnation["reconciliation_drained"]
                 and incarnation["reconciliation_snapshot"]
                 == self._reconciliation_snapshot(session, worker_id)
@@ -872,28 +883,35 @@ class WorkerService:
                     now=now,
                 )
             )
+            ready = passes and worker["admin_state"] != "DISABLED"
             health = "READY" if ready else "STARTING"
             worker_values: dict[str, Any] = {
                 "health": health,
                 "current_inventory_version": current_version,
                 "last_heartbeat_at": now,
-                "version": workers.c.version + 1,
                 "updated_at": now,
             }
+            incarnation_values: dict[str, Any] = {"ready_checked_at": now if passes else None}
             if ready:
                 worker_values["ready_at"] = worker["ready_at"] or now
-                session.execute(
-                    update(worker_incarnations)
-                    .where(
-                        worker_incarnations.c.worker_incarnation_id == request.worker_incarnation_id
-                    )
-                    .values(
-                        reconcile_completed_at=incarnation["reconcile_completed_at"] or now,
-                        ready_at=incarnation["ready_at"] or now,
-                    )
+                incarnation_values.update(
+                    reconcile_completed_at=incarnation["reconcile_completed_at"] or now,
+                    ready_at=incarnation["ready_at"] or now,
                 )
             else:
                 worker_values["ready_at"] = None
+            session.execute(
+                update(worker_incarnations)
+                .where(worker_incarnations.c.worker_incarnation_id == request.worker_incarnation_id)
+                .values(**incarnation_values)
+            )
+            # The admin ETag moves only with a visible change; a heartbeat timestamp
+            # alone is not one (contracts.md:100, B15-R08).
+            if any(
+                worker_values[field] != worker[field]
+                for field in ("health", "current_inventory_version", "ready_at")
+            ):
+                worker_values["version"] = workers.c.version + 1
             session.execute(
                 update(workers).where(workers.c.worker_id == worker_id).values(**worker_values)
             )
@@ -931,7 +949,9 @@ class WorkerService:
             if (
                 mode != "NORMAL"
                 or worker["health"] != "READY"
-                or worker["admin_state"] != "ENABLED"
+                # DRAINING forbids new allocation, which dispatch enforces; an offer
+                # committed before the drain is existing work (SM:103, B15-R22).
+                or worker["admin_state"] == "DISABLED"
             ):
                 raise ApplicationError(
                     code="state_conflict",
@@ -1051,6 +1071,16 @@ class WorkerService:
             .one_or_none()
         )
         if (
+            job["desired_state"] == "CANCELLED"
+            and job["job_id"] == attempt["job_id"]
+            and attempt["worker_id"] == worker_id
+        ):
+            # CR:70 — a committed cancel fenced this authority; report it as stale.
+            # Only the attempt's own worker learns of the cancel (F8).
+            raise ApplicationError(
+                code="stale_authority", status=409, message="Job cancellation is committed"
+            )
+        if (
             lease is None
             or allocation is None
             or grant is None
@@ -1072,31 +1102,58 @@ class WorkerService:
             or grant["job_fence"] != authority.job_fence
         ):
             raise ApplicationError(
-                code="state_conflict", status=409, message="Worker authority is stale"
+                code="stale_authority", status=409, message="Worker authority is stale"
             )
         return dict(job), dict(attempt), dict(lease), dict(allocation), dict(grant)
 
     @staticmethod
     def _live_authority(job: dict, attempt: dict, lease: dict, allocation: dict, now) -> None:
+        if job["desired_state"] == "CANCELLED":
+            # CR:70 — a committed cancel wins; every later callback is stale.
+            raise ApplicationError(
+                code="stale_authority", status=409, message="Job cancellation is committed"
+            )
         normal_run = (
             job["desired_state"] == "RUNNING"
             and job["state"] in {"DISPATCHING", "STARTING", "RUNNING", "CHECKPOINTING"}
             and attempt["execution_intent"] == "RUN"
         )
-        checkpoint_for_pause = (
+        # SM:21-22 — a paused RUN attempt keeps its lease until its checkpoint and stop.
+        pausing_run = (
             job["desired_state"] == "PAUSED"
             and job["state"] == "PAUSING"
+            and attempt["execution_intent"] == "RUN"
+        )
+        # SM:15-18 — a checkpoint-for-pause attempt is claimed while DISPATCHING.
+        checkpoint_for_pause = (
+            job["desired_state"] == "PAUSED"
+            and job["state"] in {"DISPATCHING", "PAUSING"}
             and attempt["execution_intent"] == "CHECKPOINT_FOR_PAUSE"
         )
+        live_states = {"CREATED", "CLAIMED", "STARTING", "RUNNING", "CHECKPOINTING"}
+        if job["desired_state"] == "PAUSED":
+            # Attempt SM:71 — the committed pause checkpoint moves it to STOPPING.
+            live_states.add("STOPPING")
         if (
-            not (normal_run or checkpoint_for_pause)
-            or attempt["state"]
-            not in {"CREATED", "CLAIMED", "STARTING", "RUNNING", "CHECKPOINTING"}
+            not (normal_run or pausing_run or checkpoint_for_pause)
+            or attempt["state"] not in live_states
             or allocation["state"] != "HELD"
             or lease["revoked_at"] is not None
             or lease["expires_at"] <= now
         ):
-            raise ApplicationError(code="state_conflict", status=409, message="Attempt is not live")
+            # SM:59 (B15-R30): a revoked or expired lease or a changed desired state
+            # is stale authority, not a state conflict.
+            raise ApplicationError(
+                code="stale_authority", status=409, message="Attempt is not live"
+            )
+
+    @staticmethod
+    def _result_authority(job: dict, attempt: dict) -> None:
+        """Only a RUN attempt of a job still desired RUNNING may produce a result."""
+        if job["desired_state"] != "RUNNING" or attempt["execution_intent"] != "RUN":
+            raise ApplicationError(
+                code="stale_authority", status=409, message="Attempt may not produce a result"
+            )
 
     def adopt_attempt(
         self,
@@ -1217,7 +1274,7 @@ class WorkerService:
                 or lease["current_worker_incarnation_id"] != prior.worker_incarnation_id
             ):
                 raise ApplicationError(
-                    code="state_conflict", status=409, message="Authority mismatch"
+                    code="stale_authority", status=409, message="Authority is stale"
                 )
             next_grant = new_uuid7()
             session.execute(
@@ -1343,7 +1400,7 @@ class WorkerService:
                 or worker["current_incarnation_id"] != authority.worker_incarnation_id
             ):
                 raise ApplicationError(
-                    code="state_conflict", status=409, message="Authority is stale"
+                    code="stale_authority", status=409, message="Authority is stale"
                 )
             self._require_current_incarnation(
                 session, worker, authority.worker_incarnation_id, require_reconciling=False
@@ -1367,7 +1424,7 @@ class WorkerService:
                 or lease["current_worker_incarnation_id"] != authority.worker_incarnation_id
             ):
                 raise ApplicationError(
-                    code="state_conflict", status=409, message="Authority is stale"
+                    code="stale_authority", status=409, message="Authority is stale"
                 )
             progress = (
                 json_wire_value(request.progress.model_dump())

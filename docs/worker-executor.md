@@ -101,7 +101,10 @@ Cleanup persists `CLEANUP_IN_FLIGHT` and stopped observation before remove.
 After a lost remove response, post-remove crash or journal write failure, replay
 uses the durable observation plus confirmed absence to return the same exact
 proof. Repeated cleanup is safe. Proof creation never releases allocation,
-quota or ledger state; B10/B11/B15 own server reconciliation and release.
+quota or ledger state; B10/B11/B15 own server reconciliation and release. In
+B15 a lease reaped at DB expiry, a cancel or a worker disable only quarantines
+the allocation; the server releases it when this exact proof arrives in the
+cleanup callback (see [coordinator](coordinator.md#b15-reaper-retry-promotion-and-retention-sweep)).
 
 `signal_checkpoint()` stays a typed `UNSUPPORTED` error by design: a B14
 checkpoint is requested only as `REQUEST_CHECKPOINT` over the fenced runner

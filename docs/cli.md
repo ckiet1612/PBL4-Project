@@ -62,12 +62,16 @@ update` dùng `--password-stdin` khi đổi password. Khi tạo user bằng flag
 nexa config show|set-endpoint|set-tenant|use-profile
 nexa token list|create|revoke
 nexa artifact list|get|upload|download
-nexa job submit|list|get|session|events|checkpoints|result|result-download
+nexa job submit|list|get|session|events|checkpoints|attempts|result|result-download
+nexa job cancel|pause|resume|retry
 nexa admin tenant list|create|get|update
 nexa admin user list|create|get|update
 nexa admin membership list|upsert|delete
 nexa admin policy get|update
 nexa admin tenant-policy get|update
+nexa admin worker list|get|drain|disable|enable
+nexa admin allocations
+nexa admin recovery-events
 nexa admin audit list
 ```
 
@@ -78,11 +82,12 @@ list/create/revoke dùng `tokens:write`; admin read và mutation lần lượt d
 read. API còn kiểm tra active user, tenant role/membership, ownership và
 `SYSTEM_ADMIN` tương ứng.
 
-Các control job `cancel`, `pause`, `resume`, `retry` và sweep thuộc B15, không
-được thêm vào B12. Template, attempts, logs, progress và admin
-worker/allocation/fairness/recovery commands chưa được đăng ký vì FastAPI
-snapshot hiện chưa có route/service tương ứng; chúng chỉ được thêm lại sau khi
-backend wiring và API integration evidence tồn tại.
+B15 đăng ký control job `cancel`, `pause`, `resume`, `retry` (scope
+`jobs:write`), `job attempts` (scope `jobs:read`) và admin
+`worker`/`allocations`/`recovery-events` sau khi route và API integration
+evidence tồn tại. Template, logs, progress, admin job và admin fairness vẫn chưa
+được đăng ký vì FastAPI snapshot chưa có route/service tương ứng; retention
+sweep là tác vụ coordinator, không có lệnh CLI.
 
 ## Token và response loss
 
@@ -137,6 +142,38 @@ attempt, sequence, manifest artifact/checksum, trạng thái và thời điểm 
 không trả reservation, staging hay nội dung checkpoint/cursor, và không có lệnh
 restore thủ công. Automatic recovery tự chọn checkpoint; manual retry thuộc B15.
 
+## Control job và recovery (B15)
+
+```bash
+nexa job cancel JOB_ID --reason TEXT --if-match '"v3"' [--idempotency-key K] [--tenant T]
+nexa job pause JOB_ID --reason TEXT --if-match '"v3"' [--idempotency-key K] [--tenant T]
+nexa job resume JOB_ID --reason TEXT --if-match '"v4"' [--idempotency-key K] [--tenant T]
+nexa job retry JOB_ID --reason TEXT [--checkpoint-id CKPT] --if-match '"v9"'
+nexa job attempts JOB_ID [--cursor C] [--page-size N] [--tenant T]
+nexa admin worker list|get WORKER_ID
+nexa admin worker drain|disable|enable WORKER_ID --reason TEXT --if-match '"v2"'
+nexa admin allocations [--state HELD|QUARANTINED|RELEASED] [--cursor C] [--page-size N]
+nexa admin recovery-events --from RFC3339 --to RFC3339 [--cursor C] [--page-size N]
+```
+
+Control gọi `POST /v1/jobs/{job_id}/{cancel|pause|resume|retry}` với body
+`{"reason": ...}`; retry luôn gửi `checkpoint_id` (`null` khi không chọn) và
+tạo job/session mới với `retry_of_job_id`, không sửa job nguồn. Trước khi gửi
+request CLI kiểm tra cục bộ và trả exit 2 nếu: reason ngoài 1–256 ký tự, thiếu
+`--if-match`, `--idempotency-key` không khớp 16–128 ký tự ASCII hiển thị, hoặc
+page size ngoài 1–100 (`job attempts`, admin worker/allocations/recovery-events
+từ chối, không kẹp). Admin worker action áp cùng quy tắc reason/If-Match.
+ETag của worker chỉ đổi khi field hiển thị đổi (health, inventory version,
+`ready_at`, admin state); heartbeat đều đặn không làm ETag cũ (B15-R08), nên
+`nexa admin worker get` rồi drain/disable/enable không bị `412` chỉ vì heartbeat.
+`--from`/`--to` là bắt buộc theo contract và được truyền nguyên văn.
+
+CLI không sinh lại key khi transport retry và không tự refetch ETag: `409`
+(state không hợp lệ, `ADMISSION_OFF` cho retry, `WRITE_FROZEN` cho mọi control),
+`412` hoặc `428` đều kết thúc với exit 6; người dùng đọc lại job rồi gửi
+invocation mới với ETag mới. Reason là free text của người dùng: CLI không in
+lại nó trong error output.
+
 ## Output và exit codes
 
 Mặc định output human; dùng `--output json` cho JSON deterministic trên stdout.
@@ -159,7 +196,7 @@ artifact bytes hay server path.
 
 ## Giới hạn phạm vi
 
-CLI này không chứng minh hoặc cung cấp B15 cancel/pause/resume/retry/recovery,
-scheduler fairness production, GPU, multi-server portability, load/soak/chaos,
+CLI này không tự chứng minh semantics cancel/pause/resume/retry/recovery của
+B15 (evidence nằm ở tài liệu evidence B15), scheduler fairness production, GPU, multi-server portability, load/soak/chaos,
 checkpoint recovery ngoài lệnh xem danh sách checkpoint của B14, Web UI, bare-Linux acceptance hay release
 `v1.0.0`. Những điều đó cần gate và evidence riêng theo PLAN.

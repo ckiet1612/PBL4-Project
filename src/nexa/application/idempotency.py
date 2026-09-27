@@ -88,37 +88,48 @@ def begin_idempotency(
         )
         .returning(idempotency_records.c.idempotency_id)
     )
-    try:
-        inserted = session.execute(statement).scalar_one_or_none()
-    except OperationalError as exc:
-        sqlstate = getattr(exc.orig, "sqlstate", None) or getattr(exc.orig, "pgcode", None)
-        if sqlstate == "55P03":
-            raise ApplicationError(
-                code="idempotency_in_progress",
-                status=409,
-                message="An identical request is still in progress",
-                retry_after=1,
-            ) from exc
-        raise
-    if inserted is not None:
-        return IdempotencyOutcome(record_id=inserted, replay=None)
-
-    row = (
-        session.execute(
-            select(idempotency_records)
-            .where(
-                *_scope_predicates(
-                    context=context,
-                    principal_id=principal_id,
-                    operation_id=operation_id,
-                    key=key,
+    # The retention sweep may delete the conflicting record between the insert
+    # and the lock; the key is then free, so the insert is attempted again (L3).
+    for _ in range(3):
+        try:
+            inserted = session.execute(statement).scalar_one_or_none()
+        except OperationalError as exc:
+            sqlstate = getattr(exc.orig, "sqlstate", None) or getattr(exc.orig, "pgcode", None)
+            if sqlstate == "55P03":
+                raise ApplicationError(
+                    code="idempotency_in_progress",
+                    status=409,
+                    message="An identical request is still in progress",
+                    retry_after=1,
+                ) from exc
+            raise
+        if inserted is not None:
+            return IdempotencyOutcome(record_id=inserted, replay=None)
+        row = (
+            session.execute(
+                select(idempotency_records)
+                .where(
+                    *_scope_predicates(
+                        context=context,
+                        principal_id=principal_id,
+                        operation_id=operation_id,
+                        key=key,
+                    )
                 )
+                .with_for_update()
             )
-            .with_for_update()
+            .mappings()
+            .one_or_none()
         )
-        .mappings()
-        .one()
-    )
+        if row is not None:
+            break
+    else:
+        raise ApplicationError(
+            code="dependency_unavailable",
+            status=503,
+            message="Idempotency record is changing; retry the request",
+            retry_after=1,
+        )
     if row["request_hash"] != request_hash:
         raise ApplicationError(
             code="idempotency_conflict",
