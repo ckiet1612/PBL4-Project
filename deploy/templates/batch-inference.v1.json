@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "template_id": "batch-inference",
+  "version": 1,
+  "display_name": "Chunked batch inference (CPU)",
+  "description": "Chunked CIFAR-10 inference with recognized chunk outputs and cursor checkpoints.",
+  "adapter_id": "batch.inference",
+  "adapter_version": "1.0.0",
+  "checkpointable": true,
+  "restart_safe": true,
+  "allowed_devices": [
+    "CPU"
+  ],
+  "artifact_requirements": {
+    "input": {
+      "kind": "DATASET",
+      "media_type": "application/vnd.apache.arrow.file"
+    },
+    "model": {
+      "kind": "MODEL",
+      "media_type": "application/octet-stream"
+    }
+  },
+  "parameter_schema": [
+    {
+      "name": "chunk_size",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 1,
+      "maximum": 100000,
+      "default": null
+    },
+    {
+      "name": "batch_size",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 1,
+      "maximum": 4096,
+      "default": null
+    },
+    {
+      "name": "output_format",
+      "type": "ENUM",
+      "required": true,
+      "minimum": null,
+      "maximum": null,
+      "default": null,
+      "enum_values": [
+        "JSONL",
+        "PARQUET"
+      ]
+    }
+  ],
+  "resource_bounds": {
+    "resources": {
+      "cpu_millis": {
+        "minimum": 1000,
+        "maximum": 8000
+      },
+      "memory_bytes": {
+        "minimum": 1073741824,
+        "maximum": 8589934592
+      },
+      "gpu_count": 0
+    },
+    "runtime_limit_seconds": 300,
+    "checkpoint_interval_seconds": {
+      "minimum": 5,
+      "maximum": 60
+    }
+  },
+  "capability_requirement": {
+    "architectures": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "adapter_id": "batch.inference",
+    "adapter_version": "1.0.0",
+    "device": "CPU",
+    "framework": "PYTORCH",
+    "framework_version": "2.12.1",
+    "cuda_runtime_min": null,
+    "driver_min": null,
+    "compute_capability_min": null
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "purpose": "B16 RAM sizing on environment L (sizing information, not acceptance)",
+  "environment": "VPS1 (AWS EC2 c7i.2xlarge, Ubuntu 24.04), linux/amd64, Docker Engine 29.8.1, cgroup v2",
+  "measured_utc": "2026-09-27T23:36:24Z",
+  "method": "workload module run directly (no runner) in a hardened container: --network none --read-only --user 1001:1000 --cap-drop ALL --security-opt no-new-privileges:true --pids-limit 128 --memory 6g --cpus 1, --threads 1; peak = max of cgroup memory.peak polled every 0.2 s",
+  "images": {
+    "pytorch.cifar10": "nexa/pytorch-cifar10@sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb",
+    "batch.inference": "nexa/batch-inference@sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8"
+  },
+  "fixtures": {
+    "training": "cifar10-train-5000-eval-1000.arrow",
+    "inference": "cifar10-inference-2000.arrow",
+    "model": "cifar10-smallcnn-v1.safetensors"
+  },
+  "rows": [
+    {
+      "name": "train-b64-s5000-e1",
+      "exit": 0,
+      "peak_bytes": 331165696,
+      "seconds": 4.9
+    },
+    {
+      "name": "train-b512-s5000-e3",
+      "exit": 0,
+      "peak_bytes": 428552192,
+      "seconds": 8.7
+    },
+    {
+      "name": "infer-c50-b50",
+      "exit": 0,
+      "peak_bytes": 254181376,
+      "seconds": 2.8
+    },
+    {
+      "name": "infer-c2000-b2000",
+      "exit": 0,
+      "peak_bytes": 530870272,
+      "seconds": 3.0
+    }
+  ],
+  "not_run": [
+    "training subset_size 50000 (fixture has 5000 training items)",
+    "inference batch_size 4096 (fixture N = 2000)"
+  ]
+}

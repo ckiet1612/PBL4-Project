@@ -10,8 +10,10 @@ from pydantic import (
     ConfigDict,
     Field,
     RootModel,
+    StrictBool,
     StrictFloat,
     StrictInt,
+    StrictStr,
     field_serializer,
     field_validator,
 )
@@ -301,6 +303,60 @@ JobSpec = Annotated[
     CpuJobSpec | TrainingJobSpec | InferenceJobSpec,
     Field(discriminator="template_id"),
 ]
+
+
+_SEMVER_PATTERN = r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+
+
+class ParameterDefinition(BaseModel):
+    model_config = ConfigDict(title="ParameterDefinition", extra="forbid")
+
+    name: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    type: Literal["INTEGER", "NUMBER", "BOOLEAN", "STRING", "ENUM"]
+    required: bool
+    minimum: StrictInt | StrictFloat | None
+    maximum: StrictInt | StrictFloat | None
+    default: StrictInt | StrictFloat | bool | str | None
+    enum_values: list[Annotated[str, Field(max_length=64)]] | None = Field(
+        default=None, max_length=64
+    )
+    unit: str | None = Field(default=None, max_length=32)
+
+
+class WorkloadCapabilityRequirement(BaseModel):
+    model_config = ConfigDict(title="WorkloadCapabilityRequirement", extra="forbid")
+
+    architectures: list[Architecture] = Field(min_length=1)
+    adapter_id: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,63}$")
+    adapter_version: str = Field(pattern=_SEMVER_PATTERN)
+    image_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    device: Literal["CPU", "CUDA"]
+    framework: Literal["PYTORCH", "NEXA_CPU"]
+    framework_version: str = Field(pattern=_SEMVER_PATTERN)
+    cuda_runtime_min: str | None = Field(pattern=_SEMVER_PATTERN)
+    driver_min: str | None = Field(min_length=1, max_length=64)
+    compute_capability_min: str | None = Field(pattern=r"^[0-9]+\.[0-9]+$")
+
+
+class Template(BaseModel):
+    model_config = ConfigDict(title="Template", extra="forbid")
+
+    template_id: str = Field(pattern=r"^[a-z][a-z0-9-]{1,63}$")
+    version: int = Field(ge=1)
+    display_name: str = Field(min_length=1, max_length=100)
+    adapter_id: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,63}$")
+    adapter_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
+    image_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    enabled: bool
+    checkpointable: bool
+    restart_safe: bool
+    allowed_devices: list[Literal["CPU", "CUDA"]] = Field(min_length=1)
+    capability_requirement: WorkloadCapabilityRequirement
+    parameter_schema: list[ParameterDefinition] = Field(max_length=64)
+
+
+class TemplateList(RootModel[list[Template]]):
+    root: list[Template] = Field(max_length=100)
 
 
 class JobSubmitRequest(StrictRequest):
@@ -693,6 +749,42 @@ class ErrorResponse(BaseModel):
     code: str
     message: str
     request_id: str
+
+
+class SweepDimension(StrictRequest):
+    name: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    # uniqueItems is enforced as RFC 8785 de-duplication during expansion (B16-R10).
+    values: list[StrictBool | StrictInt | StrictFloat | StrictStr] = Field(
+        min_length=1, max_length=100
+    )
+
+
+class SweepSubmitRequest(StrictRequest):
+    base_spec: TrainingJobSpec
+    dimensions: list[SweepDimension] = Field(min_length=1, max_length=16)
+
+
+class SweepChildOutcome(BaseModel):
+    model_config = ConfigDict(title="SweepChildOutcome", extra="forbid")
+
+    child_index: int = Field(ge=0, le=99)
+    parameter_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    status: Literal["ACCEPTED", "REJECTED"]
+    job_id: UuidV7 | None
+    error: ErrorResponse | None
+
+
+class Sweep(BaseModel):
+    model_config = ConfigDict(title="Sweep", extra="forbid")
+
+    sweep_id: UuidV7
+    tenant_id: UuidV7
+    child_count: int = Field(ge=1, le=100)
+    accepted_count: int = Field(ge=0, le=100)
+    rejected_count: int = Field(ge=0, le=100)
+    children: list[SweepChildOutcome] = Field(max_length=100)
+    page: PageInfo
+    created_at: datetime
 
 
 class AuthorityRequest(StrictRequest):

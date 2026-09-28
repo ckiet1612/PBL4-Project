@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "template_id": "pytorch-cifar10-cnn",
+  "version": 1,
+  "display_name": "PyTorch CIFAR-10 CNN training (CPU)",
+  "description": "Deterministic small-CNN CIFAR-10 subset training with model, optimizer, RNG and sampler checkpoints.",
+  "adapter_id": "pytorch.cifar10",
+  "adapter_version": "1.0.0",
+  "checkpointable": true,
+  "restart_safe": true,
+  "allowed_devices": [
+    "CPU"
+  ],
+  "artifact_requirements": {
+    "input": {
+      "kind": "DATASET",
+      "media_type": "application/vnd.apache.arrow.file"
+    },
+    "model": null
+  },
+  "parameter_schema": [
+    {
+      "name": "epochs",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 1,
+      "maximum": 100,
+      "default": null
+    },
+    {
+      "name": "batch_size",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 1,
+      "maximum": 512,
+      "default": null
+    },
+    {
+      "name": "learning_rate",
+      "type": "NUMBER",
+      "required": true,
+      "minimum": null,
+      "maximum": 1,
+      "default": null
+    },
+    {
+      "name": "seed",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 0,
+      "maximum": 2147483647,
+      "default": null
+    },
+    {
+      "name": "subset_size",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 100,
+      "maximum": 50000,
+      "default": null
+    }
+  ],
+  "resource_bounds": {
+    "resources": {
+      "cpu_millis": {
+        "minimum": 1000,
+        "maximum": 8000
+      },
+      "memory_bytes": {
+        "minimum": 1073741824,
+        "maximum": 8589934592
+      },
+      "gpu_count": 0
+    },
+    "runtime_limit_seconds": 300,
+    "checkpoint_interval_seconds": {
+      "minimum": 5,
+      "maximum": 60
+    }
+  },
+  "capability_requirement": {
+    "architectures": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "adapter_id": "pytorch.cifar10",
+    "adapter_version": "1.0.0",
+    "device": "CPU",
+    "framework": "PYTORCH",
+    "framework_version": "2.12.1",
+    "cuda_runtime_min": null,
+    "driver_min": null,
+    "compute_capability_min": null
+  }
+}

@@ -1,4 +1,4 @@
-"""Committed dispatch and attempt callbacks for the CPU execution lifecycle."""
+"""Committed dispatch and attempt callbacks for the execution lifecycle."""
 
 from __future__ import annotations
 
@@ -7,9 +7,15 @@ from uuid import UUID
 from sqlalchemy import insert, select, update
 
 from nexa.api.schemas import Authority
+from nexa.application import chunk_recognition
 from nexa.application.artifact_service import ArtifactService
 from nexa.application.checkpoint_restore import CheckpointRestoreMixin, _inherits, _not_corrupt
-from nexa.application.checkpoint_service import CheckpointMixin, checkpoint_record
+from nexa.application.checkpoint_service import (
+    CheckpointMixin,
+    _storage_unavailable,
+    checkpoint_record,
+)
+from nexa.application.checkpoint_validation import check_chunk_manifest, chunk_reference_required
 from nexa.application.errors import ApplicationError
 from nexa.application.execution_cleanup import (
     ExecutionCleanupMixin,
@@ -18,7 +24,10 @@ from nexa.application.execution_cleanup import (
 )
 from nexa.application.job_recovery import extend_retention, restorable_scope, restore_order
 from nexa.application.json_codec import json_wire_value
-from nexa.application.result_validation import validate_cpu_result_manifest
+from nexa.application.result_validation import (
+    validate_inference_summary,
+    validate_result_manifest,
+)
 from nexa.application.worker_service import WorkerService
 from nexa.infrastructure.artifacts.store import ArtifactError
 from nexa.infrastructure.persistence.ids import new_uuid7
@@ -30,6 +39,7 @@ from nexa.infrastructure.persistence.schema import (
     attempt_authority_grants,
     attempt_leases,
     attempts,
+    callback_receipts,
     checkpoints,
     job_specs,
     jobs,
@@ -40,6 +50,10 @@ from nexa.infrastructure.persistence.schema import (
     upload_sessions,
 )
 from nexa.infrastructure.persistence.transactions import run_transaction
+from nexa.workloads import chunk_manifest, inference_state
+
+# The result graph holds at most a few file bindings, so its canonical manifest is bounded.
+RESULT_MANIFEST_MAX_BYTES = 1024 * 1024
 
 
 class ExecutionService(
@@ -621,35 +635,158 @@ class ExecutionService(
             message="Result artifact has no matching upload lineage",
         )
 
-    def _manifest_bytes(self, artifact):
+    @staticmethod
+    def _result_inference_prefetch(manifest):
+        """Bounded summary/chunk-manifest reads a batch-inference completion needs."""
+        reference = manifest.get("chunk_output_manifest") if isinstance(manifest, dict) else None
+        if not isinstance(reference, dict) or not isinstance(manifest.get("files"), list):
+            return {}
+        wanted = {
+            str(entry.get("artifact_id")): ("RESULT_FILE", inference_state.MAX_DOCUMENT_BYTES)
+            for entry in manifest["files"][:64]
+            if isinstance(entry, dict)
+        }
+        wanted[str(reference.get("artifact_id"))] = (
+            "CHUNK_OUTPUT_MANIFEST",
+            chunk_manifest.MAX_MANIFEST_BYTES,
+        )
+        return wanted
+
+    def _prefetch_result_manifest(
+        self, *, credential, authority, callback_id, artifact_id, manifest=None
+    ):
+        """Read bounded result manifest bytes before the completion transaction."""
+        wanted = self._result_inference_prefetch(manifest)
+
+        def operation(session):
+            self._mode(session)
+            self._worker_auth(session, worker_id=authority.worker_id, credential=credential)
+            acknowledgment = session.execute(
+                select(callback_receipts.c.acknowledgment).where(
+                    callback_receipts.c.worker_id == authority.worker_id,
+                    callback_receipts.c.operation_id == "workerCompleteAttempt",
+                    callback_receipts.c.callback_id == callback_id,
+                )
+            ).scalar_one_or_none()
+            if acknowledgment:
+                return None
+            tenant_id = session.execute(
+                select(attempts.c.tenant_id).where(
+                    attempts.c.attempt_id == authority.attempt_id,
+                    attempts.c.worker_id == authority.worker_id,
+                )
+            ).scalar_one_or_none()
+            row = (
+                session.execute(
+                    select(artifacts).where(
+                        artifacts.c.artifact_id == artifact_id,
+                        artifacts.c.tenant_id == tenant_id,
+                        artifacts.c.state == "COMMITTED",
+                        artifacts.c.kind == "RESULT_MANIFEST",
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None or row["size_bytes"] > RESULT_MANIFEST_MAX_BYTES:
+                return None
+            return dict(row), chunk_recognition.prefetch_rows(
+                session, tenant_id=tenant_id, wanted=wanted
+            )
+
+        found = run_transaction(self.session_factory, operation)
+        if found is None:
+            return None
+        row, extra_rows = found
         if self.artifact_store is None:
-            raise ApplicationError(
-                code="dependency_unavailable",
-                status=503,
-                message="Artifact storage is unavailable",
-                retry_after=1,
-            )
-        # The CPU graph contains one file, so its canonical manifest is bounded.
-        if artifact["size_bytes"] > 1024 * 1024:
-            raise ApplicationError(
-                code="validation_failed", status=422, message="CPU manifest exceeds its size bound"
-            )
+            raise _storage_unavailable()
         try:
-            reader = self.artifact_store.open(artifact["blob_key"])
+            reader = self.artifact_store.open(row["blob_key"])
             try:
-                raw = reader.read(1024 * 1024 + 1)
+                raw = reader.read(RESULT_MANIFEST_MAX_BYTES + 1)
             finally:
                 reader.close()
         except ArtifactError as exc:
+            raise _storage_unavailable() from exc
+        # Bytes that differ from committed metadata fail manifest validation (422).
+        extras = chunk_recognition.prefetch_blobs(self.artifact_store, extra_rows, wanted)
+        return row["artifact_id"], raw, extras
+
+    def _recognized_result_chunks(
+        self, session, *, job, attempt, grant, spec, provenance, manifest, bindings, extras, model
+    ):
+        """B16: the final chunk-output manifest covers ``[0, N)`` and every chunk is recognized."""
+        parameters = spec["canonical_spec"].get("parameters") or {}
+        reference = manifest["chunk_output_manifest"]
+        try:
+            (binding,) = bindings
+            summary = validate_inference_summary(
+                chunk_recognition.prefetched_bytes(
+                    session, extras, tenant_id=job["tenant_id"], artifact_id=binding["artifact_id"]
+                ),
+                manifest=manifest,
+                parameters=parameters,
+                model_checksum=model,
+            )
+            chunk_recognition.pin_extents(
+                session,
+                job=job,
+                attempt_id=attempt["attempt_id"],
+                job_fence=job["job_fence"],
+                item_count=summary["item_count"],
+                chunk_size=summary["chunk_size"],
+            )
+            row = chunk_recognition.lock_manifest(session, job=job, reference=reference)
+            try:
+                self._upload_from_attempt(
+                    session, artifact=row, job=job, attempt=attempt, grant=grant
+                )
+            except ApplicationError as exc:
+                raise chunk_recognition.ChunkDefect("chunk-output manifest lineage") from exc
+            chunks = check_chunk_manifest(
+                chunk_recognition.prefetched_bytes(
+                    session,
+                    extras,
+                    tenant_id=job["tenant_id"],
+                    artifact_id=reference["artifact_id"],
+                ),
+                artifact=row,
+                reference=reference,
+                provenance=provenance,
+                model_checksum=model,
+                state=summary,
+                chunk_total=inference_state.chunk_count(
+                    summary["item_count"], summary["chunk_size"]
+                ),
+            )
+            edges = chunk_recognition.recognize(
+                session,
+                job=job,
+                attempt_id=attempt["attempt_id"],
+                job_fence=job["job_fence"],
+                session_id=UUID(str(provenance["session_id"])),
+                entries=chunks,
+                lineage=lambda artifact: self._upload_from_attempt(
+                    session, artifact=artifact, job=job, attempt=attempt, grant=grant
+                ),
+            )
+        except (chunk_recognition.ChunkDefect, chunk_manifest.ChunkManifestError) as exc:
             raise ApplicationError(
-                code="dependency_unavailable",
-                status=503,
-                message="Artifact storage is unavailable",
-                retry_after=1,
+                code="validation_failed",
+                status=422,
+                message="Result chunk outputs failed validation",
             ) from exc
-        return raw
+        return [chunk_recognition.manifest_edge(row), *edges]
 
     def complete_attempt(self, *, credential, attempt_id, callback_id, payload_hash, request):
+        prefetched = self._prefetch_result_manifest(
+            credential=credential,
+            authority=request.authority,
+            callback_id=callback_id,
+            artifact_id=request.result_manifest_artifact_id,
+            manifest=request.manifest,
+        )
+
         def operation(session):
             _, counters = _lock_policy_counters(session, attempt_id)
             receipt, replay, rows = self._callback(
@@ -709,6 +846,15 @@ class ExecutionService(
                 raise ApplicationError(
                     code="state_conflict", status=409, message="Result manifest is not committed"
                 )
+            if artifact["size_bytes"] > RESULT_MANIFEST_MAX_BYTES:
+                raise ApplicationError(
+                    code="validation_failed",
+                    status=422,
+                    message="Result manifest exceeds its size bound",
+                )
+            if prefetched is None or prefetched[0] != artifact["artifact_id"]:
+                # Committed after the prefetch read; a retry reads it outside this transaction.
+                raise _storage_unavailable()
             self._upload_from_attempt(
                 session, artifact=artifact, job=job, attempt=attempt, grant=grant
             )
@@ -759,35 +905,55 @@ class ExecutionService(
                     "image_digest": template["image_digest"],
                 }
             )
-            binding = validate_cpu_result_manifest(
+            model = chunk_recognition.model_checksum(session, tenant_id=job["tenant_id"], spec=spec)
+            bindings = validate_result_manifest(
                 request.manifest,
-                raw=self._manifest_bytes(artifact),
+                raw=prefetched[1],
                 artifact=artifact,
                 expected_result_id=reservation["result_id"],
                 provenance=provenance,
+                parameters=spec["canonical_spec"].get("parameters") or {},
+                model_checksum=model,
             )
-            output = (
-                session.execute(
-                    select(artifacts).where(
-                        artifacts.c.artifact_id == UUID(binding["artifact_id"]),
-                        artifacts.c.tenant_id == job["tenant_id"],
-                        artifacts.c.state == "COMMITTED",
-                        artifacts.c.kind == "RESULT_FILE",
+            outputs = []
+            for binding in bindings:
+                output = (
+                    session.execute(
+                        select(artifacts).where(
+                            artifacts.c.artifact_id == UUID(binding["artifact_id"]),
+                            artifacts.c.tenant_id == job["tenant_id"],
+                            artifacts.c.state == "COMMITTED",
+                            artifacts.c.kind == "RESULT_FILE",
+                        )
                     )
+                    .mappings()
+                    .one_or_none()
                 )
-                .mappings()
-                .one_or_none()
-            )
-            if output is None or any(
-                output[field] != binding[field]
-                for field in ("media_type", "size_bytes", "checksum")
-            ):
-                raise ApplicationError(
-                    code="state_conflict", status=409, message="Result file binding is invalid"
+                if output is None or any(
+                    output[field] != binding[field]
+                    for field in ("media_type", "size_bytes", "checksum")
+                ):
+                    raise ApplicationError(
+                        code="state_conflict", status=409, message="Result file binding is invalid"
+                    )
+                self._upload_from_attempt(
+                    session, artifact=output, job=job, attempt=attempt, grant=grant
                 )
-            self._upload_from_attempt(
-                session, artifact=output, job=job, attempt=attempt, grant=grant
-            )
+                outputs.append((output, "RESULT_FILE", binding["logical_name"]))
+            chunk_edges = []
+            if chunk_reference_required(provenance):
+                chunk_edges = self._recognized_result_chunks(
+                    session,
+                    job=job,
+                    attempt=attempt,
+                    grant=grant,
+                    spec=spec,
+                    provenance=provenance,
+                    manifest=request.manifest,
+                    bindings=bindings,
+                    extras=prefetched[2],
+                    model=model,
+                )
             session.execute(
                 insert(results).values(
                     result_id=reservation["result_id"],
@@ -800,14 +966,16 @@ class ExecutionService(
                     created_at=now,
                 )
             )
-            for item, purpose, name in (
-                (artifact, "RESULT_MANIFEST", "manifest"),
-                (output, "RESULT_FILE", binding["logical_name"]),
-            ):
+            edges = [
+                (artifact["artifact_id"], "RESULT_MANIFEST", "manifest"),
+                *((item["artifact_id"], purpose, name) for item, purpose, name in outputs),
+                *chunk_edges,
+            ]
+            for artifact_id, purpose, name in edges:
                 session.execute(
                     insert(artifact_references).values(
                         tenant_id=job["tenant_id"],
-                        artifact_id=item["artifact_id"],
+                        artifact_id=artifact_id,
                         owner_type="RESULT",
                         owner_id=reservation["result_id"],
                         purpose=purpose,

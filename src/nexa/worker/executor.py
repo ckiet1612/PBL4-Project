@@ -12,6 +12,8 @@ from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from nexa.workloads import adapter_launch
+
 from .docker_client import DockerCli, DockerCommandBackend, DockerContainerNotFound
 from .docker_config import build_container_config
 from .errors import ExecutorError, ExecutorErrorCode
@@ -34,7 +36,11 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def _pinned_image_ref(image_ref: str, digest: str) -> str:
+def _pinned_image_ref(image_ref: str, digest: str, extra_refs: tuple[str, ...] = ()) -> str:
+    """Pick the configured image whose digest is the claimed one; never substitute another."""
+    for ref in extra_refs:
+        if ref.count("@") == 1 and ref.rsplit("@", 1)[1] == digest:
+            return ref
     if "@" not in image_ref:
         return f"{image_ref}@{digest}"
     if image_ref.count("@") != 1 or image_ref.rsplit("@", 1)[1] != digest:
@@ -49,6 +55,7 @@ class DockerExecutor:
         backend: DockerCommandBackend | DockerCli,
         *,
         image_ref: str,
+        image_refs: tuple[str, ...] = (),
         staging_root: str | Path = "/var/lib/nexa/staging",
         monotonic: Callable[[], float] = time.monotonic,
         clock_domain: str | None = None,
@@ -57,17 +64,18 @@ class DockerExecutor:
         self.journal = journal
         self.docker = backend if isinstance(backend, DockerCli) else DockerCli(backend)
         self.image_ref = image_ref
+        self.image_refs = tuple(image_refs)
         self.staging_root = Path(staging_root)
         self.monotonic = monotonic
         self.clock_domain = clock_domain or _detect_clock_domain()
         self.installation_id = installation_id
-        self._checkpoint_capability: dict[str, bool] = {}
+        self._checkpoint_capability: dict[tuple[str, str], bool] = {}
 
     def prepare(self, request: StartExecution) -> PreparedExecution:
         attempt_id = request.context.authority.attempt_id
         binding = _execution_binding(request)
         try:
-            image = _pinned_image_ref(self.image_ref, request.context.image_digest)
+            image = _pinned_image_ref(self.image_ref, request.context.image_digest, self.image_refs)
             self._validate_primary_input_binding(request)
             self.journal.prepare(
                 attempt_id=attempt_id,
@@ -191,7 +199,7 @@ class DockerExecutor:
             )
         if bool(state.get("Running", False)):
             if record.state == "START_IN_FLIGHT":
-                if request.cpu_workload is not None:
+                if _supervised(request):
                     raise ExecutorError(
                         ExecutorErrorCode.START_OUTCOME_UNKNOWN,
                         "running container cannot prove the supervisor exec outcome",
@@ -252,7 +260,7 @@ class DockerExecutor:
     def _start_supervisor(
         self, identity: ContainerIdentity, request: StartExecution, timeout_seconds: float
     ) -> None:
-        if request.cpu_workload is None:
+        if not _supervised(request):
             return
         try:
             self.docker.exec_detached(
@@ -285,10 +293,12 @@ class DockerExecutor:
             ExecutorErrorCode.UNSUPPORTED, "checkpoint requests use the runner control channel"
         )
 
-    def checkpoint_supported(self, image_digest: str) -> bool:
-        """True only when the pinned image declares the B14 CPU state runner label."""
-        image = _pinned_image_ref(self.image_ref, image_digest)
-        cached = self._checkpoint_capability.get(image)
+    def checkpoint_supported(
+        self, image_digest: str, checkpoint_format: str = CHECKPOINT_RUNNER_VALUE
+    ) -> bool:
+        """True only when the pinned image declares the adapter's checkpoint runner label."""
+        image = _pinned_image_ref(self.image_ref, image_digest, self.image_refs)
+        cached = self._checkpoint_capability.get((image, checkpoint_format))
         if cached is None:
             try:
                 labels = self.docker.image_labels(image, timeout_seconds=5.0)
@@ -296,8 +306,8 @@ class DockerExecutor:
                 raise ExecutorError(
                     ExecutorErrorCode.INSPECTION_UNAVAILABLE, "image inspection failed"
                 ) from exc
-            cached = labels.get(CHECKPOINT_RUNNER_LABEL) == CHECKPOINT_RUNNER_VALUE
-            self._checkpoint_capability[image] = cached
+            cached = labels.get(CHECKPOINT_RUNNER_LABEL) == checkpoint_format
+            self._checkpoint_capability[(image, checkpoint_format)] = cached
         return cached
 
     def inspect(self, identity: ContainerIdentity) -> ContainerObservation:
@@ -523,12 +533,15 @@ class DockerExecutor:
 
     @staticmethod
     def _validate_primary_input_binding(request: StartExecution) -> None:
+        primary = "/input/input.json"
+        if request.adapter_launch is not None:
+            primary = request.adapter_launch.spec["inputs"]["dataset"]
         for mount in request.input_mounts:
             if (
-                mount.target_path == "/input/input.json"
+                mount.target_path == primary
                 and mount.content_checksum != request.context.input_checksum
             ):
-                raise ValueError("primary CPU input checksum does not match authorized context")
+                raise ValueError("primary input checksum does not match authorized context")
 
     def _prepare_control_dir(self, request: StartExecution) -> Path:
         attempt_id = request.context.authority.attempt_id
@@ -587,6 +600,9 @@ class DockerExecutor:
                     },
                 )
             _write_immutable_json(control_dir / "launch-spec.json", launch_spec)
+        elif request.adapter_launch is not None:
+            # Version 3: the closed PyTorch adapter spec the runner re-validates byte for byte.
+            _write_immutable_json(control_dir / "launch-spec.json", request.adapter_launch.spec)
         return control_dir
 
     def _verify_materialized_inputs(self, mounts: tuple[InputMount, ...]) -> None:
@@ -722,14 +738,18 @@ def _execution_binding(request: StartExecution) -> dict[str, object]:
     if request.checkpoint is not None:
         # Absent for non-checkpoint launches so B09-B13 journal bindings stay byte-identical.
         binding["checkpoint"] = asdict(request.checkpoint)
+    if request.adapter_launch is not None:
+        # Absent for CPU launches so B09-B15 journal bindings stay byte-identical.
+        binding["adapter_launch"] = asdict(request.adapter_launch)
     return binding
 
 
+def _supervised(request: StartExecution) -> bool:
+    return request.cpu_workload is not None or request.adapter_launch is not None
+
+
 def _supervisor_command(request: StartExecution) -> tuple[str, ...]:
-    workload = request.cpu_workload
-    if workload is None:
-        raise ValueError("CPU workload spec is required")
-    return (
+    prefix = (
         "python",
         "-m",
         "nexa.workloads.workload_supervisor",
@@ -738,6 +758,14 @@ def _supervisor_command(request: StartExecution) -> tuple[str, ...]:
         "--log-limit",
         str(request.log_bytes),
         "--",
+    )
+    if request.adapter_launch is not None:
+        return prefix + adapter_launch.workload_command(request.adapter_launch.spec)
+    workload = request.cpu_workload
+    if workload is None:
+        raise ValueError("CPU workload spec is required")
+    return (
+        *prefix,
         "python",
         "-m",
         "nexa.workloads.cpu_entrypoint",

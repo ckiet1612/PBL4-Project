@@ -85,3 +85,6 @@ def register(group: typer.Typer) -> None:
         finally:
             if client is not None:
                 client.close()
+
+    # B16 names the read `show`; `get` stays for symmetry with the other resource groups.
+    group.command("show", help="Read one visible template version.")(get_template)

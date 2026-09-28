@@ -54,6 +54,24 @@ macOS is suitable for documentation/development/simulator only. It cannot satisf
 
 The VM evidence covers the production executor/entrypoint, distinct runner/workload UIDs, private control relay, deterministic result handshake, container isolation, CPU throttling, PID/scratch/RAM/log bounds, controller disconnect and authority deadline under partial IPC. PID 1 runs as `1000:1000` with all capabilities dropped and none added; the worker starts the fixed supervisor command as `1001:1000` by exact container ID, and the runner validates its one-shot registration peer. This does not prove bare Linux deployment behavior, reboot/reconciliation, two-host portability, GPU, or release acceptance.
 
+## B16 environments (đã triển khai, chờ Task Review)
+
+| Item | Value | Label | Source |
+|---|---|---|---|
+| Mac Docker Desktop engine (P) | Engine 29.8.0, kernel 7.0.12-linuxkit, `aarch64`, 8 CPU, about 3.8 GiB VM RAM | observed | `docker version` / `docker info` during B16 |
+| Environment L | VPS1 (AWS EC2 c7i.2xlarge, Ubuntu 24.04.5 LTS): 8 vCPU, about 15 GiB RAM, kernel 7.0.0-1013-aws, `x86_64`/`linux/amd64`, Docker Engine 29.8.1, cgroups v2 (systemd driver), builtin seccomp, AppArmor default profile | observed | `docker info`, `uname`, `/etc/os-release` on VPS1 |
+| VPS1 service exposure | PostgreSQL 17 test container and the test API listen only on 127.0.0.1; the worker runs with host networking to reach that loopback API; nothing is published publicly | observed | B16 harness and VPS1 scripts |
+| B16 images (VPS1, `linux/amd64`, local only, not pushed) | `nexa/pytorch-cifar10:b16` `sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb`, `nexa/batch-inference:b16` `sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8` (base `python@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9`) | observed | `tests/fixtures/workloads/*/fixture.json`, B16 evidence |
+| B16 regression images (VPS1, `linux/amd64`, local only) | CPU `nexa/cpu-iterative@sha256:20fd58cb53885085338454394653d67d78f0a9ab16a1984898eefd2fa3d8d89e`, worker image id `sha256:ee004e09bc24769ea990cc2705513af225fafe579639f50b36a5aac7670ce1e7` | observed | `docker image inspect` on VPS1, B16 evidence |
+| B16 regression images (Mac, `linux/arm64`, local only) | CPU `nexa/cpu-iterative@sha256:519a86971ea9d836c1c85fb8bda259302b9c74b342241c0bc6afad85d8757d45`, worker `nexa/b16-worker:local` image id `sha256:5eb661af7fdb7223437cb23958deb668673fa72bf2a1f1d0250fe3840ed54834`; both carry the final `src/nexa` (149 `.py` files, listing hash `0f684a4d…c610`). No arm64 PyTorch image was built | observed | `docker image inspect` on the Mac, B16 evidence |
+| B16 round 2 images (VPS1, `linux/amd64`, local only, not pushed) | `nexa/pytorch-cifar10:b16r2` `sha256:fcad40287b78e8a7f3208168c739aaadc0c2e2004290876950c1f2ae4391e797`, `nexa/batch-inference:b16r2` `sha256:db50610aa8c93896202638ca7e731b6a0595ead3b6ea62ca331c313c4f42c4ae`, CPU `nexa/cpu-iterative@sha256:6d6d0635188a9ce88fccc09d2020ec7635dae30fa2b30f05d72ed4a0f8a549d5`, worker image id `sha256:5defa94127454e9e1a0afc74613d05d75e88729a39ef92d550d1a17a3f7abfe5` (same base) | observed | `image.history` in the fixtures, B16 evidence §Vòng 2 |
+| B16 round 2 images (Mac, `linux/arm64`, local only) | CPU `nexa/cpu-iterative@sha256:95f89f118eb808ced3e475929378c40997ad0b47d6ffe27c3c9b3d0f2e194b6b`, worker `nexa/b16-worker:r2-local` image id `sha256:788a8fc820fb239adb3a559ebab38fb36981439dc18bb2503b90035843b41625`; all six round 2 images carry `src/nexa` listing hash `2486dcca…fa39` (149 files) | observed | `docker image inspect`, B16 evidence §Vòng 2 |
+| VPS1 host users | UIDs 1000 and 1001 have host passwd entries (`ubuntu`, `nexa`), so `docker top` prints those names for the container runner/workload UIDs (B16-R29) | observed | `getent passwd` on VPS1 |
+| B16 boundary | VPS1 is a real Linux VM (environment L). It is not bare metal, a GPU host (G), a two-host portability pair or release (R) evidence | observed limitation | B16 evidence |
+
+VPS1 details that identify the account, network address or keys are kept out of the
+repository on purpose.
+
 ## B02 prerequisite closure
 
 `uv.lock`, frozen Python install/quality checks, Node 24 LTS web checks and CI syntax/semantics are verified. No direct B02 blocker remains. Missing `psql`, bare Linux deployment, PostgreSQL runtime, two-host and GPU evidence belong to later tasks and are not B02 blockers; B09's Docker Desktop VM evidence is recorded separately and does not close those gates.

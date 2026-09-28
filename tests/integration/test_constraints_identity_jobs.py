@@ -277,6 +277,13 @@ def test_sweep_parent_ownership_is_enforced_on_insert_and_update(
                 "base_spec_checksum": CHECKSUM,
                 "idempotency_context": str(tenant_a["tenant_id"]),
                 "child_count": 2,
+                # B16 (0020) stores the request hash and the ordered expansion.
+                "request_hash": CHECKSUM,
+                "base_spec": {},
+                "expansion": [
+                    {"parameters": {}, "parameter_hash": "sha256:" + "c" * 64},
+                    {"parameters": {}, "parameter_hash": "sha256:" + "d" * 64},
+                ],
             },
         )
 

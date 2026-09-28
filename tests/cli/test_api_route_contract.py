@@ -45,11 +45,14 @@ SUPPORTED_CLI_ROUTES = {
     ("POST", "/v1/admin/workers/{worker_id}/enable"),
     ("GET", "/v1/admin/allocations"),
     ("GET", "/v1/admin/recovery-events"),
+    ("GET", "/v1/templates"),
+    ("GET", "/v1/templates/{template_id}"),
+    ("POST", "/v1/sweeps"),
+    ("GET", "/v1/sweeps/{sweep_id}"),
 }
 
 
 EXCLUDED_CLI_ROUTES = {
-    "/v1/templates",
     "/v1/jobs/{job_id}/logs",
     "/v1/jobs/{job_id}/progress",
     "/v1/admin/jobs",
@@ -78,4 +81,4 @@ def test_unwired_backend_surfaces_are_excluded_from_product_cli_contract() -> No
 
     root_help = app.registered_groups
     group_names = {group.name for group in root_help}
-    assert group_names == {"config", "token", "artifact", "job", "admin"}
+    assert group_names == {"config", "token", "artifact", "job", "template", "sweep", "admin"}

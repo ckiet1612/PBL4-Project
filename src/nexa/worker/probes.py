@@ -2,7 +2,11 @@
 
 import json
 import os
+import re
+from dataclasses import dataclass
 from typing import Protocol
+
+from nexa.domain import workload_adapters
 
 from .capabilities import (
     AdapterCapability,
@@ -13,6 +17,16 @@ from .capabilities import (
 )
 from .errors import DiscoveryError, DiscoveryErrorCode
 
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True, slots=True)
+class _Advertised:
+    adapter_id: str
+    adapter_version: str
+    framework: str
+    label_version: str
+
 
 class ProbeCommandBackend(Protocol):
     def run(self, argv: tuple[str, ...], timeout_seconds: float) -> tuple[int, bytes, bytes]: ...
@@ -20,14 +34,19 @@ class ProbeCommandBackend(Protocol):
 
 class DockerProbeBackend:
     def __init__(
-        self, command_backend: ProbeCommandBackend | None = None, *, image_ref: str | None = None
+        self,
+        command_backend: ProbeCommandBackend | None = None,
+        *,
+        image_ref: str | None = None,
+        image_refs: tuple[str, ...] = (),
     ) -> None:
         if command_backend is None:
             from .docker_client import SubprocessDockerBackend
 
             command_backend = SubprocessDockerBackend()
         self.command_backend = command_backend
-        self.image_ref = image_ref
+        refs = ((image_ref,) if image_ref is not None else ()) + tuple(image_refs)
+        self.image_refs = tuple(dict.fromkeys(refs))
 
     def _run_json(self, argv: tuple[str, ...]) -> object:
         code, stdout, _ = self.command_backend.run(argv, timeout_seconds=5)
@@ -37,6 +56,56 @@ class DockerProbeBackend:
             return json.loads(stdout.decode("utf-8", "strict"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise RuntimeError("Docker probe returned invalid JSON") from exc
+
+    def _probe_image(self, image_ref: str, architecture: str):
+        """Return (ImageCapability, verified adapter or None) for one digest-pinned image."""
+        image_info = self._run_json(("docker", "image", "inspect", image_ref))
+        if (
+            not isinstance(image_info, list)
+            or not image_info
+            or not isinstance(image_info[0], dict)
+        ):
+            raise RuntimeError("Docker image inspect payload is invalid")
+        image = image_info[0]
+        digest = image_ref.rsplit("@", 1)[-1]
+        repo_digests = image.get("RepoDigests", [])
+        digest_verified = isinstance(repo_digests, list) and any(
+            str(item).endswith(digest) for item in repo_digests
+        )
+        config = image.get("Config", {})
+        if not isinstance(config, dict):
+            config = {}
+        labels = config.get("Labels", {})
+        if not isinstance(labels, dict):
+            labels = {}
+        entrypoint = config.get("Entrypoint", [])
+        runner_verified = (
+            isinstance(entrypoint, list)
+            and len(entrypoint) >= 3
+            and [str(item) for item in entrypoint[-3:]]
+            == ["python", "-m", "nexa.workloads.trusted_runner"]
+            and labels.get("io.nexa.runner") == "trusted-runner-v1"
+        )
+        descriptor = workload_adapters.descriptor_for_labels(labels) if runner_verified else None
+        image_arch = {
+            "aarch64": "linux/arm64",
+            "arm64": "linux/arm64",
+            "amd64": "linux/amd64",
+        }.get(str(image.get("Architecture")), "unknown")
+        verified = (
+            digest_verified
+            and descriptor is not None
+            and image.get("Os") == "linux"
+            and image_arch == architecture
+        )
+        if not verified:
+            return ImageCapability(digest, image_arch, False), None
+        return ImageCapability(digest, image_arch, True), _Advertised(
+            descriptor.adapter_id,
+            descriptor.adapter_version,
+            descriptor.framework,
+            str(labels["io.nexa.framework.version"]),
+        )
 
     def snapshot(self) -> ProbeBackend:
         info = self._run_json(("docker", "info", "--format", "{{json .}}"))
@@ -50,63 +119,20 @@ class DockerProbeBackend:
         security_options = info.get("SecurityOptions", [])
         if not isinstance(security_options, list):
             security_options = []
-        image_capabilities: tuple[ImageCapability, ...] = ()
-        adapters: tuple[AdapterCapability, ...] = ()
-        frameworks: tuple[FrameworkCapability, ...] = ()
-        if self.image_ref is not None:
-            image_info = self._run_json(("docker", "image", "inspect", self.image_ref))
-            if (
-                not isinstance(image_info, list)
-                or not image_info
-                or not isinstance(image_info[0], dict)
-            ):
-                raise RuntimeError("Docker image inspect payload is invalid")
-            image = image_info[0]
-            digest = self.image_ref.rsplit("@", 1)[-1]
-            repo_digests = image.get("RepoDigests", [])
-            digest_verified = isinstance(repo_digests, list) and any(
-                str(item).endswith(digest) for item in repo_digests
-            )
-            config = image.get("Config", {})
-            if not isinstance(config, dict):
-                config = {}
-            labels = config.get("Labels", {})
-            if not isinstance(labels, dict):
-                labels = {}
-            entrypoint = config.get("Entrypoint", [])
-            runner_verified = (
-                isinstance(entrypoint, list)
-                and len(entrypoint) >= 3
-                and [str(item) for item in entrypoint[-3:]]
-                == ["python", "-m", "nexa.workloads.trusted_runner"]
-                and labels.get("io.nexa.runner") == "trusted-runner-v1"
-            )
-            adapter_id = labels.get("io.nexa.adapter.id")
-            adapter_version = labels.get("io.nexa.adapter.version")
-            framework = labels.get("io.nexa.framework")
-            framework_version = labels.get("io.nexa.framework.version")
-            metadata_verified = (
-                runner_verified
-                and adapter_id == "cpu.iterative"
-                and adapter_version == "1.0.0"
-                and framework == "NEXA_CPU"
-                and framework_version == "1.0.0"
-            )
-            image_arch = {
-                "aarch64": "linux/arm64",
-                "arm64": "linux/arm64",
-                "amd64": "linux/amd64",
-            }.get(str(image.get("Architecture")), "unknown")
-            verified = (
-                digest_verified
-                and metadata_verified
-                and image.get("Os") == "linux"
-                and image_arch == architecture
-            )
-            image_capabilities = (ImageCapability(digest, image_arch, verified),)
-            if verified:
-                adapters = (AdapterCapability(str(adapter_id), str(adapter_version)),)
-                frameworks = (FrameworkCapability(str(framework), str(framework_version), "CPU"),)
+        image_capabilities: list[ImageCapability] = []
+        adapters: list[AdapterCapability] = []
+        frameworks: list[FrameworkCapability] = []
+        for image_ref in self.image_refs:
+            image, adapter = self._probe_image(image_ref, architecture)
+            image_capabilities.append(image)
+            if adapter is None:
+                continue
+            advertised = AdapterCapability(adapter.adapter_id, adapter.adapter_version)
+            if advertised not in adapters:
+                adapters.append(advertised)
+            framework = FrameworkCapability(adapter.framework, adapter.label_version, "CPU")
+            if framework not in frameworks:
+                frameworks.append(framework)
         return ProbeBackend(
             system=str(info.get("OSType", "unknown")).capitalize(),
             architecture=architecture,
@@ -118,16 +144,27 @@ class DockerProbeBackend:
             cgroups_version=int(str(info.get("CgroupVersion", "0")).removeprefix("v")),
             kernel_release=str(info.get("KernelVersion", "unknown")),
             seccomp_available=any("seccomp" in str(item).lower() for item in security_options),
-            images=image_capabilities,
-            adapters=adapters,
-            frameworks=frameworks,
+            images=tuple(image_capabilities),
+            adapters=tuple(adapters),
+            frameworks=tuple(frameworks),
             gpu_devices=(),
         )
 
 
+def configured_image_refs() -> tuple[str, ...]:
+    """Legacy NEXA_CPU_IMAGE_REF first, then NEXA_WORKLOAD_IMAGE_REFS; every ref digest-pinned."""
+    refs = [os.environ.get("NEXA_CPU_IMAGE_REF") or ""]
+    refs += os.environ.get("NEXA_WORKLOAD_IMAGE_REFS", "").split(",")
+    unique = tuple(dict.fromkeys(ref.strip() for ref in refs if ref.strip()))
+    for ref in unique:
+        if ref.count("@") != 1 or not _DIGEST.fullmatch(ref.rsplit("@", 1)[1]):
+            raise ValueError("workload image refs must be pinned by @sha256 digest")
+    return unique
+
+
 def live_provider() -> ResourceProvider:
     try:
-        snapshot = DockerProbeBackend(image_ref=os.environ.get("NEXA_CPU_IMAGE_REF")).snapshot()
+        snapshot = DockerProbeBackend(image_refs=configured_image_refs()).snapshot()
     except (RuntimeError, KeyError, TypeError, ValueError) as exc:
         raise DiscoveryError(
             DiscoveryErrorCode.PROBE_FAILED, "live Docker runtime probe failed"
@@ -135,4 +172,10 @@ def live_provider() -> ResourceProvider:
     return ResourceProvider(backend=snapshot)
 
 
-__all__ = ["DockerProbeBackend", "ProbeBackend", "ResourceProvider", "live_provider"]
+__all__ = [
+    "DockerProbeBackend",
+    "configured_image_refs",
+    "ProbeBackend",
+    "ResourceProvider",
+    "live_provider",
+]

@@ -1,0 +1,1976 @@
+{
+  "D1_baseline": {
+    "hardening": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "image": "nexa/pytorch-cifar10@sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb",
+      "log_config": {
+        "Config": {
+          "max-file": "1",
+          "max-size": "1048576"
+        },
+        "Type": "json-file"
+      },
+      "memory": 1073741824,
+      "memory_swap": 1073741824,
+      "mounts": [
+        {
+          "destination": "/input/dataset.arrow",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/run/nexa-input",
+          "read_only": true,
+          "type": "bind"
+        }
+      ],
+      "nano_cpus": 1000000000,
+      "network_mode": "none",
+      "pids_limit": 128,
+      "privileged": false,
+      "processes": [
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1000"
+        },
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1001"
+        },
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1000"
+        }
+      ],
+      "readonly_rootfs": true,
+      "restart_policy": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/output",
+        "/run/nexa",
+        "/tmp"
+      ],
+      "user": "1000:1000"
+    },
+    "memory_peak_bytes": {
+      "01a0e53e-cd4c-73c4-9dfc-adca616d9252": 402436096
+    },
+    "metrics": {
+      "architecture_id": "nexa-cifar10-smallcnn-v1",
+      "batch_size": 64,
+      "epoch_sample_order_digests": [
+        "sha256:8c21073b025f5221066737de4c0986dce5610e99c69f2336ae8db1fe35708d87",
+        "sha256:2b3aa982e2e603c63e80129a15c10566072c1499586be0328f6b8b6c8133d8ce",
+        "sha256:1e613e8f3e9469516fd36604fdcf5861adf981e7497236b2ff584121dc3a5e67",
+        "sha256:87a12a9605ac2e2b09639a46fd49e399a94c55ba559a83721324299054d057c8",
+        "sha256:3d9627cd815393c10729f7bb0f618dcaf4539ccad5af1fe3a5a8e4b5fc4d8c71",
+        "sha256:5dcd52f0d4c1a02c34fd4cf044cad17bf29efdb3976538a19f26439e858257d1",
+        "sha256:e1727f45e55411429d45af625fe41d2bd345506b0ad5de77c6660d54dafd54b1",
+        "sha256:e6a27573d4ee0f06920420be4cf667edb6c7ffc0ec36b594f25395041cc9352f",
+        "sha256:be44fb31b41713082953002c63d662df05212f6d7e73ab0f4cc429cffff54cc1",
+        "sha256:dd80925abd872d45ba627b8a836a2818f34df6afd7e9eead0f4fb8434b95fa17",
+        "sha256:4476f5d5d6e0dd513a24f6b3e0a7784fbe7428f811246c90e2b64b6c28f60174",
+        "sha256:b3769ba6e70ff6de9be125b2a43ff35e18b1e121919c0637fb54aec5206c17f3",
+        "sha256:9251802a8feef25e15a6bb6ccb4686a8f59a12da249aa559cd74e96a0a95c4f8",
+        "sha256:1ea1595c05843e30bc9076a51cc636d468a76af3f5ed01eef01398f7966fbaec",
+        "sha256:79c3327fc3c47621d30d550aa5cbee2b3284a64a57f4d9cd7ff9b7f09df6f4df",
+        "sha256:90a4a58aeabb9151421f2bd92aac4f77ee4f8f5138f364adafeccc1638440a91",
+        "sha256:a1e2f4380826f171c4ab1aabeb30d5af8a3954118b840dd467aa8eac8fa097d0",
+        "sha256:aa9456dfd5c02a1692671bb0e9fe1a690f08a567e8d8ccd5eaa214a6f6e61dd3",
+        "sha256:bb71cb37a7d6510b850178b3bbb04a0ae74ecb2c60663ae145cb80d8bfb68885",
+        "sha256:8127d90418a00c03324887bd4a1312bf1749a0c61ed219407629167e309ad7e3",
+        "sha256:7427878cb7dcb609ffae9644d91148f13cb9c8204a1b454ad4e327e433719f5a",
+        "sha256:f9261bbf86c643df4035069a98e174b304cdab28a1bae0ecd225eb761e4ecc68",
+        "sha256:e53472b642ba7aee7d03f2b0bd5347ba2b3a36ef63810a7ce731838c47a83e73",
+        "sha256:6056f92d106a38bb29eccd126344540ecb1604d4f7fc1f0b623e4cf744768455",
+        "sha256:83c00cfac6f59916b9c9816dd3eb9230b2a8d225528df7cae636bb2a348f67aa",
+        "sha256:42b4844ad57b2b14dfeb74214186f6422fcbb08e485a765e7c1da3a2b3de962c",
+        "sha256:ba508eec227bfa36a6111abce0c4ef96b1f0e526312d0a2def44cc79a0be230f",
+        "sha256:20607a41571e72ac2c303222da6368e1858efd75fab5c31d1620b32911b5d9fb",
+        "sha256:1ffec725ea263e53e9e9e4905e63995a625cb2c14ec3757b2605d0e19a21125a",
+        "sha256:0ce6d818adc1921813ddfaf1534e3b89ee4037faed698c26b2c1a27bb419cb21"
+      ],
+      "epochs": 30,
+      "eval_accuracy": 0.427,
+      "eval_items": 1000,
+      "eval_loss": 6.254570941787402,
+      "format": "pytorch-cifar10-metrics-v1",
+      "input_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+      "model_checksum": "sha256:f4363da9181948deb40ca93659472dc23a983582a8b181f65d959e05fecfcc8e",
+      "model_l2_norm": 53.93611788857205,
+      "optimizer_momentum_l2_norm": 8.235480399291982,
+      "parameter_l2_norms": {
+        "conv1.bias": 4.746938074175618,
+        "conv1.weight": 10.347384015692983,
+        "conv2.bias": 5.13023700320869,
+        "conv2.weight": 21.654474240797967,
+        "fc1.bias": 1.9227519143979466,
+        "fc1.weight": 46.72149544288281,
+        "fc2.bias": 2.1516259884534397,
+        "fc2.weight": 9.645871850142017
+      },
+      "schema_version": 1,
+      "spec_checksum": "sha256:576862156a87e00c9bda066dce545bd2902ca40e8c11828414b24fde659c8655",
+      "steps": 2370,
+      "subset_size": 5000,
+      "train_loss": 0.12516860507624702
+    },
+    "progress_snapshot": [
+      {
+        "epoch": 30,
+        "fraction": 1.0,
+        "item_cursor": 0,
+        "step": 2370
+      }
+    ],
+    "result_files": {
+      "metrics.json": "sha256:dc66870b2e88afc8e9910c2256f9daf3d0a8f08f92422a3f1ced1965909a3351",
+      "model.safetensors": "sha256:f4363da9181948deb40ca93659472dc23a983582a8b181f65d959e05fecfcc8e"
+    },
+    "result_provenance": {
+      "adapter_id": "pytorch.cifar10",
+      "adapter_version": "1.0.0",
+      "image_digest": "sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb",
+      "input_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+      "spec_checksum": "sha256:576862156a87e00c9bda066dce545bd2902ca40e8c11828414b24fde659c8655",
+      "template_id": "pytorch-cifar10-cnn",
+      "template_version": 1,
+      "tenant_id": "01a0e53e-b305-7baa-8067-6a41b5bcaece"
+    },
+    "seconds": 51.9,
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9253",
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "quarantined": false,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "attempt_number": 1,
+          "failure_class": null,
+          "failure_reason": null,
+          "job_fence": 1,
+          "state": "SUCCEEDED",
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        }
+      ],
+      "checkpoints": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "checkpoint_id": "01a0e53e-ef6b-7c0d-85ce-af541fa42884",
+          "corrupt": null,
+          "sequence": 1
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "checkpoint_id": "01a0e53f-1122-727b-afe1-70f1453d97ff",
+          "corrupt": null,
+          "sequence": 2
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "checkpoint_id": "01a0e53f-3832-7200-9887-abaa3b793259",
+          "corrupt": null,
+          "sequence": 3
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "checkpoint_id": "01a0e53f-585b-7c6f-b0b2-006438a2125f",
+          "corrupt": null,
+          "sequence": 4
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "checkpoint_id": "01a0e53f-7ddc-718b-8eff-c3585856d12f",
+          "corrupt": null,
+          "sequence": 5
+        }
+      ],
+      "containers": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "container_id": "2a78f2fe7332",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-27T23:41:33.076+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-27T23:41:33.334+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-27T23:41:34.476+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-27T23:41:45.090+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-27T23:41:55.657+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 5
+        },
+        {
+          "at": "2026-09-27T23:42:03.859+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 6
+        },
+        {
+          "at": "2026-09-27T23:42:12.324+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 7
+        },
+        {
+          "at": "2026-09-27T23:42:22.508+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 8
+        },
+        {
+          "at": "2026-09-27T23:42:24.652+00:00",
+          "event_type": "RESULT_RECOGNIZED",
+          "reason": "result_recognized",
+          "sequence": 9
+        },
+        {
+          "at": "2026-09-27T23:42:30.222+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 10
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 5,
+        "desired_state": "RUNNING",
+        "event_sequence": 10,
+        "job_fence": 1,
+        "max_retries": 2,
+        "retry_count": 0,
+        "state": "SUCCEEDED"
+      },
+      "job_id": "01a0e53e-cc12-7be6-a244-75936a6fc61b",
+      "leases": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+          "job_fence": 1,
+          "lease_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9254",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "ledger_segments": {
+        "charged": "8.88875000",
+        "count": 12
+      },
+      "reservations": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "sequence": 1,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "sequence": 2,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "sequence": 3,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "sequence": 4,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "sequence": 5,
+          "state": "COMMITTED"
+        }
+      ],
+      "restores": {
+        "01a0e53e-cd4c-73c4-9dfc-adca616d9252": null
+      },
+      "results": [
+        {
+          "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+          "result_id": "01a0e53f-8e73-7217-adfe-fb5e0abc9709"
+        }
+      ],
+      "retries": [],
+      "submit_idempotency_key": "b16-docker-train-baseline",
+      "submit_idempotency_records": 1
+    }
+  },
+  "D2_crash_resume": {
+    "bitwise": {
+      "metrics.json": true,
+      "model.safetensors": true
+    },
+    "comparison": {
+      "absolute": {
+        "eval_accuracy": {
+          "baseline": 0.427,
+          "candidate": 0.427,
+          "difference": 0.0,
+          "limit": 0.005,
+          "within": true
+        },
+        "eval_loss": {
+          "baseline": 6.254570941787402,
+          "candidate": 6.254570941787402,
+          "difference": 0.0,
+          "limit": 0.001,
+          "within": true
+        },
+        "train_loss": {
+          "baseline": 0.12516860507624702,
+          "candidate": 0.12516860507624702,
+          "difference": 0.0,
+          "limit": 0.001,
+          "within": true
+        }
+      },
+      "exact": {
+        "architecture_id": true,
+        "epoch_sample_order_digests": true,
+        "epochs": true,
+        "eval_items": true,
+        "input_checksum": true,
+        "spec_checksum": true,
+        "steps": true
+      },
+      "parameter_names_equal": true,
+      "relative": {
+        "model_l2_norm": {
+          "baseline": 53.93611788857205,
+          "candidate": 53.93611788857205,
+          "relative": 0.0,
+          "within": true
+        },
+        "optimizer_momentum_l2_norm": {
+          "baseline": 8.235480399291982,
+          "candidate": 8.235480399291982,
+          "relative": 0.0,
+          "within": true
+        },
+        "parameter_l2_norms": {
+          "conv1.bias": {
+            "baseline": 4.746938074175618,
+            "candidate": 4.746938074175618,
+            "relative": 0.0,
+            "within": true
+          },
+          "conv1.weight": {
+            "baseline": 10.347384015692983,
+            "candidate": 10.347384015692983,
+            "relative": 0.0,
+            "within": true
+          },
+          "conv2.bias": {
+            "baseline": 5.13023700320869,
+            "candidate": 5.13023700320869,
+            "relative": 0.0,
+            "within": true
+          },
+          "conv2.weight": {
+            "baseline": 21.654474240797967,
+            "candidate": 21.654474240797967,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc1.bias": {
+            "baseline": 1.9227519143979466,
+            "candidate": 1.9227519143979466,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc1.weight": {
+            "baseline": 46.72149544288281,
+            "candidate": 46.72149544288281,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc2.bias": {
+            "baseline": 2.1516259884534397,
+            "candidate": 2.1516259884534397,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc2.weight": {
+            "baseline": 9.645871850142017,
+            "candidate": 9.645871850142017,
+            "relative": 0.0,
+            "within": true
+          }
+        }
+      },
+      "within_tolerance": true
+    },
+    "hardening_restored_attempt": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "image": "nexa/pytorch-cifar10@sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb",
+      "log_config": {
+        "Config": {
+          "max-file": "1",
+          "max-size": "1048576"
+        },
+        "Type": "json-file"
+      },
+      "memory": 1073741824,
+      "memory_swap": 1073741824,
+      "mounts": [
+        {
+          "destination": "/input/dataset.arrow",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/run/nexa-input",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/input/restore/model.safetensors",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/input/restore/optimizer.safetensors",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/input/restore/rng.safetensors",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/input/restore/training-state.json",
+          "read_only": true,
+          "type": "bind"
+        }
+      ],
+      "nano_cpus": 1000000000,
+      "network_mode": "none",
+      "pids_limit": 128,
+      "privileged": false,
+      "processes": [
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1000"
+        },
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1001"
+        },
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1000"
+        }
+      ],
+      "readonly_rootfs": true,
+      "restart_policy": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/output",
+        "/run/nexa",
+        "/tmp"
+      ],
+      "user": "1000:1000"
+    },
+    "memory_peak_bytes": {
+      "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3": 339410944,
+      "01a0e540-444d-71ee-8b74-c33a0f52e31c": 373977088
+    },
+    "metrics": {
+      "architecture_id": "nexa-cifar10-smallcnn-v1",
+      "batch_size": 64,
+      "epoch_sample_order_digests": [
+        "sha256:8c21073b025f5221066737de4c0986dce5610e99c69f2336ae8db1fe35708d87",
+        "sha256:2b3aa982e2e603c63e80129a15c10566072c1499586be0328f6b8b6c8133d8ce",
+        "sha256:1e613e8f3e9469516fd36604fdcf5861adf981e7497236b2ff584121dc3a5e67",
+        "sha256:87a12a9605ac2e2b09639a46fd49e399a94c55ba559a83721324299054d057c8",
+        "sha256:3d9627cd815393c10729f7bb0f618dcaf4539ccad5af1fe3a5a8e4b5fc4d8c71",
+        "sha256:5dcd52f0d4c1a02c34fd4cf044cad17bf29efdb3976538a19f26439e858257d1",
+        "sha256:e1727f45e55411429d45af625fe41d2bd345506b0ad5de77c6660d54dafd54b1",
+        "sha256:e6a27573d4ee0f06920420be4cf667edb6c7ffc0ec36b594f25395041cc9352f",
+        "sha256:be44fb31b41713082953002c63d662df05212f6d7e73ab0f4cc429cffff54cc1",
+        "sha256:dd80925abd872d45ba627b8a836a2818f34df6afd7e9eead0f4fb8434b95fa17",
+        "sha256:4476f5d5d6e0dd513a24f6b3e0a7784fbe7428f811246c90e2b64b6c28f60174",
+        "sha256:b3769ba6e70ff6de9be125b2a43ff35e18b1e121919c0637fb54aec5206c17f3",
+        "sha256:9251802a8feef25e15a6bb6ccb4686a8f59a12da249aa559cd74e96a0a95c4f8",
+        "sha256:1ea1595c05843e30bc9076a51cc636d468a76af3f5ed01eef01398f7966fbaec",
+        "sha256:79c3327fc3c47621d30d550aa5cbee2b3284a64a57f4d9cd7ff9b7f09df6f4df",
+        "sha256:90a4a58aeabb9151421f2bd92aac4f77ee4f8f5138f364adafeccc1638440a91",
+        "sha256:a1e2f4380826f171c4ab1aabeb30d5af8a3954118b840dd467aa8eac8fa097d0",
+        "sha256:aa9456dfd5c02a1692671bb0e9fe1a690f08a567e8d8ccd5eaa214a6f6e61dd3",
+        "sha256:bb71cb37a7d6510b850178b3bbb04a0ae74ecb2c60663ae145cb80d8bfb68885",
+        "sha256:8127d90418a00c03324887bd4a1312bf1749a0c61ed219407629167e309ad7e3",
+        "sha256:7427878cb7dcb609ffae9644d91148f13cb9c8204a1b454ad4e327e433719f5a",
+        "sha256:f9261bbf86c643df4035069a98e174b304cdab28a1bae0ecd225eb761e4ecc68",
+        "sha256:e53472b642ba7aee7d03f2b0bd5347ba2b3a36ef63810a7ce731838c47a83e73",
+        "sha256:6056f92d106a38bb29eccd126344540ecb1604d4f7fc1f0b623e4cf744768455",
+        "sha256:83c00cfac6f59916b9c9816dd3eb9230b2a8d225528df7cae636bb2a348f67aa",
+        "sha256:42b4844ad57b2b14dfeb74214186f6422fcbb08e485a765e7c1da3a2b3de962c",
+        "sha256:ba508eec227bfa36a6111abce0c4ef96b1f0e526312d0a2def44cc79a0be230f",
+        "sha256:20607a41571e72ac2c303222da6368e1858efd75fab5c31d1620b32911b5d9fb",
+        "sha256:1ffec725ea263e53e9e9e4905e63995a625cb2c14ec3757b2605d0e19a21125a",
+        "sha256:0ce6d818adc1921813ddfaf1534e3b89ee4037faed698c26b2c1a27bb419cb21"
+      ],
+      "epochs": 30,
+      "eval_accuracy": 0.427,
+      "eval_items": 1000,
+      "eval_loss": 6.254570941787402,
+      "format": "pytorch-cifar10-metrics-v1",
+      "input_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+      "model_checksum": "sha256:f4363da9181948deb40ca93659472dc23a983582a8b181f65d959e05fecfcc8e",
+      "model_l2_norm": 53.93611788857205,
+      "optimizer_momentum_l2_norm": 8.235480399291982,
+      "parameter_l2_norms": {
+        "conv1.bias": 4.746938074175618,
+        "conv1.weight": 10.347384015692983,
+        "conv2.bias": 5.13023700320869,
+        "conv2.weight": 21.654474240797967,
+        "fc1.bias": 1.9227519143979466,
+        "fc1.weight": 46.72149544288281,
+        "fc2.bias": 2.1516259884534397,
+        "fc2.weight": 9.645871850142017
+      },
+      "schema_version": 1,
+      "spec_checksum": "sha256:576862156a87e00c9bda066dce545bd2902ca40e8c11828414b24fde659c8655",
+      "steps": 2370,
+      "subset_size": 5000,
+      "train_loss": 0.12516860507624702
+    },
+    "progress_snapshot": [
+      {
+        "epoch": 12,
+        "fraction": 0.42067510548523207,
+        "item_cursor": 3136,
+        "step": 997
+      },
+      {
+        "epoch": 30,
+        "fraction": 1.0,
+        "item_cursor": 0,
+        "step": 2370
+      }
+    ],
+    "restored_cursor": {
+      "epoch": 12,
+      "item_cursor": 3136,
+      "sampler_state_checksum": "sha256:825dcc6ed11fd460fdf77f1676b5ee571bcd63dc8fe01aa7f666081388e74347",
+      "step": 997
+    },
+    "result_provenance_equal": true,
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b4",
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        },
+        {
+          "allocation_id": "01a0e540-444d-71ee-8b74-c33a0f52e31d",
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "quarantined": false,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "attempt_number": 1,
+          "failure_class": "INFRASTRUCTURE",
+          "failure_reason": "RUNNER_UNAVAILABLE",
+          "job_fence": 1,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "attempt_number": 2,
+          "failure_class": null,
+          "failure_reason": null,
+          "job_fence": 3,
+          "state": "SUCCEEDED",
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        }
+      ],
+      "checkpoints": [
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "checkpoint_id": "01a0e53f-f086-7a38-b300-ad739f598210",
+          "corrupt": null,
+          "sequence": 1
+        },
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "checkpoint_id": "01a0e540-122b-7fc7-8b33-5a362333c6de",
+          "corrupt": null,
+          "sequence": 2
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "checkpoint_id": "01a0e540-66e4-724f-b950-22de2a59dc90",
+          "corrupt": null,
+          "sequence": 3
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "checkpoint_id": "01a0e540-8966-75dc-9b08-d1cf1cc86eda",
+          "corrupt": null,
+          "sequence": 4
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "checkpoint_id": "01a0e540-a803-787e-afa1-80c7340c7f7a",
+          "corrupt": null,
+          "sequence": 5
+        }
+      ],
+      "containers": [
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "container_id": "f5e2257be8c4",
+          "stopped": true,
+          "verified": true
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "container_id": "2ab863f9f59f",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-27T23:42:30.315+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-27T23:42:30.541+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-27T23:42:40.308+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-27T23:42:51.261+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-27T23:43:01.873+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 5
+        },
+        {
+          "at": "2026-09-27T23:43:02.202+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "RUNNER_UNAVAILABLE",
+          "sequence": 6
+        },
+        {
+          "at": "2026-09-27T23:43:02.339+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 7
+        },
+        {
+          "at": "2026-09-27T23:43:04.230+00:00",
+          "event_type": "RETRY_READY",
+          "reason": "BACKOFF_ELAPSED",
+          "sequence": 8
+        },
+        {
+          "at": "2026-09-27T23:43:09.329+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 9
+        },
+        {
+          "at": "2026-09-27T23:43:10.191+00:00",
+          "event_type": "CHECKPOINT_RESTORE_SELECTED",
+          "reason": "CHECKPOINT_RESTORED",
+          "sequence": 10
+        },
+        {
+          "at": "2026-09-27T23:43:10.761+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 11
+        },
+        {
+          "at": "2026-09-27T23:43:21.115+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 12
+        },
+        {
+          "at": "2026-09-27T23:43:29.819+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 13
+        },
+        {
+          "at": "2026-09-27T23:43:37.708+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 14
+        },
+        {
+          "at": "2026-09-27T23:43:43.098+00:00",
+          "event_type": "RESULT_RECOGNIZED",
+          "reason": "result_recognized",
+          "sequence": 15
+        },
+        {
+          "at": "2026-09-27T23:43:48.800+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 16
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "ended": true,
+          "job_fence": 3,
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 5,
+        "desired_state": "RUNNING",
+        "event_sequence": 16,
+        "job_fence": 3,
+        "max_retries": 2,
+        "retry_count": 1,
+        "state": "SUCCEEDED"
+      },
+      "job_id": "01a0e53f-abab-7262-81da-d1d632a65dda",
+      "leases": [
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+          "job_fence": 1,
+          "lease_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b5",
+          "revoke_reason": null,
+          "revoked": true
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+          "job_fence": 3,
+          "lease_id": "01a0e540-444d-71ee-8b74-c33a0f52e31e",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "ledger_segments": {
+        "charged": "11.13578125",
+        "count": 15
+      },
+      "reservations": [
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "sequence": 1,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+          "sequence": 2,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "sequence": 3,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "sequence": 4,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "sequence": 5,
+          "state": "COMMITTED"
+        }
+      ],
+      "restores": {
+        "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3": null,
+        "01a0e540-444d-71ee-8b74-c33a0f52e31c": {
+          "checkpoint_id": "01a0e540-122b-7fc7-8b33-5a362333c6de",
+          "sequence": 2
+        }
+      },
+      "results": [
+        {
+          "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+          "result_id": "01a0e540-c0f9-7e08-ad5b-7384256baa17"
+        }
+      ],
+      "retries": [
+        {
+          "closed": true,
+          "reason": "INFRASTRUCTURE",
+          "retry_number": 1
+        }
+      ],
+      "submit_idempotency_key": "b16-docker-train-crash-resume",
+      "submit_idempotency_records": 1
+    }
+  },
+  "D3_corrupt_newest": {
+    "bitwise": {
+      "metrics.json": true,
+      "model.safetensors": true
+    },
+    "comparison": {
+      "absolute": {
+        "eval_accuracy": {
+          "baseline": 0.427,
+          "candidate": 0.427,
+          "difference": 0.0,
+          "limit": 0.005,
+          "within": true
+        },
+        "eval_loss": {
+          "baseline": 6.254570941787402,
+          "candidate": 6.254570941787402,
+          "difference": 0.0,
+          "limit": 0.001,
+          "within": true
+        },
+        "train_loss": {
+          "baseline": 0.12516860507624702,
+          "candidate": 0.12516860507624702,
+          "difference": 0.0,
+          "limit": 0.001,
+          "within": true
+        }
+      },
+      "exact": {
+        "architecture_id": true,
+        "epoch_sample_order_digests": true,
+        "epochs": true,
+        "eval_items": true,
+        "input_checksum": true,
+        "spec_checksum": true,
+        "steps": true
+      },
+      "parameter_names_equal": true,
+      "relative": {
+        "model_l2_norm": {
+          "baseline": 53.93611788857205,
+          "candidate": 53.93611788857205,
+          "relative": 0.0,
+          "within": true
+        },
+        "optimizer_momentum_l2_norm": {
+          "baseline": 8.235480399291982,
+          "candidate": 8.235480399291982,
+          "relative": 0.0,
+          "within": true
+        },
+        "parameter_l2_norms": {
+          "conv1.bias": {
+            "baseline": 4.746938074175618,
+            "candidate": 4.746938074175618,
+            "relative": 0.0,
+            "within": true
+          },
+          "conv1.weight": {
+            "baseline": 10.347384015692983,
+            "candidate": 10.347384015692983,
+            "relative": 0.0,
+            "within": true
+          },
+          "conv2.bias": {
+            "baseline": 5.13023700320869,
+            "candidate": 5.13023700320869,
+            "relative": 0.0,
+            "within": true
+          },
+          "conv2.weight": {
+            "baseline": 21.654474240797967,
+            "candidate": 21.654474240797967,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc1.bias": {
+            "baseline": 1.9227519143979466,
+            "candidate": 1.9227519143979466,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc1.weight": {
+            "baseline": 46.72149544288281,
+            "candidate": 46.72149544288281,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc2.bias": {
+            "baseline": 2.1516259884534397,
+            "candidate": 2.1516259884534397,
+            "relative": 0.0,
+            "within": true
+          },
+          "fc2.weight": {
+            "baseline": 9.645871850142017,
+            "candidate": 9.645871850142017,
+            "relative": 0.0,
+            "within": true
+          }
+        }
+      },
+      "within_tolerance": true
+    },
+    "corrupted_checkpoint": {
+      "checkpoint_id": "01a0e541-3aae-7227-bfee-953c5c3afed5",
+      "sequence": 2
+    },
+    "memory_peak_bytes": {
+      "01a0e540-df8a-7e5f-9a6e-1a7828677350": 335114240,
+      "01a0e541-51ee-7116-a5d9-caf5007300c3": 373932032
+    },
+    "metrics": {
+      "architecture_id": "nexa-cifar10-smallcnn-v1",
+      "batch_size": 64,
+      "epoch_sample_order_digests": [
+        "sha256:8c21073b025f5221066737de4c0986dce5610e99c69f2336ae8db1fe35708d87",
+        "sha256:2b3aa982e2e603c63e80129a15c10566072c1499586be0328f6b8b6c8133d8ce",
+        "sha256:1e613e8f3e9469516fd36604fdcf5861adf981e7497236b2ff584121dc3a5e67",
+        "sha256:87a12a9605ac2e2b09639a46fd49e399a94c55ba559a83721324299054d057c8",
+        "sha256:3d9627cd815393c10729f7bb0f618dcaf4539ccad5af1fe3a5a8e4b5fc4d8c71",
+        "sha256:5dcd52f0d4c1a02c34fd4cf044cad17bf29efdb3976538a19f26439e858257d1",
+        "sha256:e1727f45e55411429d45af625fe41d2bd345506b0ad5de77c6660d54dafd54b1",
+        "sha256:e6a27573d4ee0f06920420be4cf667edb6c7ffc0ec36b594f25395041cc9352f",
+        "sha256:be44fb31b41713082953002c63d662df05212f6d7e73ab0f4cc429cffff54cc1",
+        "sha256:dd80925abd872d45ba627b8a836a2818f34df6afd7e9eead0f4fb8434b95fa17",
+        "sha256:4476f5d5d6e0dd513a24f6b3e0a7784fbe7428f811246c90e2b64b6c28f60174",
+        "sha256:b3769ba6e70ff6de9be125b2a43ff35e18b1e121919c0637fb54aec5206c17f3",
+        "sha256:9251802a8feef25e15a6bb6ccb4686a8f59a12da249aa559cd74e96a0a95c4f8",
+        "sha256:1ea1595c05843e30bc9076a51cc636d468a76af3f5ed01eef01398f7966fbaec",
+        "sha256:79c3327fc3c47621d30d550aa5cbee2b3284a64a57f4d9cd7ff9b7f09df6f4df",
+        "sha256:90a4a58aeabb9151421f2bd92aac4f77ee4f8f5138f364adafeccc1638440a91",
+        "sha256:a1e2f4380826f171c4ab1aabeb30d5af8a3954118b840dd467aa8eac8fa097d0",
+        "sha256:aa9456dfd5c02a1692671bb0e9fe1a690f08a567e8d8ccd5eaa214a6f6e61dd3",
+        "sha256:bb71cb37a7d6510b850178b3bbb04a0ae74ecb2c60663ae145cb80d8bfb68885",
+        "sha256:8127d90418a00c03324887bd4a1312bf1749a0c61ed219407629167e309ad7e3",
+        "sha256:7427878cb7dcb609ffae9644d91148f13cb9c8204a1b454ad4e327e433719f5a",
+        "sha256:f9261bbf86c643df4035069a98e174b304cdab28a1bae0ecd225eb761e4ecc68",
+        "sha256:e53472b642ba7aee7d03f2b0bd5347ba2b3a36ef63810a7ce731838c47a83e73",
+        "sha256:6056f92d106a38bb29eccd126344540ecb1604d4f7fc1f0b623e4cf744768455",
+        "sha256:83c00cfac6f59916b9c9816dd3eb9230b2a8d225528df7cae636bb2a348f67aa",
+        "sha256:42b4844ad57b2b14dfeb74214186f6422fcbb08e485a765e7c1da3a2b3de962c",
+        "sha256:ba508eec227bfa36a6111abce0c4ef96b1f0e526312d0a2def44cc79a0be230f",
+        "sha256:20607a41571e72ac2c303222da6368e1858efd75fab5c31d1620b32911b5d9fb",
+        "sha256:1ffec725ea263e53e9e9e4905e63995a625cb2c14ec3757b2605d0e19a21125a",
+        "sha256:0ce6d818adc1921813ddfaf1534e3b89ee4037faed698c26b2c1a27bb419cb21"
+      ],
+      "epochs": 30,
+      "eval_accuracy": 0.427,
+      "eval_items": 1000,
+      "eval_loss": 6.254570941787402,
+      "format": "pytorch-cifar10-metrics-v1",
+      "input_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+      "model_checksum": "sha256:f4363da9181948deb40ca93659472dc23a983582a8b181f65d959e05fecfcc8e",
+      "model_l2_norm": 53.93611788857205,
+      "optimizer_momentum_l2_norm": 8.235480399291982,
+      "parameter_l2_norms": {
+        "conv1.bias": 4.746938074175618,
+        "conv1.weight": 10.347384015692983,
+        "conv2.bias": 5.13023700320869,
+        "conv2.weight": 21.654474240797967,
+        "fc1.bias": 1.9227519143979466,
+        "fc1.weight": 46.72149544288281,
+        "fc2.bias": 2.1516259884534397,
+        "fc2.weight": 9.645871850142017
+      },
+      "schema_version": 1,
+      "spec_checksum": "sha256:576862156a87e00c9bda066dce545bd2902ca40e8c11828414b24fde659c8655",
+      "steps": 2370,
+      "subset_size": 5000,
+      "train_loss": 0.12516860507624702
+    },
+    "restored_cursor": {
+      "epoch": 4,
+      "item_cursor": 1280,
+      "sampler_state_checksum": "sha256:863611a9e154a19fa9c8abf4355152c3041e80335b0a80382924f2e05a9d377e",
+      "step": 336
+    },
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0e540-df8a-7e5f-9a6e-1a7828677351",
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        },
+        {
+          "allocation_id": "01a0e541-51ee-7116-a5d9-caf5007300c4",
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "quarantined": false,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "attempt_number": 1,
+          "failure_class": "INFRASTRUCTURE",
+          "failure_reason": "RUNNER_UNAVAILABLE",
+          "job_fence": 1,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "attempt_number": 2,
+          "failure_class": null,
+          "failure_reason": null,
+          "job_fence": 3,
+          "state": "SUCCEEDED",
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        }
+      ],
+      "checkpoints": [
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "checkpoint_id": "01a0e541-19e0-746c-8bb5-8840fd3c5db1",
+          "corrupt": null,
+          "sequence": 1
+        },
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "checkpoint_id": "01a0e541-3aae-7227-bfee-953c5c3afed5",
+          "corrupt": "CHECKPOINT_CHECKSUM_MISMATCH",
+          "sequence": 2
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "checkpoint_id": "01a0e541-907b-77a8-8526-25815af9ff03",
+          "corrupt": null,
+          "sequence": 3
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "checkpoint_id": "01a0e541-b40c-7257-a2ec-6f67517c686b",
+          "corrupt": null,
+          "sequence": 4
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "checkpoint_id": "01a0e541-e08d-752e-8eb7-e8a8ec3e4494",
+          "corrupt": null,
+          "sequence": 5
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "checkpoint_id": "01a0e542-09f8-78b4-994b-63ec80666a7a",
+          "corrupt": null,
+          "sequence": 6
+        }
+      ],
+      "containers": [
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "container_id": "ab99ae96b9ba",
+          "stopped": true,
+          "verified": true
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "container_id": "26d8c24b604a",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-27T23:43:48.982+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-27T23:43:49.082+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-27T23:43:56.280+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-27T23:44:06.859+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-27T23:44:15.257+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 5
+        },
+        {
+          "at": "2026-09-27T23:44:15.846+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "RUNNER_UNAVAILABLE",
+          "sequence": 6
+        },
+        {
+          "at": "2026-09-27T23:44:15.983+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 7
+        },
+        {
+          "at": "2026-09-27T23:44:18.291+00:00",
+          "event_type": "RETRY_READY",
+          "reason": "BACKOFF_ELAPSED",
+          "sequence": 8
+        },
+        {
+          "at": "2026-09-27T23:44:18.374+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 9
+        },
+        {
+          "at": "2026-09-27T23:44:26.133+00:00",
+          "event_type": "CHECKPOINT_CORRUPT",
+          "reason": "CHECKPOINT_CHECKSUM_MISMATCH",
+          "sequence": 10
+        },
+        {
+          "at": "2026-09-27T23:44:26.158+00:00",
+          "event_type": "CHECKPOINT_RESTORE_SELECTED",
+          "reason": "CHECKPOINT_RESTORED",
+          "sequence": 11
+        },
+        {
+          "at": "2026-09-27T23:44:26.734+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 12
+        },
+        {
+          "at": "2026-09-27T23:44:37.344+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 13
+        },
+        {
+          "at": "2026-09-27T23:44:49.157+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 14
+        },
+        {
+          "at": "2026-09-27T23:45:00.244+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 15
+        },
+        {
+          "at": "2026-09-27T23:45:09.846+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 16
+        },
+        {
+          "at": "2026-09-27T23:45:12.419+00:00",
+          "event_type": "RESULT_RECOGNIZED",
+          "reason": "result_recognized",
+          "sequence": 17
+        },
+        {
+          "at": "2026-09-27T23:45:18.122+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 18
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "ended": true,
+          "job_fence": 3,
+          "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 6,
+        "desired_state": "RUNNING",
+        "event_sequence": 18,
+        "job_fence": 3,
+        "max_retries": 2,
+        "retry_count": 1,
+        "state": "SUCCEEDED"
+      },
+      "job_id": "01a0e540-def6-79f3-8999-9b2e0cec28de",
+      "leases": [
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+          "job_fence": 1,
+          "lease_id": "01a0e540-df8a-7e5f-9a6e-1a7828677352",
+          "revoke_reason": null,
+          "revoked": true
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+          "job_fence": 3,
+          "lease_id": "01a0e541-51ee-7116-a5d9-caf5007300c5",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "ledger_segments": {
+        "charged": "13.53890625",
+        "count": 20
+      },
+      "reservations": [
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "sequence": 1,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+          "sequence": 2,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "sequence": 3,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "sequence": 4,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "sequence": 5,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "sequence": 6,
+          "state": "COMMITTED"
+        }
+      ],
+      "restores": {
+        "01a0e540-df8a-7e5f-9a6e-1a7828677350": null,
+        "01a0e541-51ee-7116-a5d9-caf5007300c3": {
+          "checkpoint_id": "01a0e541-19e0-746c-8bb5-8840fd3c5db1",
+          "sequence": 1
+        }
+      },
+      "results": [
+        {
+          "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+          "result_id": "01a0e542-1d07-760e-a50a-7017fc55adff"
+        }
+      ],
+      "retries": [
+        {
+          "closed": true,
+          "reason": "INFRASTRUCTURE",
+          "retry_number": 1
+        }
+      ],
+      "submit_idempotency_key": "b16-docker-train-corrupt-newest",
+      "submit_idempotency_records": 1
+    }
+  },
+  "D7_sweep": {
+    "children": {
+      "01a0e542-3bb2-745c-8444-d26e8e5401d5": {
+        "memory_peak_bytes": {
+          "01a0e542-3c7a-7028-b9ce-11fe02e07e14": 369561600
+        },
+        "metrics": {
+          "architecture_id": "nexa-cifar10-smallcnn-v1",
+          "batch_size": 32,
+          "epoch_sample_order_digests": [
+            "sha256:4589076eeb5ed8187f97677fa7cd68cbdfc93fa431467ed42f063c28719f7b27",
+            "sha256:16adf20c373aeb1843796c04e3445115198aaf7fa7fe461f927885d748f7521e"
+          ],
+          "epochs": 2,
+          "eval_accuracy": 0.216,
+          "eval_items": 1000,
+          "eval_loss": 2.2532583073749133,
+          "format": "pytorch-cifar10-metrics-v1",
+          "input_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+          "model_checksum": "sha256:67f1aff20e242dbd0d6e62b2700eb86e8568866604e93072cdbe51b211d7da85",
+          "model_l2_norm": 7.110755445620225,
+          "optimizer_momentum_l2_norm": 2.662469488314563,
+          "parameter_l2_norms": {
+            "conv1.bias": 0.34319518850021635,
+            "conv1.weight": 2.5413920275305917,
+            "conv2.bias": 0.31662866864762235,
+            "conv2.weight": 3.475103605535854,
+            "fc1.bias": 0.1954184925429942,
+            "fc1.weight": 5.014866564933384,
+            "fc2.bias": 0.48790023188989645,
+            "fc2.weight": 2.526789694810654
+          },
+          "schema_version": 1,
+          "spec_checksum": "sha256:c9bb4427b09812966c8786cbe5b0276d3be46b89b0ff190884f21a687d2cdbb0",
+          "steps": 32,
+          "subset_size": 500,
+          "train_loss": 2.2384792301110554
+        },
+        "result_files": {
+          "metrics.json": "sha256:f103707f834f34d7b8596d9bca16c49f798dd164f1fc4c7d7b9d092d4dcc7f76",
+          "model.safetensors": "sha256:67f1aff20e242dbd0d6e62b2700eb86e8568866604e93072cdbe51b211d7da85"
+        },
+        "timeline": {
+          "allocations": [
+            {
+              "allocation_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e15",
+              "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+              "quarantined": false,
+              "release_reason": "VERIFIED_CLEANUP",
+              "state": "RELEASED"
+            }
+          ],
+          "attempts": [
+            {
+              "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+              "attempt_number": 1,
+              "failure_class": null,
+              "failure_reason": null,
+              "job_fence": 1,
+              "state": "SUCCEEDED",
+              "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+            }
+          ],
+          "checkpoints": [],
+          "containers": [
+            {
+              "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+              "container_id": "6fca4d4c0024",
+              "stopped": true,
+              "verified": true
+            }
+          ],
+          "coordinator_epoch": 1,
+          "events": [
+            {
+              "at": "2026-09-27T23:45:18.232+00:00",
+              "event_type": "JOB_ACCEPTED",
+              "reason": "Job accepted",
+              "sequence": 1
+            },
+            {
+              "at": "2026-09-27T23:45:18.412+00:00",
+              "event_type": "JOB_DISPATCHING",
+              "reason": null,
+              "sequence": 2
+            },
+            {
+              "at": "2026-09-27T23:45:27.518+00:00",
+              "event_type": "ATTEMPT_STARTED",
+              "reason": "attempt_started",
+              "sequence": 3
+            },
+            {
+              "at": "2026-09-27T23:45:33.415+00:00",
+              "event_type": "RESULT_RECOGNIZED",
+              "reason": "result_recognized",
+              "sequence": 4
+            },
+            {
+              "at": "2026-09-27T23:45:38.922+00:00",
+              "event_type": "ALLOCATION_RELEASED",
+              "reason": "VERIFIED_CLEANUP",
+              "sequence": 5
+            }
+          ],
+          "grants": [
+            {
+              "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+              "ended": true,
+              "job_fence": 1,
+              "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+            }
+          ],
+          "job": {
+            "checkpoint_sequence": 0,
+            "desired_state": "RUNNING",
+            "event_sequence": 5,
+            "job_fence": 1,
+            "max_retries": 2,
+            "retry_count": 0,
+            "state": "SUCCEEDED"
+          },
+          "job_id": "01a0e542-3bb2-745c-8444-d26e8e5401d5",
+          "leases": [
+            {
+              "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+              "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+              "job_fence": 1,
+              "lease_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e16",
+              "revoke_reason": null,
+              "revoked": true
+            }
+          ],
+          "ledger_segments": {
+            "charged": "3.20468750",
+            "count": 5
+          },
+          "reservations": [],
+          "restores": {
+            "01a0e542-3c7a-7028-b9ce-11fe02e07e14": null
+          },
+          "results": [
+            {
+              "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+              "result_id": "01a0e542-705d-7a32-9fb3-06fb83e48914"
+            }
+          ],
+          "retries": [],
+          "submit_idempotency_key": "sweep-child-eeaeb7b8a9c957353b0f91871756a4ce9e3705f6c0ee041a93c368769ed0ed55",
+          "submit_idempotency_records": 1
+        }
+      },
+      "01a0e542-3bed-749c-b3e0-e4bdc0e51a7d": {
+        "memory_peak_bytes": {
+          "01a0e542-8d83-797e-b596-749e02a86088": 369115136
+        },
+        "metrics": {
+          "architecture_id": "nexa-cifar10-smallcnn-v1",
+          "batch_size": 32,
+          "epoch_sample_order_digests": [
+            "sha256:ac0f190dc70cfc308447e81e0cb92c5ad4be778e53a0c6dcde11446cb5cb96ff",
+            "sha256:a9b64f641809831ab40ee36e4b9049306943b08519055d879e1078ec7aeb9709"
+          ],
+          "epochs": 2,
+          "eval_accuracy": 0.195,
+          "eval_items": 1000,
+          "eval_loss": 2.2657265004919065,
+          "format": "pytorch-cifar10-metrics-v1",
+          "input_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+          "model_checksum": "sha256:23c5857f87570bf41366fdf8ea5ea6a0841962037a903875d6d8d8178f09ef94",
+          "model_l2_norm": 6.911686544664856,
+          "optimizer_momentum_l2_norm": 3.129518314058628,
+          "parameter_l2_norms": {
+            "conv1.bias": 0.4677472990191628,
+            "conv1.weight": 2.388324631937944,
+            "conv2.bias": 0.4464490977215574,
+            "conv2.weight": 3.4563254398600756,
+            "fc1.bias": 0.23010951851085934,
+            "fc1.weight": 4.965984356018092,
+            "fc2.bias": 0.5268759336060341,
+            "fc2.weight": 2.1705937439375167
+          },
+          "schema_version": 1,
+          "spec_checksum": "sha256:0ee0fee0cf02cc27b6d5b0c242dad42b7a953a52683d44bc83522a42daeeeb75",
+          "steps": 32,
+          "subset_size": 500,
+          "train_loss": 2.2398260453112924
+        },
+        "result_files": {
+          "metrics.json": "sha256:35bc8f4ab16d0c571ae9ac22504ad7172ec38ab53d1492f85fccb2f53237d117",
+          "model.safetensors": "sha256:23c5857f87570bf41366fdf8ea5ea6a0841962037a903875d6d8d8178f09ef94"
+        },
+        "timeline": {
+          "allocations": [
+            {
+              "allocation_id": "01a0e542-8d83-797e-b596-749e02a86089",
+              "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+              "quarantined": false,
+              "release_reason": "VERIFIED_CLEANUP",
+              "state": "RELEASED"
+            }
+          ],
+          "attempts": [
+            {
+              "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+              "attempt_number": 1,
+              "failure_class": null,
+              "failure_reason": null,
+              "job_fence": 1,
+              "state": "SUCCEEDED",
+              "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+            }
+          ],
+          "checkpoints": [],
+          "containers": [
+            {
+              "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+              "container_id": "7405d4874662",
+              "stopped": true,
+              "verified": true
+            }
+          ],
+          "coordinator_epoch": 1,
+          "events": [
+            {
+              "at": "2026-09-27T23:45:18.286+00:00",
+              "event_type": "JOB_ACCEPTED",
+              "reason": "Job accepted",
+              "sequence": 1
+            },
+            {
+              "at": "2026-09-27T23:45:39.153+00:00",
+              "event_type": "JOB_DISPATCHING",
+              "reason": null,
+              "sequence": 2
+            },
+            {
+              "at": "2026-09-27T23:45:47.606+00:00",
+              "event_type": "ATTEMPT_STARTED",
+              "reason": "attempt_started",
+              "sequence": 3
+            },
+            {
+              "at": "2026-09-27T23:45:53.563+00:00",
+              "event_type": "RESULT_RECOGNIZED",
+              "reason": "result_recognized",
+              "sequence": 4
+            },
+            {
+              "at": "2026-09-27T23:45:59.115+00:00",
+              "event_type": "ALLOCATION_RELEASED",
+              "reason": "VERIFIED_CLEANUP",
+              "sequence": 5
+            }
+          ],
+          "grants": [
+            {
+              "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+              "ended": true,
+              "job_fence": 1,
+              "worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0"
+            }
+          ],
+          "job": {
+            "checkpoint_sequence": 0,
+            "desired_state": "RUNNING",
+            "event_sequence": 5,
+            "job_fence": 1,
+            "max_retries": 2,
+            "retry_count": 0,
+            "state": "SUCCEEDED"
+          },
+          "job_id": "01a0e542-3bed-749c-b3e0-e4bdc0e51a7d",
+          "leases": [
+            {
+              "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+              "current_worker_incarnation_id": "01a0e53e-b743-7a48-8a03-705738a7e3a0",
+              "job_fence": 1,
+              "lease_id": "01a0e542-8d83-797e-b596-749e02a8608a",
+              "revoke_reason": null,
+              "revoked": true
+            }
+          ],
+          "ledger_segments": {
+            "charged": "3.11906250",
+            "count": 5
+          },
+          "reservations": [],
+          "restores": {
+            "01a0e542-8d83-797e-b596-749e02a86088": null
+          },
+          "results": [
+            {
+              "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+              "result_id": "01a0e542-bebd-79ca-a40b-24c5ebbd9884"
+            }
+          ],
+          "retries": [],
+          "submit_idempotency_key": "sweep-child-90c467a5da3ae788a58e9a0c0ba887162e6fc8f622110d7c9e13a765241edc5c",
+          "submit_idempotency_records": 1
+        }
+      }
+    },
+    "counters_after_admission": [
+      [
+        [
+          "GLOBAL",
+          2,
+          22
+        ],
+        [
+          "TENANT",
+          2,
+          20
+        ],
+        [
+          "USER",
+          2,
+          20
+        ]
+      ],
+      [
+        [
+          "TENANT",
+          6
+        ],
+        [
+          "USER",
+          6
+        ]
+      ]
+    ],
+    "counters_before": [
+      [
+        [
+          "GLOBAL",
+          0,
+          19
+        ],
+        [
+          "TENANT",
+          0,
+          17
+        ],
+        [
+          "USER",
+          0,
+          17
+        ]
+      ],
+      [
+        [
+          "TENANT",
+          4
+        ],
+        [
+          "USER",
+          4
+        ]
+      ]
+    ],
+    "parent_view": {
+      "accepted_count": 2,
+      "child_count": 6,
+      "children": [
+        {
+          "child_index": 0,
+          "error": null,
+          "job_id": "01a0e542-3bb2-745c-8444-d26e8e5401d5",
+          "parameter_hash": "sha256:a66cb03ea6f4360fe8ad0b952cdfe842435e399a25b6dcdd1f7d408f8a1007b1",
+          "status": "ACCEPTED"
+        },
+        {
+          "child_index": 1,
+          "error": null,
+          "job_id": "01a0e542-3bed-749c-b3e0-e4bdc0e51a7d",
+          "parameter_hash": "sha256:fada1b83f5351157ba97217b0e22c8d7f52189e4694708dd0d2e1c7a0bceb2ba",
+          "status": "ACCEPTED"
+        },
+        {
+          "child_index": 2,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:c4cb18cb7796fbd6a73e107c47a62e5f4d95f41d63e9e21144bb8aae1069855e",
+          "status": "REJECTED"
+        },
+        {
+          "child_index": 3,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:fb321c9621f40d07f44eb9b6294e34e99c65f3a51471f5f040394c76c95c36ac",
+          "status": "REJECTED"
+        },
+        {
+          "child_index": 4,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:2cb868fea138ddf473a9edbaa3340bcf0ddd3068c145d00842a222e0713a8963",
+          "status": "REJECTED"
+        },
+        {
+          "child_index": 5,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:6dd25e124b3cb63a2fd6d9f9f9b2ff29192d8b36250cb37a608066e6e6afc529",
+          "status": "REJECTED"
+        }
+      ],
+      "created_at": "2026-09-27T23:45:18.224Z",
+      "page": {
+        "next_cursor": null,
+        "page_size": 50
+      },
+      "rejected_count": 4,
+      "sweep_id": "01a0e542-3b90-7957-9926-619d045bd6bc",
+      "tenant_id": "01a0e53e-b305-7baa-8067-6a41b5bcaece"
+    },
+    "replay_identical": true,
+    "response": {
+      "accepted_count": 2,
+      "child_count": 6,
+      "children": [
+        {
+          "child_index": 0,
+          "error": null,
+          "job_id": "01a0e542-3bb2-745c-8444-d26e8e5401d5",
+          "parameter_hash": "sha256:a66cb03ea6f4360fe8ad0b952cdfe842435e399a25b6dcdd1f7d408f8a1007b1",
+          "status": "ACCEPTED"
+        },
+        {
+          "child_index": 1,
+          "error": null,
+          "job_id": "01a0e542-3bed-749c-b3e0-e4bdc0e51a7d",
+          "parameter_hash": "sha256:fada1b83f5351157ba97217b0e22c8d7f52189e4694708dd0d2e1c7a0bceb2ba",
+          "status": "ACCEPTED"
+        },
+        {
+          "child_index": 2,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:c4cb18cb7796fbd6a73e107c47a62e5f4d95f41d63e9e21144bb8aae1069855e",
+          "status": "REJECTED"
+        },
+        {
+          "child_index": 3,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:fb321c9621f40d07f44eb9b6294e34e99c65f3a51471f5f040394c76c95c36ac",
+          "status": "REJECTED"
+        },
+        {
+          "child_index": 4,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:2cb868fea138ddf473a9edbaa3340bcf0ddd3068c145d00842a222e0713a8963",
+          "status": "REJECTED"
+        },
+        {
+          "child_index": 5,
+          "error": {
+            "code": "quota_exceeded",
+            "message": "Tenant outstanding quota exceeded",
+            "request_id": "01a0e542-3b82-7b23-9840-6ca6e8c80048"
+          },
+          "job_id": null,
+          "parameter_hash": "sha256:6dd25e124b3cb63a2fd6d9f9f9b2ff29192d8b36250cb37a608066e6e6afc529",
+          "status": "REJECTED"
+        }
+      ],
+      "created_at": "2026-09-27T23:45:18.224Z",
+      "page": {
+        "next_cursor": null,
+        "page_size": 100
+      },
+      "rejected_count": 4,
+      "sweep_id": "01a0e542-3b90-7957-9926-619d045bd6bc",
+      "tenant_id": "01a0e53e-b305-7baa-8067-6a41b5bcaece"
+    },
+    "sweep_id": "01a0e542-3b90-7957-9926-619d045bd6bc"
+  },
+  "dataset_checksum": "sha256:3113e1a4a3537da6c1033bb385f667ebb2d78cc0dcda0f7916a8e3ca787ea41a",
+  "fixture": "pytorch-cifar10-v1",
+  "images": {
+    "NEXA_B09_IMAGE_REF": {
+      "ref": "nexa/cpu-iterative@sha256:20fd58cb53885085338454394653d67d78f0a9ab16a1984898eefd2fa3d8d89e"
+    },
+    "NEXA_B11_WORKER_IMAGE": {
+      "id": "sha256:ee004e09bc24769ea990cc2705513af225fafe579639f50b36a5aac7670ce1e7",
+      "ref": "sha256:ee004e09bc24769ea990cc2705513af225fafe579639f50b36a5aac7670ce1e7"
+    },
+    "NEXA_B16_INFERENCE_IMAGE_REF": {
+      "labels": {
+        "io.nexa.adapter.id": "batch.inference",
+        "io.nexa.adapter.version": "1.0.0",
+        "io.nexa.framework": "PYTORCH",
+        "io.nexa.framework.version": "2.12.1",
+        "io.nexa.runner": "trusted-runner-v1",
+        "io.nexa.runner.checkpoint": "batch-inference-state-v1",
+        "org.opencontainers.image.architecture": "linux/amd64",
+        "org.opencontainers.image.source": "nexa/pbl4",
+        "org.opencontainers.image.title": "nexa-batch.inference",
+        "org.opencontainers.image.version": "1.0.0"
+      },
+      "platform": "linux/amd64",
+      "ref": "nexa/batch-inference@sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8"
+    },
+    "NEXA_B16_PYTORCH_IMAGE_REF": {
+      "labels": {
+        "io.nexa.adapter.id": "pytorch.cifar10",
+        "io.nexa.adapter.version": "1.0.0",
+        "io.nexa.framework": "PYTORCH",
+        "io.nexa.framework.version": "2.12.1",
+        "io.nexa.runner": "trusted-runner-v1",
+        "io.nexa.runner.checkpoint": "pytorch-cifar10-state-v1",
+        "org.opencontainers.image.architecture": "linux/amd64",
+        "org.opencontainers.image.source": "nexa/pbl4",
+        "org.opencontainers.image.title": "nexa-pytorch.cifar10",
+        "org.opencontainers.image.version": "1.0.0"
+      },
+      "platform": "linux/amd64",
+      "ref": "nexa/pytorch-cifar10@sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb"
+    }
+  },
+  "memory_samples": {
+    "26d8c24b604ad56640aca47dc7961e424d4e08f3500883d9c6214cc0d94b1a70": {
+      "attempt_id": "01a0e541-51ee-7116-a5d9-caf5007300c3",
+      "peak": 373932032
+    },
+    "2a78f2fe7332fc6646c0a851c665b5595567dd20cdf757abfc46f8b8d952a5d4": {
+      "attempt_id": "01a0e53e-cd4c-73c4-9dfc-adca616d9252",
+      "peak": 402436096
+    },
+    "2ab863f9f59f23d69f35cc7a0d35eb1b7f9a14506c30f3d31d870879805f5e69": {
+      "attempt_id": "01a0e540-444d-71ee-8b74-c33a0f52e31c",
+      "peak": 373977088
+    },
+    "6fca4d4c00246ec1c6d6bcf13421e07a99e34ed5e13948531d7a2ad3fe5b6d50": {
+      "attempt_id": "01a0e542-3c7a-7028-b9ce-11fe02e07e14",
+      "peak": 369561600
+    },
+    "7405d487466286265bc6c0fcc8bafc15cec1431e91010bffc896b02121abb01d": {
+      "attempt_id": "01a0e542-8d83-797e-b596-749e02a86088",
+      "peak": 369115136
+    },
+    "ab99ae96b9ba4b723b13344dfa990d99e824eba821aad76b1c2a60b5d1b6163e": {
+      "attempt_id": "01a0e540-df8a-7e5f-9a6e-1a7828677350",
+      "peak": 335114240
+    },
+    "f5e2257be8c457ada5c6225cad44d2a0d35556adb69fb2aeffdf162f66934d99": {
+      "attempt_id": "01a0e53f-acbd-7c8b-a10a-f0a4055da9b3",
+      "peak": 339410944
+    }
+  },
+  "tolerance_checksum": "sha256:bbfd3c2503616e2b8f4a7731a34c9366df39bbd1dd4a60b574cb90762cb69637"
+}

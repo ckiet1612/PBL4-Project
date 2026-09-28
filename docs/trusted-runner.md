@@ -195,6 +195,92 @@ again against the input it reads. The adapter resumes from step `k` with
 equal an uninterrupted run. Result format, UIDs, mounts and all B09 hardening
 are unchanged.
 
+## PyTorch adapters and chunk frames (B16; đã triển khai, chờ Task Review)
+
+The runner stays stdlib-only. It now also launches the two PyTorch adapters
+listed in `nexa.domain.workload_adapters`, `pytorch.cifar10` and
+`batch.inference`, each from its own image built from `deploy/pytorch-cpu/`
+(B16-R03). For these adapters the worker writes launch spec **v3**
+(`nexa.workloads.adapter_launch`). It is a closed document with adapter
+identity, validated template parameters, `threads = max(1, cpu_millis // 1000)`,
+fixed input paths, provenance, the checkpoint block and the restore block. CPU
+iterative keeps launch spec v1/v2 and its bytes do not change. The runner turns
+v3 into a fixed argv:
+
+- `python -m nexa.workloads.pytorch_cifar10`;
+- `python -m nexa.workloads.batch_inference`.
+
+No value in the argv comes from anything other than the validated spec.
+
+Inputs are fixed read-only mounts:
+
+- `/input/dataset.arrow`;
+- `/input/model.safetensors` (inference only);
+- `/input/restore/` (the restore files).
+
+Training:
+
+- **Workload output.** The workload atomically replaces one
+  `/output/state.safetensors` at batch boundaries, at most once per second.
+- **Checkpoint cycle.** On `REQUEST_CHECKPOINT` the runner reads that file
+  through one fd, bounded. It checks the header, keys, shapes and dtypes
+  against an allowlist, and checks that the step is monotonic. It then splits
+  the file into `model.safetensors`, `optimizer.safetensors`, `rng.safetensors`
+  and `training-state.json`, the four files of the adapter rule, in that
+  order.
+- **Restore.** The runner re-validates the four mounted files against the spec
+  before `START`.
+- **Result.** `model.safetensors` and `metrics.json`. The runner validates the
+  full closed metrics schema.
+- **Code bounds.** Neither the runner nor the adapters use `torch.save/load`,
+  pickle, marshal or eval/exec (AST test).
+
+Inference is a chunked cycle:
+
+```text
+CHUNK_FILE_BATCH (<=64 chunks/frame) -> BIND_ARTIFACT_BATCH(CHUNK_OUTPUT)
+-> CHECKPOINT_FILES_READY [inference-state.json] | RESULT_FILE_BATCH [summary.json]
+-> BIND_ARTIFACT_BATCH -> AUXILIARY_MANIFEST_READY (CHUNK_OUTPUT_MANIFEST)
+-> BIND_ARTIFACT_BATCH(CHUNK_OUTPUT) -> FINALIZE_* -> CHECKPOINT_READY | RESULT_READY
+```
+
+- **Chunk files.** Chunks are named `chunk-%08d.jsonl` or `.parquet`. The runner
+  reads only their name, size and checksum, never their content. It unlinks
+  each chunk file once the worker's binding is accepted.
+- **Window.** With checkpointing on, the workload holds at most
+  `INFERENCE_WINDOW = 8` unbound chunk files in the 16 MiB `/output` tmpfs
+  (B16-R13).
+- **Chunk-output manifest.** The runner builds it only from committed chunk
+  bindings: the restored prefix first, then the chunks of this attempt.
+- **Item count.** The runner checks that `item_count` in the Arrow metadata
+  equals the row count; otherwise `INVALID_INPUT`.
+- **Restore.** A restore mounts `inference-state.json` and the carried
+  chunk-output manifest (`/input/restore/chunk-output-manifest.json`). Chunk
+  bytes are not mounted (B16-R18).
+
+**Workload exit.** A non-zero workload exit becomes one `FAILED` frame
+(B16-R24/R26):
+
+- For the two adapters, exit 65 means that the workload rejected its input or
+  parameters before it wrote any output. This covers malformed Arrow metadata
+  or safetensors header, and a chunk plan above the B16-R17 bounds. It becomes
+  `INVALID_INPUT/INVALID_INPUT`. The parsers map every JSON, integer-limit,
+  nesting and type error to that path.
+- Otherwise the runner compares the `oom_kill` counter of the container's
+  cgroup v2 `memory.events` with the value it read right before `START`. The
+  baseline is persisted in the runner state. A rise means
+  `OOM/CONTAINER_OOM` with `oom_killed: true`. This applies to every adapter,
+  CPU iterative included.
+- An unreadable counter at either point is no evidence. Any other exit then
+  stays `INTERNAL/WORKLOAD_EXIT_NONZERO`.
+
+A signal exit is reported as 128 + signal.
+
+All B09 hardening stays unchanged: UIDs 1000/1001, read-only rootfs and input,
+`network none`, `cap_drop ALL`, seccomp and no-new-privileges, and the PID,
+memory and CPU bounds. The B16 hardening oracle on VPS1 reads every process in
+the container cgroup (B16-R22).
+
 ## Verified boundary
 
 The production executor/entrypoint path, distinct UIDs, private control relay,

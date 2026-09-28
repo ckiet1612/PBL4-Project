@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "fixture": "pytorch-cifar10-v1",
+  "template": {"template_id": "pytorch-cifar10-cnn", "version": 1},
+  "comparison": "crash/resume or pause/resume lineage versus an uninterrupted baseline with the same fixture, image digest, device class, parameters, seed and thread count",
+  "device_classes": [
+    {
+      "device_class": "cpu/linux-amd64",
+      "required": true,
+      "threads": "resources.cpu_millis // 1000 of the job spec; never the host CPU count"
+    },
+    {
+      "device_class": "cpu/linux-arm64",
+      "required": false,
+      "threads": "resources.cpu_millis // 1000 of the job spec; never the host CPU count"
+    }
+  ],
+  "exact": [
+    "final cursor.step",
+    "final cursor.epoch",
+    "final runtime cursor item_cursor",
+    "steps",
+    "epoch_sample_order_digests",
+    "input_checksum",
+    "spec_checksum",
+    "architecture_id",
+    "eval_items",
+    "result provenance (template, adapter, image digest, framework version, device class)"
+  ],
+  "absolute": {
+    "train_loss": 0.001,
+    "eval_loss": 0.001,
+    "eval_accuracy": 0.005
+  },
+  "relative": {
+    "model_l2_norm": 0.0001,
+    "optimizer_momentum_l2_norm": 0.0001,
+    "parameter_l2_norms.*": 0.0001
+  },
+  "informational": [
+    "model.safetensors bitwise equal",
+    "metrics.json bitwise equal"
+  ],
+  "rationale": [
+    "Baseline and resumed lineage run the same image, device class and thread count with torch.use_deterministic_algorithms(True), a self-managed sampler whose epoch permutation derives only from (seed, epoch), and a checkpoint that restores model, SGD momentum buffers and the Python/NumPy/torch CPU RNG exactly; a same-host resume is therefore expected to be bitwise equal, and the bitwise result is recorded only as information.",
+    "The tolerances bound what the contract does not promise: float32 CPU kernels may pick a different vectorised reduction order on another host of the same architecture (ISA dispatch), and SGD amplifies last-bit differences over the steps of a run.",
+    "Losses are float64 means of per-item cross-entropy whose scale is ln(10) ~ 2.3 before training; 0.001 absolute is below 0.05% of that scale and far below any change a skipped or duplicated batch would cause.",
+    "eval_accuracy is a count over the fixed 1000-item eval split, so 0.005 admits at most five predictions flipping at a decision boundary and nothing larger.",
+    "Norms are float64 sums of float32 tensors; 1e-4 relative is about three orders of magnitude above float32 epsilon and still catches any lost optimizer state, since a momentum reset or a missing update changes the norms by far more.",
+    "Sample coverage, step/epoch/cursor, checksums and provenance have no tolerance: they are integers or digests and must match exactly.",
+    "These values are argued from the fixture design before any acceptance measurement; development measurements are never used to tune them, and a measurement outside them is a finding, not a reason to widen them."
+  ]
+}

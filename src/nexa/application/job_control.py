@@ -489,6 +489,8 @@ class JobControlMixin:
             (candidate,) = restore_candidates(session, owner, spec, template, [dict(row)])
             plan = {
                 "tenant_id": tenant_id,
+                # The retry creates a new job; B16-R20 keeps inference checkpoints job-scoped.
+                "job_id": None,
                 "parameters": spec["canonical_spec"].get("parameters") or {},
             }
             return candidate, plan, template

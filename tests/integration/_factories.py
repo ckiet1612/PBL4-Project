@@ -123,6 +123,7 @@ def seed_job(
     canonical_spec: dict | None = None,
     cpu_millis: int = 1000,
     ready_sequence: int | None = None,
+    model_artifact_id: UUID | None = None,
 ) -> dict[str, UUID]:
     job_id = job_id or new_uuid7()
     session_id = new_uuid7()
@@ -157,6 +158,7 @@ def seed_job(
             "template_id": graph["template_id"],
             "template_version": 1,
             "input_artifact_id": artifact_id or graph["artifact_id"],
+            "model_artifact_id": model_artifact_id,
             "cpu_millis": cpu_millis,
             "memory_bytes": 1_073_741_824,
             "gpu_count": 0,

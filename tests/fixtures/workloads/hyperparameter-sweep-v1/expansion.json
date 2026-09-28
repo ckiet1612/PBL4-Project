@@ -1,0 +1,78 @@
+{
+  "sweep_id": "01923456-789a-7bcd-8ef0-0000000000aa",
+  "note": "Golden expansion of request.json: learning_rate 0.01 and 1e-2 are one RFC 8785 value, so 3 x 2 = 6 children.",
+  "children": [
+    {
+      "child_index": 0,
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 32,
+        "learning_rate": 0.1,
+        "seed": 1,
+        "subset_size": 500
+      },
+      "parameter_hash": "sha256:a66cb03ea6f4360fe8ad0b952cdfe842435e399a25b6dcdd1f7d408f8a1007b1",
+      "idempotency_key": "sweep-child-d3de4c72e4f9d65b13a1ae963e7d79af7f7d2c4712620d894bf26470443868c7"
+    },
+    {
+      "child_index": 1,
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 32,
+        "learning_rate": 0.1,
+        "seed": 2,
+        "subset_size": 500
+      },
+      "parameter_hash": "sha256:fada1b83f5351157ba97217b0e22c8d7f52189e4694708dd0d2e1c7a0bceb2ba",
+      "idempotency_key": "sweep-child-4c919ccdaa70035e1baefedd7079fad1ea6be74faebe517508e4aca520bacc4f"
+    },
+    {
+      "child_index": 2,
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 32,
+        "learning_rate": 0.01,
+        "seed": 1,
+        "subset_size": 500
+      },
+      "parameter_hash": "sha256:c4cb18cb7796fbd6a73e107c47a62e5f4d95f41d63e9e21144bb8aae1069855e",
+      "idempotency_key": "sweep-child-001d6a6c363de21691949f6c554fe56a290380a188ebc38bd1ddaafa3a7a79ac"
+    },
+    {
+      "child_index": 3,
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 32,
+        "learning_rate": 0.01,
+        "seed": 2,
+        "subset_size": 500
+      },
+      "parameter_hash": "sha256:fb321c9621f40d07f44eb9b6294e34e99c65f3a51471f5f040394c76c95c36ac",
+      "idempotency_key": "sweep-child-539758ff555093586ca9772f8ac01ba8dc64846556b52f419be23ebb70f4e6fe"
+    },
+    {
+      "child_index": 4,
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 32,
+        "learning_rate": 0.001,
+        "seed": 1,
+        "subset_size": 500
+      },
+      "parameter_hash": "sha256:2cb868fea138ddf473a9edbaa3340bcf0ddd3068c145d00842a222e0713a8963",
+      "idempotency_key": "sweep-child-fa3e755810b364b93b1da557a6e6afa24f319b2025175b63f303766a2a1ab0f3"
+    },
+    {
+      "child_index": 5,
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 32,
+        "learning_rate": 0.001,
+        "seed": 2,
+        "subset_size": 500
+      },
+      "parameter_hash": "sha256:6dd25e124b3cb63a2fd6d9f9f9b2ff29192d8b36250cb37a608066e6e6afc529",
+      "idempotency_key": "sweep-child-8cb93a388f86339652eebe30fd7ea0a8c51f542a85a73a6f9a5116f6bd01136c"
+    }
+  ]
+}

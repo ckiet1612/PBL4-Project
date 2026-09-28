@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from nexa.application.artifact_service import ArtifactService
 from nexa.application.errors import ApplicationError
+from nexa.domain import workload_adapters
 from nexa.infrastructure.artifacts.store import ArtifactError, BlobRange
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.schema import (
@@ -18,6 +19,8 @@ from nexa.infrastructure.persistence.schema import (
     attempt_authority_grants,
     attempts,
     idempotency_records,
+    job_specs,
+    template_versions,
     upload_sessions,
 )
 from nexa.infrastructure.persistence.transactions import run_transaction
@@ -31,7 +34,7 @@ class WorkerUploadPrincipal:
 class AttemptArtifactService(ArtifactService):
     _upload_operation = "workerUploadAttemptArtifact"
 
-    def __init__(self, base, worker, credential, authority, kind=None):
+    def __init__(self, base, worker, credential, authority, kind=None, media_type=None):
         super().__init__(base.session_factory, base.settings, base.identity, base.store)
         self.worker = worker
         self.credential = credential
@@ -39,7 +42,9 @@ class AttemptArtifactService(ArtifactService):
         # Checkpoint bytes are accepted only inside a RESERVED checkpoint window
         # and result bytes only outside it, so one upload cannot straddle both.
         self.kind = kind
+        self.media_type = media_type
         self._upload_provenance = {}
+        self._requested_media = None
 
     def _upload_request_scope(self):
         # Keep adoption replay stable while separating different attempts.  The
@@ -131,17 +136,71 @@ class AttemptArtifactService(ArtifactService):
         )
 
     def _upload_metadata(self, kind, media_type):
-        allowed = {
-            "RESULT_FILE": {"application/vnd.nexa.cpu-iterative-result+json", "application/json"},
-            "RESULT_MANIFEST": {"application/json"},
-            "CHECKPOINT_FILE": {"application/json"},
-            "CHECKPOINT_MANIFEST": {"application/json"},
-        }
-        if kind != self.kind or media_type not in allowed.get(kind, set()):
+        # Kind-level union before the transaction; the job's adapter narrows it in _authorize.
+        allowed = set()
+        for adapter in workload_adapters.DESCRIPTORS:
+            allowed |= adapter.upload_media_types.get(kind, frozenset())
+        if (
+            kind != self.kind
+            or media_type not in allowed
+            or (self.media_type is not None and media_type != self.media_type)
+        ):
             raise ArtifactError(
                 "validation_failed", "Artifact kind or media is unavailable for CPU execution"
             )
+        self._requested_media = (kind, media_type)
         return kind, media_type
+
+    def _job_adapter(self, session, job_id):
+        adapter_row = (
+            session.execute(
+                select(template_versions.c.adapter_id, template_versions.c.adapter_version)
+                .select_from(
+                    job_specs.join(
+                        template_versions,
+                        (template_versions.c.template_id == job_specs.c.template_id)
+                        & (template_versions.c.version == job_specs.c.template_version),
+                    )
+                )
+                .where(job_specs.c.job_id == job_id)
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return (
+            None
+            if adapter_row is None
+            else workload_adapters.descriptor(
+                adapter_row["adapter_id"], adapter_row["adapter_version"]
+            )
+        )
+
+    def _upload_phases(self, adapter):
+        if str(self.kind).startswith("CHECKPOINT_"):
+            return {"CHECKPOINTING"}
+        if adapter is not None and adapter.chunked:
+            kind, media_type = self.kind, self.media_type
+            # B16-R19: chunk files and the chunk-output manifest are bound by the chunked
+            # checkpoint cycle inside the reserved window as well as by the result cycle;
+            # recognition stays in the fenced publish/complete transaction.
+            if kind == "CHUNK_OUTPUT_MANIFEST" or (
+                kind == "RESULT_FILE"
+                and media_type
+                in {media for media, _ in workload_adapters.CHUNK_MEDIA_TYPES.values()}
+            ):
+                return {"RUNNING", "CHECKPOINTING"}
+        return {"RUNNING"}
+
+    def _require_adapter_media(self, adapter):
+        if self._requested_media is None:
+            return
+        kind, media_type = self._requested_media
+        if adapter is None or media_type not in adapter.upload_media_types.get(kind, ()):
+            raise ApplicationError(
+                code="validation_failed",
+                status=422,
+                message="Artifact kind or media is unavailable for this workload adapter",
+            )
 
     def _authorize(self, session, principal, tenant_id, *, write, require_running=True):
         self.worker._mode(session)
@@ -155,11 +214,14 @@ class AttemptArtifactService(ArtifactService):
             session, self.authority, worker_id=self.authority.worker_id
         )
         self.worker._live_authority(job, attempt, lease, allocation, clock_timestamp(session))
-        phase = "CHECKPOINTING" if str(self.kind).startswith("CHECKPOINT_") else "RUNNING"
-        if job["tenant_id"] != tenant_id or (require_running and attempt["state"] != phase):
+        adapter = self._job_adapter(session, job["job_id"])
+        if job["tenant_id"] != tenant_id or (
+            require_running and attempt["state"] not in self._upload_phases(adapter)
+        ):
             raise ApplicationError(
                 code="state_conflict", status=409, message="Upload execution scope mismatch"
             )
+        self._require_adapter_media(adapter)
         self._upload_provenance = {
             "job_id": job["job_id"],
             "attempt_id": attempt["attempt_id"],

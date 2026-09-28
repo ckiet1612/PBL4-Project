@@ -1,0 +1,959 @@
+{
+  "D4_baseline": {
+    "checkpoints": 4,
+    "chunk_checksums": {
+      "chunk-00000000": "sha256:2bccc3f7998898168539e5dd83031ab4cf04a23e9a4935738341f343328d0392",
+      "chunk-00000001": "sha256:073b88ef25ae42577b84e7d8d9525651cbed4e8c5a4f6d86024a3c88c43c02f9",
+      "chunk-00000002": "sha256:9c63f61371de5918747ecc0d2be2b1a1330e71d00d0dffe27718defabb508b25",
+      "chunk-00000003": "sha256:ec3427f798331804797bf300d1a9f331499e9196ac782aaf24a4a9c8f1e22f45",
+      "chunk-00000004": "sha256:558503822681c1e89fd49817b04b05970ead8426f3ad615492cd71af9626e532",
+      "chunk-00000005": "sha256:8056da649340001eb45e3a2f435263c66227385d8c578d90afed78ab18e7b568",
+      "chunk-00000006": "sha256:50b0abb322e5a4b43ef3b295674dc97edd332544072f62aa969eb930c8315706",
+      "chunk-00000007": "sha256:1c2dbb3b63caa6242d6a1e36c84840d1f06f89e8455050873dc0389f85b25ce3",
+      "chunk-00000008": "sha256:6ace81f66d3a5ba39d87d405191368d5e2478c3fef297d374cbf2c152f59ecba",
+      "chunk-00000009": "sha256:5b2a6b5504435883a79fa7e92147575454571db4a0334b99866400b993c69989",
+      "chunk-00000010": "sha256:c1f08299194ab2fc799ce8e1d7de393ae13d42ae830e09bf1236d9c0878f2e7d",
+      "chunk-00000011": "sha256:a96f5573ca1ada8d73e2510d9582d2c3c0dd1000034b2ee6c685003369176a05",
+      "chunk-00000012": "sha256:f104e499409d1a098f158630b5b64c5b581a99b0c05c990837b3450dab798f3c",
+      "chunk-00000013": "sha256:ba6d5f4585f61390af17bc4f11d2b150643db3447f8d71f1a8e15011a7d98bea",
+      "chunk-00000014": "sha256:9697a9fa4200ed2367c9563a5ca349db9966a63265aaa84282965d33c6574a30",
+      "chunk-00000015": "sha256:03a2e8ca6a1259c14f2ed49e12ab706df5940d48d4359d32e1d26b75e93ee9c8",
+      "chunk-00000016": "sha256:07b863aaee836b04ebf67914c7e90db69d297e0cb0f4a9e01619d6990e1b9b0f",
+      "chunk-00000017": "sha256:4ea0d528a0825e5aec872b17e50a1e05ee0d00686d85cff14847a8708f08fad2",
+      "chunk-00000018": "sha256:e84015a458aaedd43077064525eee3f518fd4289b0144ad0eeb8f7bf29676266",
+      "chunk-00000019": "sha256:dba4de3b63117e4e2feb0fa249020c8db05ea48e63d90c5cbfb8ddff9c726b4a",
+      "chunk-00000020": "sha256:f4c2ecc3a57595c2dcefef33235832bf7b73945cb2b702cee9f4bcbdd793f995",
+      "chunk-00000021": "sha256:21bef3a14380bfdbdb99813fb1316d3f1318765ef166d040e2c6648ab24b5939",
+      "chunk-00000022": "sha256:4bfc213d84bb463ca582f3a78de0517d06fff2264cf8428ae6849110b9b6d786",
+      "chunk-00000023": "sha256:5aaa6bf2d8966c06b95f81acefa1a59a378d35ef1bb9b13fa4dcf64887da6123",
+      "chunk-00000024": "sha256:ca9c3692b346d4d35175e674553dbf453ca5ffb78f529ecdd7408af4441d89e1",
+      "chunk-00000025": "sha256:43b7a995e3ae77a829ff5632ac25abdcbc04b33f5e68bf1f80903ba8ce7484c3",
+      "chunk-00000026": "sha256:8efc13b92e1cfc681b9cad2b583c21c33fd722d786dfb13c0983b44a078cd115",
+      "chunk-00000027": "sha256:a0b310e3b87f58cbacc5c53e16b6fe5b33a2387c1e446e3332dcf3c9309d5bc5",
+      "chunk-00000028": "sha256:9cea4d94f2902335ee16a2b8a8216566e5857410376e702ad9ab903e7a681f39",
+      "chunk-00000029": "sha256:ca60b40efde070484147c34a8230a3c1423cff981e53eb2963c378f2529039cd",
+      "chunk-00000030": "sha256:eb89150e901f54ad824c358406669bbc41c6593edbdcead1b4de8e956c82e5cb",
+      "chunk-00000031": "sha256:fe273526ac62f133dcb72db4bd04f28ecbd2cdb00e504bd9740932e02287f2dd",
+      "chunk-00000032": "sha256:cf54cfe3ff129408b33f9c3e2471ed7da48f98ed22eeb25f999b441b7d6704a6",
+      "chunk-00000033": "sha256:fc110c02eafcda7eea952246c9a316ab38a5885f246ca39e8b9dc6051da1b169",
+      "chunk-00000034": "sha256:ca84b3fbd6f0b8374ef4e05d61d312e58ad3ff1be84c90461d32e5ebd7b8482a",
+      "chunk-00000035": "sha256:19374186c630ee018039d903b858a198b9fad8d83d582ddedfaf826d336679ca",
+      "chunk-00000036": "sha256:345a3d2a6b1975073f52f8c6c48efe215254d1688f978225626e2cf9511caf8b",
+      "chunk-00000037": "sha256:4f762404fd06dc9227a6d1bcd4b6a5866b13cdb14c170ab0deeac4e7dde028ab",
+      "chunk-00000038": "sha256:83fdb0e3ab981288146e4c8ec5803e6d3c49a4f9c3898cb7e85bde39018cc98e",
+      "chunk-00000039": "sha256:4528a43ea523e10feabb87280d8333739e9c65c9f1369f8921b77cab5c0c5817"
+    },
+    "chunk_report": {
+      "checksums_equal_baseline": true,
+      "chunks_per_source_attempt": {
+        "01a0e542-fb93-741b-b701-d7206cad77f0": 40
+      },
+      "coverage_exact": true,
+      "distinct_chunk_ids": 40,
+      "ids_formatted": true,
+      "mismatched_chunk_ids": [],
+      "recognized": 40
+    },
+    "hardening": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "image": "nexa/batch-inference@sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8",
+      "log_config": {
+        "Config": {
+          "max-file": "1",
+          "max-size": "1048576"
+        },
+        "Type": "json-file"
+      },
+      "memory": 1073741824,
+      "memory_swap": 1073741824,
+      "mounts": [
+        {
+          "destination": "/input/dataset.arrow",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/input/model.safetensors",
+          "read_only": true,
+          "type": "bind"
+        },
+        {
+          "destination": "/run/nexa-input",
+          "read_only": true,
+          "type": "bind"
+        }
+      ],
+      "nano_cpus": 1000000000,
+      "network_mode": "none",
+      "pids_limit": 128,
+      "privileged": false,
+      "processes": [
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1000"
+        },
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1001"
+        },
+        {
+          "cap_bnd": "0000000000000000",
+          "cap_eff": "0000000000000000",
+          "comm": "python",
+          "no_new_privs": "1",
+          "seccomp": "2",
+          "uid": "1000"
+        }
+      ],
+      "readonly_rootfs": true,
+      "restart_policy": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/output",
+        "/run/nexa",
+        "/tmp"
+      ],
+      "user": "1000:1000"
+    },
+    "memory_peak_bytes": {
+      "01a0e542-fb93-741b-b701-d7206cad77f0": 293957632
+    },
+    "prediction_counts": [
+      54,
+      169,
+      151,
+      338,
+      355,
+      429,
+      83,
+      37,
+      346,
+      38
+    ],
+    "result_provenance": {
+      "adapter_id": "batch.inference",
+      "adapter_version": "1.0.0",
+      "image_digest": "sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8",
+      "input_checksum": "sha256:fe0ff7d1c99456bf6cb2d7a42c21212838dba660d52da1d1c2d90f010948def8",
+      "spec_checksum": "sha256:56d4a1d009a758927ddf909a1db51ebe013ee64fbf25bbe49b48bce9c6c19fb5",
+      "template_id": "batch-inference",
+      "template_version": 1,
+      "tenant_id": "01a0e542-e15d-711e-9fd5-f4c230b911bb"
+    },
+    "seconds": 48.3,
+    "summary_checksum": "sha256:2af47cef6c13c35de4b8d328f944e873588d2c1ce8977ad8cd8ad322f76058c5",
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0e542-fb93-741b-b701-d7206cad77f1",
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "quarantined": false,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "attempt_number": 1,
+          "failure_class": null,
+          "failure_reason": null,
+          "job_fence": 1,
+          "state": "SUCCEEDED",
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        }
+      ],
+      "checkpoints": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "checkpoint_id": "01a0e543-1df5-7a07-9e0d-137051f4ee93",
+          "corrupt": null,
+          "sequence": 1
+        },
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "checkpoint_id": "01a0e543-43c6-7d43-a89c-0794d3e952d8",
+          "corrupt": null,
+          "sequence": 2
+        },
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "checkpoint_id": "01a0e543-678f-78fe-bca2-dac7541531ab",
+          "corrupt": null,
+          "sequence": 3
+        },
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "checkpoint_id": "01a0e543-8b9f-74df-9bae-1cb010f4777c",
+          "corrupt": null,
+          "sequence": 4
+        }
+      ],
+      "containers": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "container_id": "46e399fd017b",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-27T23:46:07.176+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-27T23:46:07.327+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-27T23:46:08.591+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-27T23:46:20.667+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-27T23:46:29.839+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 5
+        },
+        {
+          "at": "2026-09-27T23:46:39.065+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 6
+        },
+        {
+          "at": "2026-09-27T23:46:50.829+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 7
+        },
+        {
+          "at": "2026-09-27T23:46:55.123+00:00",
+          "event_type": "RESULT_RECOGNIZED",
+          "reason": "result_recognized",
+          "sequence": 8
+        },
+        {
+          "at": "2026-09-27T23:47:00.814+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 9
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 4,
+        "desired_state": "RUNNING",
+        "event_sequence": 9,
+        "job_fence": 1,
+        "max_retries": 2,
+        "retry_count": 0,
+        "state": "SUCCEEDED"
+      },
+      "job_id": "01a0e542-fac8-759a-a2ee-3372c66bd5fb",
+      "leases": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "current_worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd",
+          "job_fence": 1,
+          "lease_id": "01a0e542-fb93-741b-b701-d7206cad77f2",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "ledger_segments": {
+        "charged": "8.35734375",
+        "count": 11
+      },
+      "reservations": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "sequence": 1,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "sequence": 2,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "sequence": 3,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "sequence": 4,
+          "state": "COMMITTED"
+        }
+      ],
+      "restores": {
+        "01a0e542-fb93-741b-b701-d7206cad77f0": null
+      },
+      "results": [
+        {
+          "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+          "result_id": "01a0e543-a727-7cb8-bc7d-a514fe3936c1"
+        }
+      ],
+      "retries": [],
+      "submit_idempotency_key": "b16-docker-infer-baseline",
+      "submit_idempotency_records": 1
+    }
+  },
+  "D5_crash_resume": {
+    "chunk_report": {
+      "checksums_equal_baseline": true,
+      "chunks_per_source_attempt": {
+        "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9": 16,
+        "01a0e544-4ba0-7510-9b6b-fdb193a7e26b": 24
+      },
+      "coverage_exact": true,
+      "distinct_chunk_ids": 40,
+      "ids_formatted": true,
+      "mismatched_chunk_ids": [],
+      "recognized": 40
+    },
+    "memory_peak_bytes": {
+      "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9": 293847040,
+      "01a0e544-4ba0-7510-9b6b-fdb193a7e26b": 293740544
+    },
+    "recognized_at_kill": 16,
+    "restored_cursor": {
+      "epoch": 0,
+      "item_cursor": 800,
+      "step": 16
+    },
+    "summary_bitwise_equal": true,
+    "summary_checksum": "sha256:2af47cef6c13c35de4b8d328f944e873588d2c1ce8977ad8cd8ad322f76058c5",
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39fa",
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        },
+        {
+          "allocation_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26c",
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "quarantined": false,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "attempt_number": 1,
+          "failure_class": "INFRASTRUCTURE",
+          "failure_reason": "RUNNER_UNAVAILABLE",
+          "job_fence": 1,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "attempt_number": 2,
+          "failure_class": null,
+          "failure_reason": null,
+          "job_fence": 3,
+          "state": "SUCCEEDED",
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        }
+      ],
+      "checkpoints": [
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "checkpoint_id": "01a0e544-0bc7-7bf5-a290-8272b868874b",
+          "corrupt": null,
+          "sequence": 1
+        },
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "checkpoint_id": "01a0e544-30c2-7bf4-b5f8-95159eda4f57",
+          "corrupt": null,
+          "sequence": 2
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "checkpoint_id": "01a0e544-82da-7589-8a5b-f25caa11ea4f",
+          "corrupt": null,
+          "sequence": 3
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "checkpoint_id": "01a0e544-b0af-7b32-82a3-288832f34ad8",
+          "corrupt": null,
+          "sequence": 4
+        }
+      ],
+      "containers": [
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "container_id": "498881bd155b",
+          "stopped": true,
+          "verified": true
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "container_id": "b33194dda713",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-27T23:47:00.986+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-27T23:47:01.291+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-27T23:47:09.460+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-27T23:47:21.355+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-27T23:47:30.529+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 5
+        },
+        {
+          "at": "2026-09-27T23:47:30.958+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "RUNNER_UNAVAILABLE",
+          "sequence": 6
+        },
+        {
+          "at": "2026-09-27T23:47:31.100+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 7
+        },
+        {
+          "at": "2026-09-27T23:47:33.244+00:00",
+          "event_type": "RETRY_READY",
+          "reason": "BACKOFF_ELAPSED",
+          "sequence": 8
+        },
+        {
+          "at": "2026-09-27T23:47:33.362+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 9
+        },
+        {
+          "at": "2026-09-27T23:47:39.339+00:00",
+          "event_type": "CHECKPOINT_RESTORE_SELECTED",
+          "reason": "CHECKPOINT_RESTORED",
+          "sequence": 10
+        },
+        {
+          "at": "2026-09-27T23:47:39.850+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 11
+        },
+        {
+          "at": "2026-09-27T23:47:52.087+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 12
+        },
+        {
+          "at": "2026-09-27T23:48:03.804+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 13
+        },
+        {
+          "at": "2026-09-27T23:48:08.974+00:00",
+          "event_type": "RESULT_RECOGNIZED",
+          "reason": "result_recognized",
+          "sequence": 14
+        },
+        {
+          "at": "2026-09-27T23:48:14.717+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 15
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "ended": true,
+          "job_fence": 3,
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 4,
+        "desired_state": "RUNNING",
+        "event_sequence": 15,
+        "job_fence": 3,
+        "max_retries": 2,
+        "retry_count": 1,
+        "state": "SUCCEEDED"
+      },
+      "job_id": "01a0e543-ccfa-7bb6-88cd-f807dbdc9326",
+      "leases": [
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "current_worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd",
+          "job_fence": 1,
+          "lease_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39fb",
+          "revoke_reason": null,
+          "revoked": true
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "current_worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd",
+          "job_fence": 3,
+          "lease_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26d",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "ledger_segments": {
+        "charged": "11.11937500",
+        "count": 17
+      },
+      "reservations": [
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "sequence": 1,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+          "sequence": 2,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "sequence": 3,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "sequence": 4,
+          "state": "COMMITTED"
+        }
+      ],
+      "restores": {
+        "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9": null,
+        "01a0e544-4ba0-7510-9b6b-fdb193a7e26b": {
+          "checkpoint_id": "01a0e544-30c2-7bf4-b5f8-95159eda4f57",
+          "sequence": 2
+        }
+      },
+      "results": [
+        {
+          "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+          "result_id": "01a0e544-c4e5-7e4d-82a8-08f20b4bdc7f"
+        }
+      ],
+      "retries": [
+        {
+          "closed": true,
+          "reason": "INFRASTRUCTURE",
+          "retry_number": 1
+        }
+      ],
+      "submit_idempotency_key": "b16-docker-infer-crash-resume",
+      "submit_idempotency_records": 1
+    }
+  },
+  "D6_blob_missing": {
+    "attempt_failures": [
+      [
+        "INFRASTRUCTURE",
+        "RUNNER_UNAVAILABLE"
+      ],
+      [
+        "TIMEOUT",
+        "RUNTIME_LIMIT_REACHED"
+      ]
+    ],
+    "deleted_chunk": {
+      "artifact_id": "01a0e545-5bee-709d-a94e-81e97b49ab2b",
+      "chunk_id": "chunk-00000008"
+    },
+    "memory_peak_bytes": {
+      "01a0e544-ee9b-72f4-8b35-9969c5750c01": 293683200,
+      "01a0e545-7594-7877-92a2-b178985bed2d": 293617664
+    },
+    "newest": {
+      "checkpoint_id": "01a0e545-59ca-7f49-8556-e5b51ebdf094",
+      "cursor": {
+        "epoch": 0,
+        "item_cursor": 800,
+        "step": 16
+      }
+    },
+    "previous": {
+      "checkpoint_id": "01a0e545-3402-72dc-aefa-375b2e46417d",
+      "cursor": {
+        "epoch": 0,
+        "item_cursor": 400,
+        "step": 8
+      }
+    },
+    "recognized_after": 16,
+    "recognized_before": 16,
+    "terminal_state": "FAILED",
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0e544-ee9b-72f4-8b35-9969c5750c02",
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        },
+        {
+          "allocation_id": "01a0e545-7594-7877-92a2-b178985bed2e",
+          "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "attempt_number": 1,
+          "failure_class": "INFRASTRUCTURE",
+          "failure_reason": "RUNNER_UNAVAILABLE",
+          "job_fence": 1,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        },
+        {
+          "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+          "attempt_number": 2,
+          "failure_class": "TIMEOUT",
+          "failure_reason": "RUNTIME_LIMIT_REACHED",
+          "job_fence": 3,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        }
+      ],
+      "checkpoints": [
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "checkpoint_id": "01a0e545-3402-72dc-aefa-375b2e46417d",
+          "corrupt": null,
+          "sequence": 1
+        },
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "checkpoint_id": "01a0e545-59ca-7f49-8556-e5b51ebdf094",
+          "corrupt": "CHECKPOINT_BLOB_MISSING",
+          "sequence": 2
+        }
+      ],
+      "containers": [
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "container_id": "1c03ca0ee090",
+          "stopped": true,
+          "verified": true
+        },
+        {
+          "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+          "container_id": "89fb390679c7",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-27T23:48:14.927+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-27T23:48:15.081+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-27T23:48:25.169+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-27T23:48:37.393+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-27T23:48:46.920+00:00",
+          "event_type": "CHECKPOINT_COMMITTED",
+          "reason": "CHECKPOINT_COMMITTED",
+          "sequence": 5
+        },
+        {
+          "at": "2026-09-27T23:48:47.311+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "RUNNER_UNAVAILABLE",
+          "sequence": 6
+        },
+        {
+          "at": "2026-09-27T23:48:47.462+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 7
+        },
+        {
+          "at": "2026-09-27T23:48:49.532+00:00",
+          "event_type": "RETRY_READY",
+          "reason": "BACKOFF_ELAPSED",
+          "sequence": 8
+        },
+        {
+          "at": "2026-09-27T23:48:49.643+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 9
+        },
+        {
+          "at": "2026-09-27T23:48:49.971+00:00",
+          "event_type": "CHECKPOINT_CORRUPT",
+          "reason": "CHECKPOINT_BLOB_MISSING",
+          "sequence": 10
+        },
+        {
+          "at": "2026-09-27T23:48:49.997+00:00",
+          "event_type": "CHECKPOINT_RESTORE_SELECTED",
+          "reason": "CHECKPOINT_RESTORED",
+          "sequence": 11
+        },
+        {
+          "at": "2026-09-27T23:48:50.533+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 12
+        },
+        {
+          "at": "2026-09-27T23:50:22.789+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "RUNTIME_LIMIT_REACHED",
+          "sequence": 13
+        },
+        {
+          "at": "2026-09-27T23:50:22.926+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 14
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        },
+        {
+          "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+          "ended": true,
+          "job_fence": 3,
+          "worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 3,
+        "desired_state": "RUNNING",
+        "event_sequence": 14,
+        "job_fence": 4,
+        "max_retries": 2,
+        "retry_count": 1,
+        "state": "FAILED"
+      },
+      "job_id": "01a0e544-edce-7577-8b21-af7a40f7e372",
+      "leases": [
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "current_worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd",
+          "job_fence": 1,
+          "lease_id": "01a0e544-ee9b-72f4-8b35-9969c5750c03",
+          "revoke_reason": null,
+          "revoked": true
+        },
+        {
+          "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+          "current_worker_incarnation_id": "01a0e542-e5f3-7b83-8943-6641f44d6dfd",
+          "job_fence": 3,
+          "lease_id": "01a0e545-7594-7877-92a2-b178985bed2f",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "reservations": [
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "sequence": 1,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+          "sequence": 2,
+          "state": "COMMITTED"
+        },
+        {
+          "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+          "sequence": 3,
+          "state": "ABANDONED"
+        }
+      ],
+      "restores": {
+        "01a0e544-ee9b-72f4-8b35-9969c5750c01": null,
+        "01a0e545-7594-7877-92a2-b178985bed2d": {
+          "checkpoint_id": "01a0e545-3402-72dc-aefa-375b2e46417d",
+          "sequence": 1
+        }
+      },
+      "results": [],
+      "retries": [
+        {
+          "closed": true,
+          "reason": "INFRASTRUCTURE",
+          "retry_number": 1
+        }
+      ],
+      "submit_idempotency_key": "b16-docker-infer-blob-missing",
+      "submit_idempotency_records": 1
+    }
+  },
+  "dataset_checksum": "sha256:fe0ff7d1c99456bf6cb2d7a42c21212838dba660d52da1d1c2d90f010948def8",
+  "fixture": "batch-inference-v1",
+  "images": {
+    "NEXA_B09_IMAGE_REF": {
+      "ref": "nexa/cpu-iterative@sha256:20fd58cb53885085338454394653d67d78f0a9ab16a1984898eefd2fa3d8d89e"
+    },
+    "NEXA_B11_WORKER_IMAGE": {
+      "id": "sha256:ee004e09bc24769ea990cc2705513af225fafe579639f50b36a5aac7670ce1e7",
+      "ref": "sha256:ee004e09bc24769ea990cc2705513af225fafe579639f50b36a5aac7670ce1e7"
+    },
+    "NEXA_B16_INFERENCE_IMAGE_REF": {
+      "labels": {
+        "io.nexa.adapter.id": "batch.inference",
+        "io.nexa.adapter.version": "1.0.0",
+        "io.nexa.framework": "PYTORCH",
+        "io.nexa.framework.version": "2.12.1",
+        "io.nexa.runner": "trusted-runner-v1",
+        "io.nexa.runner.checkpoint": "batch-inference-state-v1",
+        "org.opencontainers.image.architecture": "linux/amd64",
+        "org.opencontainers.image.source": "nexa/pbl4",
+        "org.opencontainers.image.title": "nexa-batch.inference",
+        "org.opencontainers.image.version": "1.0.0"
+      },
+      "platform": "linux/amd64",
+      "ref": "nexa/batch-inference@sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8"
+    },
+    "NEXA_B16_PYTORCH_IMAGE_REF": {
+      "labels": {
+        "io.nexa.adapter.id": "pytorch.cifar10",
+        "io.nexa.adapter.version": "1.0.0",
+        "io.nexa.framework": "PYTORCH",
+        "io.nexa.framework.version": "2.12.1",
+        "io.nexa.runner": "trusted-runner-v1",
+        "io.nexa.runner.checkpoint": "pytorch-cifar10-state-v1",
+        "org.opencontainers.image.architecture": "linux/amd64",
+        "org.opencontainers.image.source": "nexa/pbl4",
+        "org.opencontainers.image.title": "nexa-pytorch.cifar10",
+        "org.opencontainers.image.version": "1.0.0"
+      },
+      "platform": "linux/amd64",
+      "ref": "nexa/pytorch-cifar10@sha256:bd06f8a7b433264c68ed1ea0a2e8b6a6d29ac6cb499310c9e603fa04b016f9bb"
+    }
+  },
+  "memory_samples": {
+    "1c03ca0ee0909429dbb7d12e8dffc7e4e8cadeeb92eefa9ca6a4a4d81e6427fd": {
+      "attempt_id": "01a0e544-ee9b-72f4-8b35-9969c5750c01",
+      "peak": 293683200
+    },
+    "46e399fd017bddf955274cf7468780cedbf8a32df76db73c0f2e1d6f1b75016e": {
+      "attempt_id": "01a0e542-fb93-741b-b701-d7206cad77f0",
+      "peak": 293957632
+    },
+    "498881bd155b5577bb8d8cab3569eb76fe7378037c2c3dbf315a5902db5e7b48": {
+      "attempt_id": "01a0e543-ce5d-73b0-9bec-b5d5b6ad39f9",
+      "peak": 293847040
+    },
+    "89fb390679c7322f16f99110f83d66507122d049fac10ce59542d90b1a577e9f": {
+      "attempt_id": "01a0e545-7594-7877-92a2-b178985bed2d",
+      "peak": 293617664
+    },
+    "b33194dda713437b781f5a2ad0a1db155d68aa97c6bc4cddebf3bd6e43436604": {
+      "attempt_id": "01a0e544-4ba0-7510-9b6b-fdb193a7e26b",
+      "peak": 293740544
+    }
+  },
+  "model_checksum": "sha256:a23e308c9c363803ab416d014772e85159ec4de6e428b89084c682ca2e71f147"
+}

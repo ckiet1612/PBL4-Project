@@ -5,7 +5,6 @@ from datetime import datetime
 from sqlalchemy import DateTime, cast, column, exists, select, update, values
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
-from nexa.application.errors import ApplicationError
 from nexa.application.job_service import JobService
 from nexa.infrastructure.persistence import schema as s
 
@@ -15,14 +14,7 @@ _BATCH_SIZE = 64
 def _compatible(template, inventory):
     if inventory is None or template is None or not template["enabled"]:
         return False
-    if template["adapter_id"] != "cpu.iterative":
-        return False
-    try:
-        return JobService._inventory_supports(
-            inventory, JobService._inventory_requirements(template)
-        )
-    except ApplicationError:
-        return False
+    return JobService.template_runs_on(template, inventory)
 
 
 def _possible(spec, state, templates, cache):

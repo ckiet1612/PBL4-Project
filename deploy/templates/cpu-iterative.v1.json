@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "template_id": "cpu-iterative",
+  "version": 1,
+  "display_name": "CPU iterative",
+  "description": "Deterministic CPU iterative workload with application checkpoints.",
+  "adapter_id": "cpu.iterative",
+  "adapter_version": "1.0.0",
+  "checkpointable": true,
+  "restart_safe": true,
+  "allowed_devices": [
+    "CPU"
+  ],
+  "artifact_requirements": {
+    "input": {
+      "kind": "INPUT",
+      "media_type": "application/vnd.nexa.cpu-iterative-input+json"
+    },
+    "model": null
+  },
+  "parameter_schema": [
+    {
+      "name": "iterations",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 1,
+      "maximum": 1000000000,
+      "default": null
+    },
+    {
+      "name": "seed",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 0,
+      "maximum": 2147483647,
+      "default": null
+    },
+    {
+      "name": "modulus",
+      "type": "INTEGER",
+      "required": true,
+      "minimum": 2,
+      "maximum": 2147483647,
+      "default": null
+    }
+  ],
+  "resource_bounds": {
+    "resources": {
+      "cpu_millis": 6000,
+      "memory_bytes": 2147483648,
+      "gpu_count": 0
+    },
+    "runtime_limit_seconds": 300,
+    "checkpoint_interval_seconds": 60
+  },
+  "capability_requirement": {
+    "architectures": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "adapter_id": "cpu.iterative",
+    "adapter_version": "1.0.0",
+    "device": "CPU",
+    "framework": "NEXA_CPU",
+    "framework_version": "1.0.0",
+    "cuda_runtime_min": null,
+    "driver_min": null,
+    "compute_capability_min": null
+  }
+}

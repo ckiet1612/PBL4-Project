@@ -12,9 +12,13 @@ from uuid import UUID
 import rfc8785
 
 from nexa.application.errors import ApplicationError
+from nexa.domain import workload_adapters
+from nexa.workloads import adapter_launch, chunk_manifest, inference_state, training_state
 
 CHECKPOINT_MANIFEST_MAX_BYTES = 1024 * 1024
 CPU_STATE_MAX_BYTES = 4096
+# Fixed-architecture tensor files are about 0.5 MiB; the worker reader bound is tighter.
+ADAPTER_TENSOR_MAX_BYTES = 1024 * 1024
 _MAX_SAFE_INTEGER = 2**53 - 1
 _CHECKSUM = re.compile(r"^sha256:[0-9a-f]{64}$")
 _UUID7 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
@@ -74,6 +78,7 @@ _STATE_COMPONENTS = {
     "INFERENCE_CURSOR",
 }
 _FILE_FIELDS = {"artifact_id", "logical_name", "media_type", "size_bytes", "checksum"}
+_CHUNK_REFERENCE = {"artifact_id", "checksum"}
 # Template capability names map onto the manifest schema's framework enum.
 _FRAMEWORKS = {"NEXA_CPU": "PYTHON", "PYTORCH": "PYTORCH"}
 
@@ -193,9 +198,6 @@ def _check_schema(manifest: dict[str, Any]) -> None:
     keys = set(manifest)
     if not keys >= _REQUIRED or not keys <= _REQUIRED | {"chunk_output_manifest"}:
         _fail("CHECKPOINT_MANIFEST_INVALID", "Checkpoint manifest fields are invalid")
-    if "chunk_output_manifest" in manifest:
-        # Only batch inference carries chunk outputs; that template is B16 scope.
-        _fail("CHECKPOINT_MANIFEST_INVALID", "Checkpoint manifest must omit chunk outputs")
     if (
         manifest["kind"] != "CHECKPOINT"
         or not _is_int(manifest["schema_version"])
@@ -261,6 +263,27 @@ def _check_schema(manifest: dict[str, Any]) -> None:
         identifiers.add(entry["artifact_id"])
 
 
+def chunk_reference_required(provenance: dict[str, Any]) -> bool:
+    """The schema's if/then: only batch inference carries a chunk-output reference."""
+    return provenance.get("template_id") == workload_adapters.BATCH_INFERENCE.template_id
+
+
+def _check_chunk_reference(manifest: dict[str, Any]) -> None:
+    if not chunk_reference_required(manifest["provenance"]):
+        if "chunk_output_manifest" in manifest:
+            _fail("CHECKPOINT_MANIFEST_INVALID", "Checkpoint manifest must omit chunk outputs")
+        return
+    reference = manifest.get("chunk_output_manifest")
+    if (
+        not isinstance(reference, dict)
+        or set(reference) != _CHUNK_REFERENCE
+        or not _uuid7(reference["artifact_id"])
+        or not isinstance(reference["checksum"], str)
+        or not _CHECKSUM.fullmatch(reference["checksum"])
+    ):
+        _fail("CHECKPOINT_MANIFEST_INVALID", "Inference checkpoint chunk reference is invalid")
+
+
 def _check_cpu(manifest: dict[str, Any], parameters: dict[str, Any]) -> None:
     iterations, modulus = parameters.get("iterations"), parameters.get("modulus")
     if not _is_int(iterations) or not _is_int(modulus):
@@ -286,6 +309,66 @@ def _check_cpu(manifest: dict[str, Any], parameters: dict[str, Any]) -> None:
         or not 1 <= files[0]["size_bytes"] <= CPU_STATE_MAX_BYTES
     ):
         _fail("CHECKPOINT_FILES_INVALID", "CPU checkpoint requires one bounded state.json")
+
+
+def _check_training(
+    manifest: dict[str, Any],
+    parameters: dict[str, Any],
+    adapter: workload_adapters.AdapterDescriptor,
+) -> None:
+    try:
+        adapter_launch.validate_parameters(adapter, parameters)
+        adapter_launch.validate_training_cursor(manifest["cursor"], parameters)
+    except (adapter_launch.LaunchSpecError, KeyError, TypeError):
+        _fail("CHECKPOINT_CURSOR_INVALID", "Training checkpoint cursor is outside the job bounds")
+    if manifest["state_components"] != list(adapter.state_components):
+        _fail(
+            "CHECKPOINT_MANIFEST_INVALID", "Training checkpoint components are not the adapter set"
+        )
+    files = manifest["files"]
+    if [(e["logical_name"], e["media_type"]) for e in files] != [
+        (rule.logical_name, rule.media_type) for rule in adapter.checkpoint_files
+    ] or any(
+        not 1
+        <= entry["size_bytes"]
+        <= (
+            training_state.MAX_STATE_BYTES
+            if entry["media_type"] == workload_adapters.JSON
+            else ADAPTER_TENSOR_MAX_BYTES
+        )
+        for entry in files
+    ):
+        _fail("CHECKPOINT_FILES_INVALID", "Training checkpoint files are not the bounded set")
+
+
+def _check_inference(
+    manifest: dict[str, Any],
+    parameters: dict[str, Any],
+    adapter: workload_adapters.AdapterDescriptor,
+) -> None:
+    try:
+        adapter_launch.validate_parameters(adapter, parameters)
+    except (adapter_launch.LaunchSpecError, KeyError, TypeError):
+        _fail("CHECKPOINT_CURSOR_INVALID", "Inference checkpoint parameters are unavailable")
+    cursor = manifest["cursor"]
+    # Cursor = next unrecognized chunk; a checkpoint recognizes at least one chunk and
+    # every chunk holds 1..chunk_size items.
+    if (
+        set(cursor) != _CURSOR_REQUIRED
+        or cursor["epoch"] != 0
+        or not 1 <= cursor["step"] <= chunk_manifest.MAX_CHUNKS
+        or not cursor["step"] <= cursor["item_cursor"] <= cursor["step"] * parameters["chunk_size"]
+    ):
+        _fail("CHECKPOINT_CURSOR_INVALID", "Inference checkpoint cursor is outside the job bounds")
+    if manifest["state_components"] != list(adapter.state_components):
+        _fail(
+            "CHECKPOINT_MANIFEST_INVALID", "Inference checkpoint components are not the adapter set"
+        )
+    files = manifest["files"]
+    if [(e["logical_name"], e["media_type"]) for e in files] != [
+        (rule.logical_name, rule.media_type) for rule in adapter.checkpoint_files
+    ] or any(not 1 <= e["size_bytes"] <= inference_state.MAX_DOCUMENT_BYTES for e in files):
+        _fail("CHECKPOINT_FILES_INVALID", "Inference checkpoint files are not the bounded set")
 
 
 def validate_checkpoint_manifest(
@@ -339,10 +422,26 @@ def validate_checkpoint_manifest(
             parsed["compatibility"][key]
         ) is not type(compatibility.get(key)):
             _fail("CHECKPOINT_COMPATIBILITY_MISMATCH", "Checkpoint compatibility mismatch")
+    # Checked after exact provenance, which decides whether the reference is required.
+    _check_chunk_reference(parsed)
     # The adapter owns the checkpoint format; template IDs only name catalog rows.
-    if parsed["provenance"]["adapter_id"] != "cpu.iterative":
+    provenance_adapter = parsed["provenance"]["adapter_id"]
+    if provenance_adapter == workload_adapters.CPU_ITERATIVE.adapter_id:
+        _check_cpu(parsed, parameters)
+        return parsed["files"]
+    adapter = workload_adapters.descriptor(
+        provenance_adapter, parsed["provenance"]["adapter_version"]
+    )
+    if (
+        adapter not in (workload_adapters.PYTORCH_CIFAR10, workload_adapters.BATCH_INFERENCE)
+        or parsed["provenance"]["template_id"] != adapter.template_id
+        or parsed["compatibility"]["framework"] != adapter.manifest_framework
+    ):
         _fail("CHECKPOINT_TEMPLATE_UNSUPPORTED", "Checkpoint template is not supported")
-    _check_cpu(parsed, parameters)
+    if adapter.chunked:
+        _check_inference(parsed, parameters, adapter)
+    else:
+        _check_training(parsed, parameters, adapter)
     return parsed["files"]
 
 
@@ -388,15 +487,116 @@ def validate_cpu_state(raw: bytes, *, manifest: dict[str, Any]) -> dict[str, Any
     return state
 
 
+def validate_training_state_files(
+    contents: dict[str, bytes], *, manifest: dict[str, Any], parameters: dict[str, Any]
+) -> dict[str, Any]:
+    """Closed training-state JSON against its manifest; tensor bytes stay opaque here.
+
+    The server never imports a framework: it checks the tensor files only by the
+    size and checksum of their blobs, and the runner validates their headers.
+    """
+    raw = contents.get(training_state.STATE_FILE)
+    provenance = manifest["provenance"]
+    try:
+        if not isinstance(raw, bytes):
+            raise training_state.TrainingStateError("training state is absent")
+        document = training_state.parse_training_state(raw)
+        adapter_launch.check_training_state(
+            document,
+            parameters=parameters,
+            threads=document["threads"],
+            input_checksum=provenance["input_checksum"],
+            spec_checksum=provenance["spec_checksum"],
+        )
+    except (training_state.TrainingStateError, adapter_launch.LaunchSpecError, KeyError):
+        _fail("CHECKPOINT_STATE_INVALID", "Training state differs from its job")
+    if training_state.runtime_cursor(document) != manifest["cursor"]:
+        _fail("CHECKPOINT_STATE_INVALID", "Training state differs from its manifest cursor")
+    return document
+
+
+def validate_inference_state_files(
+    contents: dict[str, bytes],
+    *,
+    manifest: dict[str, Any],
+    parameters: dict[str, Any],
+    model_checksum: str,
+) -> dict[str, Any]:
+    """Closed inference-state.json against its manifest cursor and the immutable job."""
+    (rule,) = workload_adapters.BATCH_INFERENCE.checkpoint_files
+    raw = contents.get(rule.logical_name)
+    provenance = manifest["provenance"]
+    try:
+        if not isinstance(raw, bytes):
+            raise inference_state.InferenceStateError("inference state is absent")
+        document = inference_state.parse_state(raw)
+    except inference_state.InferenceStateError:
+        _fail("CHECKPOINT_STATE_INVALID", "Inference state is not the closed format")
+    if (
+        any(document[key] != parameters.get(key) for key in adapter_launch.INFERENCE_PARAMETERS)
+        or document["input_checksum"] != provenance["input_checksum"]
+        or document["spec_checksum"] != provenance["spec_checksum"]
+        or document["model_checksum"] != model_checksum
+        or inference_state.chunk_count(document["item_count"], document["chunk_size"])
+        > chunk_manifest.MAX_CHUNKS
+    ):
+        _fail("CHECKPOINT_STATE_INVALID", "Inference state differs from its job")
+    if inference_state.runtime_cursor(document) != manifest["cursor"]:
+        _fail("CHECKPOINT_STATE_INVALID", "Inference state differs from its manifest cursor")
+    return document
+
+
+def check_chunk_manifest(
+    raw: bytes,
+    *,
+    artifact: dict,
+    reference: dict[str, Any],
+    provenance: dict[str, Any],
+    model_checksum: str,
+    state: dict[str, Any],
+    chunk_total: int,
+) -> list[dict[str, Any]]:
+    """Exact committed CHUNK_OUTPUT_MANIFEST bytes naming the prefix ``[0, chunk_total)``.
+
+    Raises :class:`chunk_manifest.ChunkManifestError`; each caller maps it to its own
+    deterministic rejection (checkpoint reason code or result validation error).
+    """
+    checksum = "sha256:" + hashlib.sha256(raw).hexdigest()
+    if (
+        str(artifact.get("artifact_id")) != reference["artifact_id"]
+        or artifact.get("state") != "COMMITTED"
+        or artifact.get("kind") != "CHUNK_OUTPUT_MANIFEST"
+        or artifact.get("media_type") != chunk_manifest.MEDIA_TYPE
+        or artifact.get("size_bytes") != len(raw)
+        or artifact.get("checksum") != checksum
+        or reference["checksum"] != checksum
+    ):
+        raise chunk_manifest.ChunkManifestError("chunk-output manifest artifact mismatch")
+    return chunk_manifest.parse(
+        raw,
+        provenance=provenance,
+        model_checksum=model_checksum,
+        item_count=state["item_count"],
+        chunk_size=state["chunk_size"],
+        output_format=state["output_format"],
+        chunk_total=chunk_total,
+    )
+
+
 __all__ = [
+    "ADAPTER_TENSOR_MAX_BYTES",
     "CHECKPOINT_MANIFEST_MAX_BYTES",
     "CPU_STATE_MAX_BYTES",
     "CheckpointManifestError",
+    "check_chunk_manifest",
     "check_file_artifacts",
+    "chunk_reference_required",
     "checkpoint_provenance",
     "expected_compatibility",
     "parse_checkpoint_manifest",
     "parse_strict_json",
     "validate_checkpoint_manifest",
     "validate_cpu_state",
+    "validate_inference_state_files",
+    "validate_training_state_files",
 ]

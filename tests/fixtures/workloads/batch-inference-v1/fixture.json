@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "fixture": "batch-inference-v1",
+  "template": {
+    "template_id": "batch-inference",
+    "version": 1
+  },
+  "adapter": {
+    "adapter_id": "batch.inference",
+    "adapter_version": "1.0.0",
+    "architecture_id": "nexa-cifar10-smallcnn-v1"
+  },
+  "image": {
+    "image_ref": "nexa/batch-inference:b16",
+    "image_digest": "sha256:2f6d0d433992a652b3d7c0134a689f5aa4b4a7afbc4cc9705662f77ed0f564f8",
+    "platform": "linux/amd64",
+    "base_image_ref": "python@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9",
+    "framework": "PYTORCH",
+    "framework_version": "2.12.1",
+    "history": [
+      {
+        "image_ref": "nexa/batch-inference:b16r2",
+        "image_digest": "sha256:db50610aa8c93896202638ca7e731b6a0595ead3b6ea62ca331c313c4f42c4ae",
+        "reason": "B16 round 2 rebuild: trusted runner cgroup OOM report and exit 65 mapping (B16-R24/R26)"
+      }
+    ]
+  },
+  "dataset": {
+    "source": "CIFAR-10 binary version (cifar-10-binary.tar.gz), official archive",
+    "archive_md5": "c32a1d4ab5d03f1284b67883e8d87530",
+    "archive_sha256": "sha256:c4a38c50a1bc5f3a1c5537f2155ab9d68f9f25eb1ed8d9ddda3db29a59bca1dd",
+    "preparation": "scripts/b16_prepare_fixtures.py build --seed 16 inside the pytorch.cifar10 image, --network none; three builds on VPS1 produced identical bytes",
+    "file": "cifar10-inference-2000.arrow",
+    "kind": "DATASET",
+    "media_type": "application/vnd.apache.arrow.file",
+    "size_bytes": 6156522,
+    "checksum": "sha256:fe0ff7d1c99456bf6cb2d7a42c21212838dba660d52da1d1c2d90f010948def8",
+    "item_count": 2000,
+    "location": "$NEXA_B16_DATA_DIR (outside the repository)"
+  },
+  "model": {
+    "file": "cifar10-smallcnn-v1.safetensors",
+    "kind": "MODEL",
+    "media_type": "application/octet-stream",
+    "size_bytes": 548232,
+    "checksum": "sha256:a23e308c9c363803ab416d014772e85159ec4de6e428b89084c682ca2e71f147",
+    "architecture_id": "nexa-cifar10-smallcnn-v1",
+    "generated_by": {
+      "workload": "pytorch.cifar10",
+      "parameters": {
+        "epochs": 2,
+        "batch_size": 64,
+        "learning_rate": 0.05,
+        "seed": 16,
+        "subset_size": 5000
+      },
+      "threads": 1
+    }
+  },
+  "job": {
+    "parameters": {
+      "chunk_size": 50,
+      "batch_size": 50,
+      "output_format": "JSONL"
+    },
+    "resources": {
+      "cpu_millis": 1000,
+      "memory_bytes": 1073741824,
+      "gpu_count": 0
+    },
+    "priority": 1,
+    "runtime_limit_seconds": 300,
+    "checkpoint_interval_seconds": 5
+  },
+  "device_class": "cpu/linux-amd64",
+  "threads": 1,
+  "chunks": {
+    "chunk_count": 40,
+    "chunk_id_format": "chunk-%08d",
+    "last_chunk_items": 50,
+    "window": 8
+  },
+  "output_comparison": {
+    "rule": "exact",
+    "detail": [
+      "every chunk file of a crash/resume lineage has the same checksum and size as the chunk with the same chunk_id in the uninterrupted baseline (same image digest, device class, thread count)",
+      "coverage of the recognized chunks is exactly [0, 2000) with one RecognizedChunk per chunk_id and 0 conflicts",
+      "summary.json prediction counts equal the baseline"
+    ],
+    "rationale": "inference is a pure function of model bytes, item bytes, batch composition and thread count; batch composition is fixed because chunk_size is a multiple of batch_size, so identical checksums are the contract, not a tolerance"
+  }
+}

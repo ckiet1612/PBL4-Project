@@ -12,15 +12,19 @@ from dataclasses import asdict
 import rfc8785
 
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.workloads import adapter_launch, chunk_manifest, inference_state, training_state
 from nexa.workloads.cpu_state import STATE_MAX_BYTES, CpuStateError, decode_state
 
+from . import inference_flow
 from .client import WorkerApiError
+from .docker_client import ADAPTER_OUTPUT_MAX_BYTES
 from .models import CpuCheckpointLaunch
 from .result_flow import checksum, descriptor_key
 
 CHECKPOINT_DEADLINE_NS = 60 * 1_000_000_000
 # A pause reserve refused while the Attempt is not RUNNING is retried this soon.
 PAUSE_RETRY_NS = 1_000_000_000
+_CHUNK_FRAMES = frozenset({"CHUNK_FILE_BATCH", "AUXILIARY_MANIFEST_READY"})
 MANIFEST_MAX_BYTES = 64 * 1024
 _PROVENANCE_CONTEXT = {
     "tenant_id": "tenant_id",
@@ -37,6 +41,32 @@ _PROVENANCE_CONTEXT = {
 
 class CheckpointProtocolError(ValueError):
     """A runner frame or server answer that can never complete this cycle."""
+
+
+def _checkpoint_file_limit(adapter, logical_name):
+    if adapter.chunked:
+        return inference_state.MAX_DOCUMENT_BYTES
+    if logical_name == training_state.STATE_FILE:
+        return training_state.MAX_STATE_BYTES
+    return ADAPTER_OUTPUT_MAX_BYTES
+
+
+def _adapter_checkpoint(binding):
+    """The v3 adapter launch of a checkpointing attempt, or None."""
+    launch = binding.get("adapter_launch")
+    if launch is None or launch["spec"]["checkpoint"] is None:
+        return None
+    return launch
+
+
+def _checkpointing(binding):
+    return binding.get("checkpoint") is not None or _adapter_checkpoint(binding) is not None
+
+
+def _interval_seconds(binding):
+    launch = _adapter_checkpoint(binding)
+    source = launch if launch is not None else binding["checkpoint"]
+    return int(source["interval_seconds"])
 
 
 def reconcile_adoption(runner_state, transferred):
@@ -145,7 +175,7 @@ class CheckpointFlow:
         return self._flow(self.journal.load(attempt_id)).get("cycle") is not None
 
     def _interval_ns(self, record):
-        return int(record.execution_binding["checkpoint"]["interval_seconds"]) * 1_000_000_000
+        return _interval_seconds(record.execution_binding) * 1_000_000_000
 
     def tick(self, attempt_id, *, pause=False):
         """Resume an open cycle, or start one when the interval is due.
@@ -155,7 +185,7 @@ class CheckpointFlow:
         a finished workload, until one commits or the server aborts the pause.
         """
         record = self.journal.load(attempt_id)
-        if record.execution_binding.get("checkpoint") is None:
+        if not _checkpointing(record.execution_binding):
             return
         state = record.runner_state or {}
         flow = self._flow(record)
@@ -297,19 +327,31 @@ class CheckpointFlow:
         flow = self._flow(self.journal.load(attempt_id))
         cycle = flow.get("cycle")
         last = flow.get("last_outcome")
+        chunk_frame = envelope["type"] in _CHUNK_FRAMES
+        checkpoint_id = payload.get("reserved_id" if chunk_frame else "checkpoint_id")
         if cycle is None or cycle.get("reservation") is None:
-            if last is not None and payload.get("checkpoint_id") == last["checkpoint_id"]:
+            if last is not None and checkpoint_id == last["checkpoint_id"]:
                 return
             raise CheckpointProtocolError("checkpoint frame has no reservation")
         reservation = cycle["reservation"]
+        identity = (
+            (("purpose", "CHECKPOINT"),)
+            if chunk_frame
+            else (("checkpoint_sequence", reservation["sequence"]),)
+        )
         for field, expected in (
             ("reservation_callback_id", cycle["reserve_callback_id"]),
-            ("checkpoint_id", reservation["checkpoint_id"]),
-            ("checkpoint_sequence", reservation["sequence"]),
+            *identity,
         ):
             if payload.get(field) != expected:
                 raise CheckpointProtocolError("checkpoint frame identity mismatch")
-        if envelope["type"] == "CHECKPOINT_FILES_READY":
+        if checkpoint_id != reservation["checkpoint_id"]:
+            raise CheckpointProtocolError("checkpoint frame identity mismatch")
+        if envelope["type"] == "CHUNK_FILE_BATCH":
+            self._chunk_batch(attempt_id, envelope, cycle)
+        elif envelope["type"] == "AUXILIARY_MANIFEST_READY":
+            self._chunk_manifest_ready(attempt_id, envelope, cycle)
+        elif envelope["type"] == "CHECKPOINT_FILES_READY":
             self._files_ready(attempt_id, envelope, cycle)
         elif envelope["type"] == "CHECKPOINT_READY":
             self._ready(attempt_id, envelope, cycle)
@@ -353,7 +395,7 @@ class CheckpointFlow:
         return binding
 
     @staticmethod
-    def _descriptor(descriptor, *, name, logical_name, kind, limit):
+    def _descriptor(descriptor, *, name, logical_name, kind, limit, media_type="application/json"):
         if (
             not isinstance(descriptor, dict)
             or set(descriptor)
@@ -361,7 +403,7 @@ class CheckpointFlow:
             or descriptor["staging_name"] != name
             or descriptor["logical_name"] != logical_name
             or descriptor["kind"] != kind
-            or descriptor["media_type"] != "application/json"
+            or descriptor["media_type"] != media_type
             or not isinstance(descriptor["size_bytes"], int)
             or isinstance(descriptor["size_bytes"], bool)
             or not 0 < descriptor["size_bytes"] <= limit
@@ -370,6 +412,11 @@ class CheckpointFlow:
         return descriptor
 
     def _files_ready(self, attempt_id, envelope, cycle):
+        record = self.journal.load(attempt_id)
+        launch = _adapter_checkpoint(record.execution_binding)
+        if launch is not None:
+            self._adapter_files_ready(attempt_id, envelope, cycle, record, launch)
+            return
         payload = envelope["payload"]
         sequence = envelope["message_sequence"]
         checkpoint_sequence = cycle["reservation"]["sequence"]
@@ -412,19 +459,204 @@ class CheckpointFlow:
             raise CheckpointProtocolError("checkpoint cursor changed on replay")
         binding = self._upload(attempt_id, cycle, sequence, descriptor, content)
         self._save_cycle(attempt_id, cursor=cursor)
-        bindings = [binding]
+        self._bind_and_finalize(attempt_id, cycle, sequence, [binding])
+
+    def _adapter_files_ready(self, attempt_id, envelope, cycle, record, launch):
+        """Training checkpoint: every file is read and the state validated before upload."""
+        payload = envelope["payload"]
+        sequence = envelope["message_sequence"]
+        checkpoint_sequence = cycle["reservation"]["sequence"]
+        spec = launch["spec"]
+        adapter = adapter_launch.adapter_for(spec)
+        rules = adapter.checkpoint_files
+        if (
+            payload.get("batch_index") != 0
+            or payload.get("batch_count") != 1
+            or not isinstance(payload.get("artifacts"), list)
+            or len(payload["artifacts"]) != len(rules)
+        ):
+            raise CheckpointProtocolError("unsupported adapter checkpoint batch")
+        if cycle["files_sequence"] not in (None, sequence):
+            raise CheckpointProtocolError("checkpoint files arrived twice")
+        descriptors = [
+            self._descriptor(
+                item,
+                name=f"checkpoint-{checkpoint_sequence}-{rule.logical_name}",
+                logical_name=rule.logical_name,
+                kind="CHECKPOINT_FILE",
+                media_type=rule.media_type,
+                limit=_checkpoint_file_limit(adapter, rule.logical_name),
+            )
+            for item, rule in zip(payload["artifacts"], rules, strict=True)
+        ]
+        if cycle["files_sequence"] is None:
+            self._save_cycle(attempt_id, files_sequence=sequence)
+        contents = {d["logical_name"]: self._read(attempt_id, d) for d in descriptors}
+        if adapter.chunked:
+            self._inference_files_ready(
+                attempt_id, cycle, record, spec, sequence, descriptors[0], contents
+            )
+            return
+        try:
+            document = training_state.validate_checkpoint_files(contents)
+            adapter_launch.check_training_state(
+                document,
+                parameters=spec["parameters"],
+                threads=spec["threads"],
+                input_checksum=spec["provenance"]["input_checksum"],
+                spec_checksum=spec["spec_checksum"],
+            )
+            cursor = adapter_launch.validate_training_cursor(
+                training_state.runtime_cursor(document), spec["parameters"]
+            )
+        except (training_state.TrainingStateError, adapter_launch.LaunchSpecError) as exc:
+            raise CheckpointProtocolError("checkpoint state is invalid") from exc
+        restore = spec["restore"]
+        if restore is not None and cursor["step"] < restore["cursor"]["step"]:
+            raise CheckpointProtocolError("checkpoint state regressed below the restore")
+        if cycle.get("cursor") not in (None, cursor):
+            raise CheckpointProtocolError("checkpoint cursor changed on replay")
+        bindings = [
+            self._upload(attempt_id, cycle, sequence, d, contents[d["logical_name"]])
+            for d in descriptors
+        ]
+        self._save_cycle(attempt_id, cursor=cursor)
+        self._bind_and_finalize(attempt_id, cycle, sequence, bindings)
+
+    def _inference_files_ready(
+        self, attempt_id, cycle, record, spec, sequence, descriptor, contents
+    ):
+        """Inference state: every chunk before its cursor was bound in this reservation."""
+        document = inference_flow.check_document(
+            contents[descriptor["logical_name"]],
+            record,
+            spec,
+            summary=False,
+            error=CheckpointProtocolError,
+        )
+        try:
+            cursor = adapter_launch.validate_inference_cursor(
+                inference_state.runtime_cursor(document)
+            )
+        except adapter_launch.LaunchSpecError as exc:
+            raise CheckpointProtocolError("checkpoint state is invalid") from exc
+        restore = spec["restore"]
+        if restore is not None and cursor["step"] < restore["cursor"]["step"]:
+            raise CheckpointProtocolError("checkpoint state regressed below the restore")
+        if cycle.get("cursor") not in (None, cursor):
+            raise CheckpointProtocolError("checkpoint cursor changed on replay")
+        inference_flow.require_all_chunks(
+            record,
+            spec,
+            cycle["reservation"]["checkpoint_id"],
+            cursor["step"],
+            error=CheckpointProtocolError,
+        )
+        binding = self._upload(
+            attempt_id, cycle, sequence, descriptor, contents[descriptor["logical_name"]]
+        )
+        self._save_cycle(
+            attempt_id,
+            cursor=cursor,
+            item_count=document["item_count"],
+            state_binding=binding,
+        )
+        # The binding set closes with the chunk-output manifest (AUXILIARY_MANIFEST_READY).
+        self._bind(attempt_id, cycle, sequence, [binding], purpose="CHECKPOINT")
+
+    def _chunk_batch(self, attempt_id, envelope, cycle):
+        record = self.journal.load(attempt_id)
+        spec = inference_flow.adapter_spec(record.execution_binding)
+        if spec is None or cycle.get("cursor") is not None:
+            raise CheckpointProtocolError("chunk batch outside a chunked checkpoint cycle")
+        bindings = inference_flow.chunk_batch(
+            self.journal,
+            self.client,
+            self._read,
+            attempt_id,
+            envelope,
+            spec=spec,
+            reserved_id=cycle["reservation"]["checkpoint_id"],
+            callback_id=cycle["reserve_callback_id"],
+            error=CheckpointProtocolError,
+        )
+        self._bind(
+            attempt_id,
+            cycle,
+            envelope["message_sequence"],
+            bindings,
+            purpose="CHUNK_OUTPUT",
+            key="checkpoint-chunk-bind",
+        )
+
+    def _chunk_manifest_ready(self, attempt_id, envelope, cycle):
+        """The runner's chunk-output manifest must list exactly the journaled chunks."""
+        record = self.journal.load(attempt_id)
+        spec = inference_flow.adapter_spec(record.execution_binding)
+        state_binding = cycle.get("state_binding")
+        if spec is None or state_binding is None:
+            raise CheckpointProtocolError("chunk-output manifest precedes the state file")
+        sequence = envelope["message_sequence"]
+        if cycle.get("aux_sequence") not in (None, sequence):
+            raise CheckpointProtocolError("chunk-output manifest arrived twice")
+        descriptor = self._descriptor(
+            envelope["payload"].get("artifact"),
+            name=f"checkpoint-{cycle['reservation']['sequence']}-{chunk_manifest.LOGICAL_NAME}",
+            logical_name=chunk_manifest.LOGICAL_NAME,
+            kind="CHUNK_OUTPUT_MANIFEST",
+            media_type=chunk_manifest.MEDIA_TYPE,
+            limit=chunk_manifest.MAX_MANIFEST_BYTES,
+        )
+        if cycle.get("aux_sequence") is None:
+            self._save_cycle(attempt_id, aux_sequence=sequence)
+        raw = self._read(attempt_id, descriptor)
+        inference_flow.check_chunk_manifest(
+            raw,
+            record,
+            spec,
+            total=cycle["cursor"]["step"],
+            item_count=cycle["item_count"],
+            error=CheckpointProtocolError,
+        )
+        binding = self._upload(attempt_id, cycle, sequence, descriptor, raw)
+        self._save_cycle(attempt_id, aux_binding=binding)
+        self._bind(
+            attempt_id,
+            cycle,
+            sequence,
+            [binding],
+            purpose="CHUNK_OUTPUT",
+            key="checkpoint-aux-bind",
+        )
+        self._finalize(
+            attempt_id,
+            cycle,
+            sequence,
+            inference_flow.binding_set_checksum(
+                self.journal.load(attempt_id), [state_binding], binding
+            ),
+        )
+
+    def _bind(self, attempt_id, cycle, sequence, bindings, *, purpose, key="checkpoint-bind"):
         self.control(
             attempt_id,
-            f"checkpoint-bind:{sequence}",
+            f"{key}:{sequence}",
             "BIND_ARTIFACT_BATCH",
             {
-                "purpose": "CHECKPOINT",
+                "purpose": purpose,
                 "reservation_callback_id": cycle["reserve_callback_id"],
                 "reserved_id": cycle["reservation"]["checkpoint_id"],
                 "source_message_sequence": sequence,
                 "bindings": bindings,
             },
         )
+
+    def _bind_and_finalize(self, attempt_id, cycle, sequence, bindings):
+        self._bind(attempt_id, cycle, sequence, bindings, purpose="CHECKPOINT")
+        self._finalize(attempt_id, cycle, sequence, checksum(bindings))
+
+    def _finalize(self, attempt_id, cycle, sequence, binding_set_checksum):
+        checkpoint_sequence = cycle["reservation"]["sequence"]
         self.control(
             attempt_id,
             f"checkpoint-finalize:{sequence}",
@@ -433,12 +665,35 @@ class CheckpointFlow:
                 "reservation_callback_id": cycle["reserve_callback_id"],
                 "checkpoint_id": cycle["reservation"]["checkpoint_id"],
                 "checkpoint_sequence": checkpoint_sequence,
-                "binding_set_checksum": checksum(bindings),
+                "binding_set_checksum": binding_set_checksum,
             },
         )
 
     def _expected_manifest(self, record, cycle):
         binding = record.execution_binding
+        files = [
+            {key: value for key, value in item.items() if key not in {"staging_name", "kind"}}
+            for item in cycle["bindings"].values()
+            if item["kind"] == "CHECKPOINT_FILE"
+        ]
+        launch = _adapter_checkpoint(binding)
+        if launch is not None:
+            spec = launch["spec"]
+            adapter = adapter_launch.adapter_for(spec)
+            # Journaled bindings are keyed by digest; the manifest lists files in rule order.
+            order = {
+                rule.logical_name: index for index, rule in enumerate(adapter.checkpoint_files)
+            }
+            if sorted(item["logical_name"] for item in files) != sorted(order):
+                raise CheckpointProtocolError("checkpoint files do not match the adapter")
+            files.sort(key=lambda item: order[item["logical_name"]])
+            return (
+                spec["provenance"],
+                spec["checkpoint"]["compatibility"],
+                cycle["cursor"],
+                files,
+                list(adapter.state_components),
+            )
         context = binding["context"]
         launch = binding["checkpoint"]
         provenance = {key: context[field] for key, field in _PROVENANCE_CONTEXT.items()}
@@ -453,11 +708,6 @@ class CheckpointFlow:
             interval_seconds=launch["interval_seconds"],
         ).compatibility(context["architecture"])
         step = cycle["cursor"]["step"]
-        files = [
-            {key: value for key, value in item.items() if key not in {"staging_name", "kind"}}
-            for item in cycle["bindings"].values()
-            if item["kind"] == "CHECKPOINT_FILE"
-        ]
         return (
             provenance,
             compatibility,
@@ -468,6 +718,7 @@ class CheckpointFlow:
                 "accumulator": cycle["cursor"]["accumulator"],
             },
             files,
+            ["ACCUMULATOR"],
         )
 
     def _ready(self, attempt_id, envelope, cycle):
@@ -475,6 +726,9 @@ class CheckpointFlow:
         reservation = cycle["reservation"]
         if cycle["files_sequence"] is None or cycle.get("cursor") is None:
             raise CheckpointProtocolError("checkpoint manifest precedes its files")
+        chunked = inference_flow.adapter_spec(self.journal.load(attempt_id).execution_binding)
+        if chunked is not None and cycle.get("aux_binding") is None:
+            raise CheckpointProtocolError("checkpoint manifest precedes its chunk-output manifest")
         if cycle["manifest_sequence"] not in (None, sequence):
             raise CheckpointProtocolError("checkpoint manifest arrived twice")
         descriptor = self._descriptor(
@@ -493,7 +747,9 @@ class CheckpointFlow:
             canonical = False
         if not canonical:
             raise CheckpointProtocolError("checkpoint manifest is not canonical JSON")
-        provenance, compatibility, cursor, files = self._expected_manifest(record, cycle)
+        provenance, compatibility, cursor, files, components = self._expected_manifest(
+            record, cycle
+        )
         body = {key: value for key, value in manifest.items() if key != "manifest_checksum"}
         if (
             manifest.get("manifest_checksum") != checksum(body)
@@ -504,8 +760,13 @@ class CheckpointFlow:
             or manifest.get("provenance") != provenance
             or manifest.get("compatibility") != compatibility
             or manifest.get("cursor") != cursor
-            or manifest.get("state_components") != ["ACCUMULATOR"]
+            or manifest.get("state_components") != components
             or manifest.get("files") != files
+            or manifest.get("chunk_output_manifest")
+            != (
+                None if chunked is None else inference_flow.manifest_reference(cycle["aux_binding"])
+            )
+            or (chunked is None and "chunk_output_manifest" in manifest)
         ):
             raise CheckpointProtocolError("checkpoint manifest does not match the cycle")
         if cycle["manifest_sequence"] is None:

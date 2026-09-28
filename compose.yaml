@@ -101,6 +101,7 @@ services:
       NEXA_LOCAL_WORKER_FINGERPRINT: ${NEXA_LOCAL_WORKER_FINGERPRINT:?set worker fingerprint}
       NEXA_BOOTSTRAP_SECRET_FILE: /run/secrets/nexa_bootstrap_secret
       NEXA_CPU_IMAGE_REF: ${NEXA_CPU_IMAGE_REF:?set a verified digest image reference}
+      NEXA_WORKLOAD_IMAGE_REFS: ${NEXA_WORKLOAD_IMAGE_REFS:-}
     secrets: [nexa_bootstrap_secret]
     volumes:
       - type: bind

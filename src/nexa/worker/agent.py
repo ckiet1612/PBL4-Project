@@ -1263,6 +1263,8 @@ class WorkerAgent(WorkerExecutionMixin):
             if message_type in {
                 "RESULT_PREPARE",
                 "RESULT_FILE_BATCH",
+                "CHUNK_FILE_BATCH",
+                "AUXILIARY_MANIFEST_READY",
                 "RESULT_READY",
                 "CHECKPOINT_FILES_READY",
                 "CHECKPOINT_READY",

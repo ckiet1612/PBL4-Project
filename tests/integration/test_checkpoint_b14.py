@@ -90,7 +90,13 @@ class CheckpointFixture:
         template_id=None,
         template_values=None,
         input_media_type="application/json",
+        input_kind="INPUT",
+        requirements=None,
+        parameters=None,
+        model_content=None,
     ):
+        requirements = REQUIREMENTS if requirements is None else requirements
+        parameters = PARAMETERS if parameters is None else parameters
         self.engine = engine
         self.client = client
         self.credential = _bootstrap_worker(client)
@@ -128,13 +134,39 @@ class CheckpointFixture:
         store.append(staged, content)
         blob = store.commit_blob(staged)
         input_id = new_uuid7()
+        model_id = model_blob = None
+        if model_content is not None:
+            # B16: batch inference names an immutable MODEL input in its JobSpec.
+            staged = store.begin_staging(
+                f"b16-{label}-model",
+                len(model_content),
+                _checksum(model_content),
+                "application/octet-stream",
+            )
+            store.append(staged, model_content)
+            model_blob = store.commit_blob(staged)
+            model_id = new_uuid7()
         with engine.begin() as connection:
             graph = seed_tenant_graph(connection, label=f"b14-{label}", template_id=template_id)
+            if model_blob is not None:
+                connection.execute(
+                    insert(s.artifacts).values(
+                        artifact_id=model_id,
+                        tenant_id=graph["tenant_id"],
+                        kind="MODEL",
+                        media_type="application/octet-stream",
+                        size_bytes=len(model_content),
+                        checksum=model_blob.checksum,
+                        blob_key=model_blob.blob_key,
+                        state="COMMITTED",
+                        version=1,
+                    )
+                )
             connection.execute(
                 insert(s.artifacts).values(
                     artifact_id=input_id,
                     tenant_id=graph["tenant_id"],
-                    kind="INPUT",
+                    kind=input_kind,
                     media_type=input_media_type,
                     size_bytes=len(content),
                     checksum=blob.checksum,
@@ -157,7 +189,7 @@ class CheckpointFixture:
                 .where(s.template_versions.c.template_id == graph["template_id"])
                 .values(
                     capability_requirements={
-                        **REQUIREMENTS,
+                        **requirements,
                         "architectures": list(architectures),
                         "image_digest": template["image_digest"],
                     },
@@ -166,7 +198,7 @@ class CheckpointFixture:
                     **(template_values or {}),
                 )
             )
-            canonical_spec = {"template_id": graph["template_id"], "parameters": PARAMETERS}
+            canonical_spec = {"template_id": graph["template_id"], "parameters": parameters}
             if template_id is not None:
                 # The closed wire JobSpec, so a real poll offer validates.
                 canonical_spec = {
@@ -181,14 +213,17 @@ class CheckpointFixture:
                     "priority": 1,
                     "runtime_limit_seconds": 300,
                     "checkpoint_interval_seconds": 30,
-                    "parameters": PARAMETERS,
+                    "parameters": parameters,
                 }
+                if model_id is not None:
+                    canonical_spec["model_artifact_id"] = str(model_id)
             job = seed_job(
                 connection,
                 graph,
                 state="RUNNING",
                 artifact_id=input_id,
                 canonical_spec=canonical_spec,
+                model_artifact_id=model_id,
             )
             worker = {
                 "worker_id": UUID(WORKER_ID),
@@ -224,6 +259,9 @@ class CheckpointFixture:
                 .one()
             )
         self.graph = graph
+        self.canonical_spec = canonical_spec
+        self.model_id = model_id
+        self.model_checksum = None if model_blob is None else model_blob.checksum
         self.job_id = job["job_id"]
         self.session_id = job["session_id"]
         self.input_checksum = blob.checksum

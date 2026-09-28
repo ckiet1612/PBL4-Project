@@ -30,6 +30,15 @@ from nexa.worker.protocol import (
     validate_control_envelope,
     validate_envelope,
 )
+from nexa.workloads import (
+    adapter_launch,
+    chunk_manifest,
+    inference_state,
+    pytorch_arch,
+    safetensors_format,
+    training_state,
+)
+from nexa.workloads.canonical_json import canonical_json
 from nexa.workloads.cpu_state import CpuState, CpuStateError, decode_state, read_state_file
 
 CHECKPOINT_STATE_PATH = "/output/state.json"
@@ -37,6 +46,17 @@ RESTORE_STATE_PATH = "/input/restore-state.json"
 # After STOPPED the runner keeps serving, bounded, until a worker ACKs that frame;
 # B09 requires the container to stop within 7 s of a controller disconnect.
 STOP_FRAME_LINGER_SECONDS = 3.0
+# Adapter workloads (launch spec v3) exit 65 for input the job itself made invalid.
+WORKLOAD_EXIT_INVALID_INPUT = 65
+# Upper bound of one PyTorch training snapshot (model + momentum + RNG + state JSON).
+MAX_TRAINING_SNAPSHOT_BYTES = 4 * 1024 * 1024
+# One CHUNK_FILE_BATCH frame carries at most this many chunk descriptors.
+CHUNK_BATCH_SIZE = 64
+# The fixed-architecture model is about 0.5 MiB; the result validator bounds it at 1 MiB.
+MAX_INFERENCE_MODEL_BYTES = 1024 * 1024
+# cgroup v2 events of this container (cgroup namespace root); ``oom_kill`` counts OOM kills.
+MEMORY_EVENTS_PATH = "sys/fs/cgroup/memory.events"
+_MAX_MEMORY_EVENTS_BYTES = 4096
 _LAUNCH_SPEC_FIELDS = {
     "schema_version",
     "adapter_id",
@@ -128,11 +148,17 @@ class RunnerSupervisor:
         self._checkpoint: dict[str, object] | None = None
         # A request that arrived before the workload's first state write (B15-R20).
         self._checkpoint_waiting: dict[str, object] | None = None
+        # batch.inference: chunk-output entries [0, k) this attempt can reference (B16).
+        self._inference_chunks: list[dict[str, object]] = []
+        self._inference_resume: dict[str, object] | None = None
+        self._model_digest: str | None = None
         self._stop_reason: str | None = None
         self.workload: subprocess.Popen[bytes] | None = None
         self.workload_process_group: int | None = None
         self._workload_control_fd: int | None = None
         self._workload_started = False
+        # memory.events ``oom_kill`` when the workload started; None if it was unreadable.
+        self._oom_kill_baseline: int | None = None
         self._supervisor_socket: socket.socket | None = None
         self._supervisor_thread: threading.Thread | None = None
         self._supervisor_started = threading.Event()
@@ -261,6 +287,8 @@ class RunnerSupervisor:
             self._prepare_result(payload)
         elif message_type == "BIND_ARTIFACT_BATCH" and payload["purpose"] == "CHECKPOINT":
             self._bind_checkpoint_artifacts(payload)
+        elif message_type == "BIND_ARTIFACT_BATCH" and payload["purpose"] == "CHUNK_OUTPUT":
+            self._bind_chunk_output(payload)
         elif message_type == "BIND_ARTIFACT_BATCH":
             self._bind_result_artifacts(payload)
         elif message_type == "FINALIZE_RESULT_MANIFEST":
@@ -333,6 +361,18 @@ class RunnerSupervisor:
             "checksum": "sha256:" + hashlib.sha256(body).hexdigest(),
         }
         _validate_staged_descriptor(descriptor)
+        return self._open_result(
+            {
+                "completion_token": completion_token,
+                "descriptor": descriptor,
+                "descriptor_checksum": _checksum_json(descriptor),
+                "source_path": str(source),
+                "provenance": provenance,
+            }
+        )
+
+    def _open_result(self, staged: dict[str, object]) -> dict[str, object] | None:
+        completion_token = staged["completion_token"]
         with self._lock:
             if self._result is not None:
                 if self._result.get("completion_token") != completion_token:
@@ -350,11 +390,7 @@ class RunnerSupervisor:
                 self._checkpoint is not None and self._checkpoint["manifest"] is None
             )
             self._result = {
-                "completion_token": completion_token,
-                "descriptor": descriptor,
-                "descriptor_checksum": _checksum_json(descriptor),
-                "source_path": str(source),
-                "provenance": provenance,
+                **staged,
                 "reservation_callback_id": None,
                 "result_id": None,
                 "batch_message_sequence": None,
@@ -381,19 +417,30 @@ class RunnerSupervisor:
             raise ProtocolError("result completion token mismatch")
         self._result["reservation_callback_id"] = payload["reservation_callback_id"]
         self._result["result_id"] = payload["result_id"]
+        chunks = self._result.get("chunks")
+        if isinstance(chunks, dict):
+            if chunks["start"] is None:
+                # Chunk files first, then summary.json, then the chunk-output manifest.
+                self._open_chunk_upload(self._result, start=len(self._inference_chunks))
+            return
         if self._result.get("batch_message_sequence") is None:
-            envelope = self._emit(
-                "RESULT_FILE_BATCH",
-                {
-                    "completion_token": payload["completion_token"],
-                    "reservation_callback_id": payload["reservation_callback_id"],
-                    "result_id": payload["result_id"],
-                    "batch_index": 0,
-                    "batch_count": 1,
-                    "artifacts": [self._result["descriptor"]],
-                },
-            )
-            self._result["batch_message_sequence"] = envelope["message_sequence"]
+            self._emit_result_files()
+
+    def _emit_result_files(self) -> None:
+        result = self._result
+        assert result is not None
+        envelope = self._emit(
+            "RESULT_FILE_BATCH",
+            {
+                "completion_token": result["completion_token"],
+                "reservation_callback_id": result["reservation_callback_id"],
+                "result_id": result["result_id"],
+                "batch_index": 0,
+                "batch_count": 1,
+                "artifacts": _result_descriptors(result),
+            },
+        )
+        result["batch_message_sequence"] = envelope["message_sequence"]
 
     def _bind_result_artifacts(self, payload: dict[str, object]) -> None:
         if self._result is None:
@@ -407,10 +454,13 @@ class RunnerSupervisor:
         if payload["source_message_sequence"] != self._result.get("batch_message_sequence"):
             raise ProtocolError("binding source message mismatch")
         bindings = payload["bindings"]
-        _match_bindings([self._result["descriptor"]], bindings, label="result")
+        _match_bindings(_result_descriptors(self._result), bindings, label="result")
         if self._result.get("bindings") is not None and self._result["bindings"] != bindings:
             raise ProtocolError("result binding conflict")
         self._result["bindings"] = bindings
+        if isinstance(self._result.get("chunks"), dict):
+            self._emit_chunk_manifest(self._result)
+            return
         self._result["binding_set_checksum"] = _checksum_json(bindings)
 
     def _finalize_result(self, payload: dict[str, object]) -> None:
@@ -442,15 +492,19 @@ class RunnerSupervisor:
                 }
                 for binding in bindings
             ],
-            "metrics": {},
+            "metrics": self._result.get("metrics", {}),
+            **_chunk_manifest_reference(self._result),
         }
+        # Adapter manifests carry float metrics, so they need the RFC 8785 encoder.
+        encode = canonical_json if "descriptors" in self._result else _canonical_json
         manifest = {
             **manifest_without_checksum,
-            "manifest_checksum": _checksum_json(manifest_without_checksum),
+            "manifest_checksum": "sha256:"
+            + hashlib.sha256(encode(manifest_without_checksum)).hexdigest(),
         }
         source = Path(str(self._result["source_path"]))
         manifest_path = source.with_name("result-manifest.json")
-        manifest_bytes = _canonical_json(manifest)
+        manifest_bytes = encode(manifest)
         _atomic_write(manifest_path, manifest_bytes, mode=0o440)
         descriptor = {
             "staging_name": manifest_path.name,
@@ -476,9 +530,58 @@ class RunnerSupervisor:
 
     def _checkpoint_spec(self) -> dict[str, object]:
         spec = self.launch_spec
-        if spec is None or spec["schema_version"] != 2:
+        if spec is None or not (
+            spec["schema_version"] == 2
+            or (spec["schema_version"] == 3 and spec["checkpoint"] is not None)
+        ):
             raise ProtocolError("launch spec does not enable checkpoints")
         return spec
+
+    @property
+    def _adapter_spec(self) -> bool:
+        return self.launch_spec is not None and self.launch_spec["schema_version"] == 3
+
+    def _staging_dir(self) -> Path:
+        spec = self.launch_spec
+        assert spec is not None
+        if spec["schema_version"] == 3:
+            return self._container_path(spec["output_dir"])
+        return self._container_path(spec["output_path"]).parent
+
+    def _training_progress(self, cursor: dict[str, object]) -> None:
+        spec = self.launch_spec
+        assert spec is not None
+        parameters = spec["parameters"]
+        assert isinstance(parameters, dict)
+        total = int(parameters["epochs"]) * training_state.batches_per_epoch(
+            int(parameters["subset_size"]), int(parameters["batch_size"])
+        )
+        step = int(cursor["step"])
+        self.emit_progress(
+            fraction=min(1.0, step / total),
+            step=step,
+            epoch=int(cursor["epoch"]),
+            item_cursor=int(cursor["item_cursor"]),
+        )
+
+    def _training_document(self, files: dict[str, bytes]) -> dict:
+        """Validated training state of this job; ProtocolError for any other bytes."""
+        spec = self.launch_spec
+        assert spec is not None
+        provenance = spec["provenance"]
+        assert isinstance(provenance, dict)
+        try:
+            document = training_state.validate_checkpoint_files(files)
+            adapter_launch.check_training_state(
+                document,
+                parameters=spec["parameters"],
+                threads=int(spec["threads"]),
+                input_checksum=str(provenance["input_checksum"]),
+                spec_checksum=str(spec["spec_checksum"]),
+            )
+        except (training_state.TrainingStateError, adapter_launch.LaunchSpecError) as exc:
+            raise ProtocolError("training state does not belong to this job") from exc
+        return document
 
     def _decode_cpu_state(self, raw: bytes) -> CpuState:
         spec = self._checkpoint_spec()
@@ -533,6 +636,12 @@ class RunnerSupervisor:
 
     def _stage_checkpoint(self, payload: dict[str, object]) -> None:
         spec = self._checkpoint_spec()
+        if spec["schema_version"] == 3:
+            if adapter_launch.adapter_for(spec).chunked:
+                self._stage_inference_checkpoint(payload)
+            else:
+                self._stage_training_checkpoint(payload)
+            return
         checkpoint = spec["checkpoint"]
         assert isinstance(checkpoint, dict)
         current = self._checkpoint
@@ -588,6 +697,76 @@ class RunnerSupervisor:
             },
         )
 
+    def _stage_training_checkpoint(self, payload: dict[str, object]) -> None:
+        spec = self._checkpoint_spec()
+        checkpoint = spec["checkpoint"]
+        assert isinstance(checkpoint, dict)
+        adapter = adapter_launch.adapter_for(spec)
+        current = self._checkpoint
+        raw = _read_bounded(
+            self._container_path(checkpoint["state_path"]), MAX_TRAINING_SNAPSHOT_BYTES
+        )
+        try:
+            _, files = training_state.split_snapshot(raw)
+        except training_state.TrainingStateError as exc:
+            raise ProtocolError("training snapshot is invalid") from exc
+        document = self._training_document(files)
+        cursor = training_state.runtime_cursor(document)
+        restore = spec["restore"]
+        floor = max(
+            int(restore["cursor"]["step"]) if isinstance(restore, dict) else 0,
+            int(current["step"]) if current is not None else 0,
+        )
+        if cursor["step"] < floor:
+            raise ProtocolError("checkpoint state regressed below the committed cursor")
+        staging = self._staging_dir()
+        if current is not None:
+            for descriptor in (*_checkpoint_descriptors(current), current["manifest"]):
+                assert isinstance(descriptor, dict)
+                with suppress(FileNotFoundError):
+                    (staging / str(descriptor["staging_name"])).unlink()
+        sequence = int(payload["checkpoint_sequence"])
+        descriptors = []
+        for rule in adapter.checkpoint_files:
+            body = files[rule.logical_name]
+            # Closed read-only copies: the workload keeps rewriting its live snapshot.
+            path = staging / f"checkpoint-{sequence}-{rule.logical_name}"
+            _atomic_write(path, body, mode=0o440)
+            descriptors.append(
+                {
+                    "staging_name": path.name,
+                    "logical_name": rule.logical_name,
+                    "kind": "CHECKPOINT_FILE",
+                    "media_type": rule.media_type,
+                    "size_bytes": len(body),
+                    "checksum": "sha256:" + hashlib.sha256(body).hexdigest(),
+                }
+            )
+        self._training_progress(cursor)
+        self._checkpoint = {
+            "reservation_callback_id": payload["reservation_callback_id"],
+            "checkpoint_id": payload["checkpoint_id"],
+            "checkpoint_sequence": sequence,
+            "step": cursor["step"],
+            "cursor": cursor,
+            "descriptors": descriptors,
+            "batch_message_sequence": self._next_message_sequence,
+            "bindings": None,
+            "binding_set_checksum": None,
+            "manifest": None,
+        }
+        self._emit(
+            "CHECKPOINT_FILES_READY",
+            {
+                "reservation_callback_id": payload["reservation_callback_id"],
+                "checkpoint_id": payload["checkpoint_id"],
+                "checkpoint_sequence": sequence,
+                "batch_index": 0,
+                "batch_count": 1,
+                "artifacts": descriptors,
+            },
+        )
+
     def _bind_checkpoint_artifacts(self, payload: dict[str, object]) -> None:
         record = self._checkpoint
         if record is None:
@@ -599,10 +778,13 @@ class RunnerSupervisor:
         if payload["source_message_sequence"] != record["batch_message_sequence"]:
             raise ProtocolError("binding source message mismatch")
         bindings = payload["bindings"]
-        _match_bindings([record["descriptor"]], bindings, label="checkpoint")
+        _match_bindings(_checkpoint_descriptors(record), bindings, label="checkpoint")
         if record["bindings"] is not None and record["bindings"] != bindings:
             raise ProtocolError("checkpoint binding conflict")
         record["bindings"] = bindings
+        if isinstance(record.get("chunks"), dict):
+            self._emit_chunk_manifest(record)
+            return
         record["binding_set_checksum"] = _checksum_json(bindings)
 
     def _finalize_checkpoint(self, payload: dict[str, object]) -> None:
@@ -621,6 +803,7 @@ class RunnerSupervisor:
         checkpoint = spec["checkpoint"]
         assert isinstance(bindings, list) and isinstance(checkpoint, dict)
         step = int(record["step"])
+        adapter = spec["schema_version"] == 3
         manifest_without_checksum = {
             "kind": "CHECKPOINT",
             "schema_version": 1,
@@ -631,13 +814,17 @@ class RunnerSupervisor:
             .replace("+00:00", "Z"),
             "provenance": spec["provenance"],
             "compatibility": checkpoint["compatibility"],
-            "cursor": {
+            "cursor": record["cursor"]
+            if adapter
+            else {
                 "step": step,
                 "epoch": 0,
                 "item_cursor": step,
                 "accumulator": record["accumulator"],
             },
-            "state_components": ["ACCUMULATOR"],
+            "state_components": list(adapter_launch.adapter_for(spec).state_components)
+            if adapter
+            else ["ACCUMULATOR"],
             "files": [
                 {
                     key: value
@@ -646,15 +833,17 @@ class RunnerSupervisor:
                 }
                 for binding in bindings
             ],
+            **_chunk_manifest_reference(record),
         }
+        encode = canonical_json if adapter else _canonical_json
         manifest = {
             **manifest_without_checksum,
-            "manifest_checksum": _checksum_json(manifest_without_checksum),
+            "manifest_checksum": "sha256:"
+            + hashlib.sha256(encode(manifest_without_checksum)).hexdigest(),
         }
-        manifest_bytes = _canonical_json(manifest)
+        manifest_bytes = encode(manifest)
         manifest_path = (
-            self._container_path(spec["output_path"]).parent
-            / f"checkpoint-{record['checkpoint_sequence']}-manifest.json"
+            self._staging_dir() / f"checkpoint-{record['checkpoint_sequence']}-manifest.json"
         )
         _atomic_write(manifest_path, manifest_bytes, mode=0o440)
         descriptor = {
@@ -680,11 +869,363 @@ class RunnerSupervisor:
             result["prepare_deferred"] = False
             self._emit("RESULT_PREPARE", {"completion_token": result["completion_token"]})
 
+    # batch.inference (B16): chunk files, then the state or summary file, then the
+    # chunk-output manifest, then the checkpoint or result manifest.
+
+    def _model_checksum(self) -> str:
+        if self._model_digest is None:
+            spec = self.launch_spec
+            assert spec is not None
+            inputs = spec["inputs"]
+            assert isinstance(inputs, dict)
+            _, self._model_digest = _digest_bounded(
+                self._container_path(inputs["model"]), MAX_INFERENCE_MODEL_BYTES
+            )
+        return self._model_digest
+
+    def _inference_document(self, raw: bytes, *, summary: bool = False) -> dict:
+        """Validated inference state (or summary) of this job; ProtocolError otherwise."""
+        spec = self.launch_spec
+        assert spec is not None
+        provenance = spec["provenance"]
+        assert isinstance(provenance, dict)
+        try:
+            document = (
+                inference_state.parse_summary(raw) if summary else inference_state.parse_state(raw)
+            )
+            adapter_launch.check_inference_state(
+                document,
+                parameters=spec["parameters"],
+                threads=int(spec["threads"]),
+                input_checksum=str(provenance["input_checksum"]),
+                spec_checksum=str(spec["spec_checksum"]),
+                model_checksum=self._model_checksum(),
+            )
+        except (inference_state.InferenceStateError, adapter_launch.LaunchSpecError) as exc:
+            raise ProtocolError("inference state does not belong to this job") from exc
+        return document
+
+    def _inference_progress(self, document: dict | None) -> None:
+        if document is None:
+            self.emit_progress(fraction=0.0, step=0, epoch=0, item_cursor=0)
+            return
+        total = inference_state.chunk_count(document["item_count"], document["chunk_size"])
+        if "chunk_count" in document:
+            cursor = {"step": total, "item_cursor": document["item_count"]}
+        else:
+            cursor = inference_state.runtime_cursor(document)
+        self.emit_progress(
+            fraction=min(1.0, cursor["step"] / total),
+            step=cursor["step"],
+            epoch=0,
+            item_cursor=cursor["item_cursor"],
+        )
+
+    def _stage_inference_checkpoint(self, payload: dict[str, object]) -> None:
+        spec = self._checkpoint_spec()
+        checkpoint = spec["checkpoint"]
+        assert isinstance(checkpoint, dict)
+        current = self._checkpoint
+        raw = _read_bounded(
+            self._container_path(checkpoint["state_path"]), inference_state.MAX_DOCUMENT_BYTES
+        )
+        document = self._inference_document(raw)
+        cursor = inference_state.runtime_cursor(document)
+        restore = spec["restore"]
+        floor = max(
+            1,
+            int(restore["cursor"]["step"]) if isinstance(restore, dict) else 0,
+            int(current["step"]) if current is not None else 0,
+            len(self._inference_chunks),
+        )
+        if cursor["step"] < floor:
+            raise ProtocolError("checkpoint state regressed below the committed cursor")
+        staging = self._staging_dir()
+        if current is not None:
+            _unlink_staged(staging, _checkpoint_descriptors(current), current["manifest"])
+            _unlink_staged(staging, [_chunk_state(current).get("aux")])
+        sequence = int(payload["checkpoint_sequence"])
+        rule = adapter_launch.adapter_for(spec).checkpoint_files[0]
+        # A closed read-only copy: the workload keeps rewriting its live state.
+        path = staging / f"checkpoint-{sequence}-{rule.logical_name}"
+        _atomic_write(path, raw, mode=0o440)
+        descriptor = {
+            "staging_name": path.name,
+            "logical_name": rule.logical_name,
+            "kind": "CHECKPOINT_FILE",
+            "media_type": rule.media_type,
+            "size_bytes": len(raw),
+            "checksum": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        }
+        self._inference_progress(document)
+        self._checkpoint = {
+            "reservation_callback_id": payload["reservation_callback_id"],
+            "checkpoint_id": payload["checkpoint_id"],
+            "checkpoint_sequence": sequence,
+            "step": cursor["step"],
+            "cursor": cursor,
+            "descriptors": [descriptor],
+            "batch_message_sequence": None,
+            "bindings": None,
+            "binding_set_checksum": None,
+            "manifest": None,
+            "chunks": _new_chunk_state("CHECKPOINT", document, end=cursor["step"]),
+        }
+        self._open_chunk_upload(self._checkpoint)
+
+    def _stage_inference_result(self) -> None:
+        spec = self.launch_spec
+        assert spec is not None
+        provenance = spec["provenance"]
+        parameters = spec["parameters"]
+        assert isinstance(provenance, dict) and isinstance(parameters, dict)
+        rule = adapter_launch.adapter_for(spec).result_files[0]
+        output = self._staging_dir()
+        path = output / rule.logical_name
+        with self._lock:
+            raw = _read_bounded(path, inference_state.MAX_DOCUMENT_BYTES)
+            summary = self._inference_document(raw, summary=True)
+            total = summary["chunk_count"]
+            if len(self._inference_chunks) > total:
+                raise ProtocolError("more chunks are bound than the inference produced")
+            for index in range(len(self._inference_chunks), total):
+                name = inference_state.chunk_file_name(index, summary["output_format"])
+                metadata = (output / name).lstat()
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise ProtocolError("chunk output must be a regular non-symlink file")
+            self._inference_progress(summary)
+            descriptors = [
+                {
+                    "staging_name": rule.logical_name,
+                    "logical_name": rule.logical_name,
+                    "kind": "RESULT_FILE",
+                    "media_type": rule.media_type,
+                    "size_bytes": len(raw),
+                    "checksum": "sha256:" + hashlib.sha256(raw).hexdigest(),
+                }
+            ]
+            self._open_result(
+                {
+                    "completion_token": _new_uuid_v7(),
+                    "descriptors": descriptors,
+                    "descriptor_checksum": "sha256:"
+                    + hashlib.sha256(canonical_json(descriptors)).hexdigest(),
+                    "source_path": str(path),
+                    "provenance": provenance,
+                    "metrics": {
+                        "item_count": summary["item_count"],
+                        "chunk_count": total,
+                        "chunk_size": summary["chunk_size"],
+                        "batch_size": summary["batch_size"],
+                        "output_format": summary["output_format"],
+                        "model_checksum": summary["model_checksum"],
+                    },
+                    "chunks": _new_chunk_state("RESULT", summary, end=total),
+                }
+            )
+
+    def _open_chunk_upload(self, record: dict[str, object], *, start: int | None = None) -> None:
+        chunks = _chunk_state(record)
+        begin = len(self._inference_chunks) if start is None else start
+        if begin > int(chunks["end"]):
+            raise ProtocolError("more chunks are bound than the cursor covers")
+        chunks["start"] = begin
+        chunks["batch_index"] = 0
+        chunks["batch_count"] = -(-(int(chunks["end"]) - begin) // CHUNK_BATCH_SIZE)
+        self._emit_next_chunk_batch(record)
+
+    def _emit_next_chunk_batch(self, record: dict[str, object]) -> None:
+        spec = self.launch_spec
+        assert spec is not None
+        chunks = _chunk_state(record)
+        if chunks["batch_index"] >= chunks["batch_count"]:
+            chunks["sequence"] = None
+            chunks["descriptors"] = None
+            if chunks["purpose"] == "CHECKPOINT":
+                record["batch_message_sequence"] = self._next_message_sequence
+                self._emit(
+                    "CHECKPOINT_FILES_READY",
+                    {
+                        "reservation_callback_id": record["reservation_callback_id"],
+                        "checkpoint_id": record["checkpoint_id"],
+                        "checkpoint_sequence": record["checkpoint_sequence"],
+                        "batch_index": 0,
+                        "batch_count": 1,
+                        "artifacts": _checkpoint_descriptors(record),
+                    },
+                )
+            else:
+                self._emit_result_files()
+            return
+        output_format = str(spec["parameters"]["output_format"])
+        first = int(chunks["start"]) + int(chunks["batch_index"]) * CHUNK_BATCH_SIZE
+        staging = self._staging_dir()
+        descriptors = []
+        for index in range(first, min(int(chunks["end"]), first + CHUNK_BATCH_SIZE)):
+            name = inference_state.chunk_file_name(index, output_format)
+            size, checksum = _digest_bounded(staging / name, chunk_manifest.MAX_CHUNK_FILE_BYTES)
+            if size < 1:
+                raise ProtocolError("chunk output file is empty")
+            descriptors.append(
+                {
+                    "staging_name": name,
+                    "logical_name": name,
+                    "kind": "RESULT_FILE",
+                    "media_type": chunk_manifest.CHUNK_MEDIA_TYPES[output_format],
+                    "size_bytes": size,
+                    "checksum": checksum,
+                }
+            )
+        chunks["descriptors"] = descriptors
+        chunks["sequence"] = self._next_message_sequence
+        self._emit(
+            "CHUNK_FILE_BATCH",
+            {
+                "purpose": chunks["purpose"],
+                "reservation_callback_id": record["reservation_callback_id"],
+                "reserved_id": _reserved_id(record),
+                "batch_index": chunks["batch_index"],
+                "batch_count": chunks["batch_count"],
+                "artifacts": descriptors,
+            },
+        )
+
+    def _bind_chunk_output(self, payload: dict[str, object]) -> None:
+        spec = self.launch_spec
+        assert spec is not None
+        record = next(
+            (
+                candidate
+                for candidate in (self._checkpoint, self._result)
+                if isinstance(candidate, dict)
+                and isinstance(candidate.get("chunks"), dict)
+                and candidate.get("reservation_callback_id") == payload["reservation_callback_id"]
+                and _reserved_id(candidate) == payload["reserved_id"]
+            ),
+            None,
+        )
+        if record is None or record["manifest"] is not None:
+            raise ProtocolError("chunk binding has no open chunk upload")
+        chunks = _chunk_state(record)
+        bindings = payload["bindings"]
+        assert isinstance(bindings, list)
+        source = payload["source_message_sequence"]
+        if chunks["sequence"] is not None and source == chunks["sequence"]:
+            _match_bindings(list(chunks["descriptors"]), bindings, label="chunk")
+            parameters = spec["parameters"]
+            provenance = spec["provenance"]
+            assert isinstance(parameters, dict) and isinstance(provenance, dict)
+            for binding in bindings:
+                index = len(self._inference_chunks)
+                if binding["logical_name"] != inference_state.chunk_file_name(
+                    index, str(parameters["output_format"])
+                ):
+                    raise ProtocolError("chunk binding is out of order")
+                self._inference_chunks.append(
+                    chunk_manifest.entry(
+                        index,
+                        item_count=int(chunks["item_count"]),
+                        chunk_size=int(parameters["chunk_size"]),
+                        source_attempt_id=str(provenance["attempt_id"]),
+                        source_job_fence=int(provenance["job_fence"]),
+                        file=binding,
+                    )
+                )
+            # Bound chunks leave the bounded /output tmpfs so the workload window advances.
+            self._unlink_bound_chunks()
+            chunks["batch_index"] = int(chunks["batch_index"]) + 1
+            self._emit_next_chunk_batch(record)
+        elif chunks["aux_sequence"] is not None and source == chunks["aux_sequence"]:
+            _match_bindings([chunks["aux"]], bindings, label="chunk-output manifest")
+            if chunks["aux_binding"] is not None and chunks["aux_binding"] != bindings[0]:
+                raise ProtocolError("chunk-output manifest binding conflict")
+            chunks["aux_binding"] = bindings[0]
+            cycle = [
+                {
+                    **entry["file"],
+                    "staging_name": entry["file"]["logical_name"],
+                    "kind": "RESULT_FILE",
+                }
+                for entry in self._inference_chunks[int(chunks["start"]) : int(chunks["end"])]
+            ]
+            record["binding_set_checksum"] = _checksum_json(
+                [*cycle, *record["bindings"], bindings[0]]
+            )
+        else:
+            raise ProtocolError("binding source message mismatch")
+
+    def _unlink_bound_chunks(self) -> None:
+        staging = self._staging_dir()
+        for path in staging.iterdir():
+            match = inference_state.CHUNK_FILE.fullmatch(path.name)
+            if match is not None and int(match.group(1)) < len(self._inference_chunks):
+                with suppress(FileNotFoundError):
+                    path.unlink()
+
+    def _emit_chunk_manifest(self, record: dict[str, object]) -> None:
+        spec = self.launch_spec
+        assert spec is not None
+        chunks = _chunk_state(record)
+        if chunks["aux"] is not None:
+            return
+        count = int(chunks["end"])
+        if len(self._inference_chunks) != count:
+            raise ProtocolError("chunk bindings do not cover the cursor")
+        parameters = spec["parameters"]
+        assert isinstance(parameters, dict)
+        try:
+            raw = chunk_manifest.build(
+                provenance=spec["provenance"],
+                model_checksum=self._model_checksum(),
+                chunks=self._inference_chunks[:count],
+            )
+            chunk_manifest.parse(
+                raw,
+                provenance=spec["provenance"],
+                model_checksum=self._model_checksum(),
+                item_count=int(chunks["item_count"]),
+                chunk_size=int(parameters["chunk_size"]),
+                output_format=str(parameters["output_format"]),
+                chunk_total=count,
+            )
+        except chunk_manifest.ChunkManifestError as exc:
+            raise ProtocolError("chunk-output manifest is invalid") from exc
+        name = (
+            f"checkpoint-{record['checkpoint_sequence']}-{chunk_manifest.LOGICAL_NAME}"
+            if chunks["purpose"] == "CHECKPOINT"
+            else f"result-{chunk_manifest.LOGICAL_NAME}"
+        )
+        path = self._staging_dir() / name
+        _atomic_write(path, raw, mode=0o440)
+        descriptor = {
+            "staging_name": name,
+            "logical_name": chunk_manifest.LOGICAL_NAME,
+            "kind": "CHUNK_OUTPUT_MANIFEST",
+            "media_type": chunk_manifest.MEDIA_TYPE,
+            "size_bytes": len(raw),
+            "checksum": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        }
+        chunks["aux"] = descriptor
+        chunks["aux_sequence"] = self._next_message_sequence
+        self._emit(
+            "AUXILIARY_MANIFEST_READY",
+            {
+                "purpose": chunks["purpose"],
+                "reservation_callback_id": record["reservation_callback_id"],
+                "reserved_id": _reserved_id(record),
+                "artifact": descriptor,
+            },
+        )
+
     def _restore_state_is_valid(self) -> bool:
         spec = self.launch_spec
         restore = spec.get("restore") if spec is not None else None
         if not isinstance(restore, dict):
             return True
+        if self._adapter_spec:
+            if adapter_launch.adapter_for(spec).chunked:
+                return self._inference_restore_is_valid(restore)
+            return self._training_restore_is_valid(restore)
         try:
             raw = read_state_file(self._container_path(restore["path"]))
             state = self._decode_cpu_state(raw)
@@ -695,6 +1236,63 @@ class RunnerSupervisor:
             and state.step == restore["step"]
             and state.accumulator == restore["accumulator"]
         )
+
+    def _training_restore_is_valid(self, restore: dict) -> bool:
+        files = {}
+        try:
+            for entry in restore["files"]:
+                raw = _read_bounded(self._container_path(entry["path"]), entry["size_bytes"])
+                if (
+                    len(raw) != entry["size_bytes"]
+                    or "sha256:" + hashlib.sha256(raw).hexdigest() != entry["checksum"]
+                ):
+                    return False
+                files[entry["logical_name"]] = raw
+            document = self._training_document(files)
+        except (OSError, ProtocolError):
+            return False
+        return training_state.runtime_cursor(document) == restore["cursor"]
+
+    def _inference_restore_is_valid(self, restore: dict) -> bool:
+        spec = self.launch_spec
+        assert spec is not None
+        files = {}
+        try:
+            for entry in restore["files"]:
+                raw = _read_bounded(self._container_path(entry["path"]), entry["size_bytes"])
+                if (
+                    len(raw) != entry["size_bytes"]
+                    or "sha256:" + hashlib.sha256(raw).hexdigest() != entry["checksum"]
+                ):
+                    return False
+                files[entry["logical_name"]] = raw
+            state_name = adapter_launch.adapter_for(spec).checkpoint_files[0].logical_name
+            document = self._inference_document(files[state_name])
+            if inference_state.runtime_cursor(document) != restore["cursor"]:
+                return False
+            raw_manifest = files[chunk_manifest.LOGICAL_NAME]
+            # The restored manifest was published by an earlier Attempt of this same job.
+            source = json.loads(raw_manifest)["provenance"]
+            entries = chunk_manifest.parse(
+                raw_manifest,
+                provenance={
+                    **spec["provenance"],
+                    "attempt_id": source["attempt_id"],
+                    "job_fence": source["job_fence"],
+                },
+                model_checksum=self._model_checksum(),
+                item_count=document["item_count"],
+                chunk_size=document["chunk_size"],
+                output_format=document["output_format"],
+                chunk_total=document["next_chunk"],
+            )
+        except (OSError, ProtocolError, ValueError, KeyError, TypeError, AttributeError):
+            return False
+        if self._inference_chunks and self._inference_chunks != entries:
+            return False
+        self._inference_chunks = entries
+        self._inference_resume = document
+        return True
 
     def _emit(self, message_type: str, payload: dict[str, object]) -> dict[str, object]:
         with self._lock:
@@ -763,6 +1361,7 @@ class RunnerSupervisor:
             self._workload_started = True
             if self.runtime_started_at is None:
                 self.runtime_started_at = started_at
+            self._oom_kill_baseline = self._read_oom_kill_count()
             try:
                 self._supervisor_socket.sendall(b"START\n")
             except OSError:
@@ -793,6 +1392,7 @@ class RunnerSupervisor:
         self._workload_started = True
         if self.runtime_started_at is None:
             self.runtime_started_at = started_at
+        self._oom_kill_baseline = self._read_oom_kill_count()
         try:
             os.write(self._workload_control_fd, b"START\n")
         except OSError:
@@ -973,8 +1573,17 @@ class RunnerSupervisor:
             )
             # A resumed Attempt continues from the verified restored cursor.
             restore = spec.get("restore")
-            step = int(restore["step"]) if isinstance(restore, dict) else 0
-            self.emit_progress(fraction=step / int(spec["iterations"]), step=step)
+            if self._adapter_spec and adapter_launch.adapter_for(spec).chunked:
+                self._inference_progress(self._inference_resume)
+            elif self._adapter_spec:
+                self._training_progress(
+                    restore["cursor"]
+                    if isinstance(restore, dict)
+                    else {"step": 0, "epoch": 0, "item_cursor": 0}
+                )
+            else:
+                step = int(restore["step"]) if isinstance(restore, dict) else 0
+                self.emit_progress(fraction=step / int(spec["iterations"]), step=step)
 
         def monitor() -> None:
             if self._supervisor_socket is not None:
@@ -987,18 +1596,12 @@ class RunnerSupervisor:
                 exit_code = self.workload.wait()
             if self.state in {RunnerState.STOPPING, RunnerState.STOPPED}:
                 return
-            if exit_code != 0:
-                self._emit(
-                    "FAILED",
-                    {
-                        "failure_class": "INTERNAL",
-                        "reason_code": "WORKLOAD_EXIT_NONZERO",
-                        "exit_code": exit_code,
-                        "oom_killed": False,
-                        "runtime_limit_reached": False,
-                    },
-                )
-                self._persist()
+            if self._adapter_spec:
+                self._finish_adapter_workload(exit_code)
+                return
+            failure = self._workload_exit_failure(exit_code, typed_input=False)
+            if failure is not None:
+                self._emit_workload_failure(failure, exit_code)
                 return
             self.emit_progress(fraction=1.0, step=int(spec["iterations"]))
             self.stage_result(
@@ -1011,10 +1614,137 @@ class RunnerSupervisor:
 
         threading.Thread(target=monitor, daemon=True).start()
 
+    def _finish_adapter_workload(self, exit_code: int) -> None:
+        """Map an adapter workload exit to FAILED or to its staged result files."""
+        spec = self.launch_spec
+        assert spec is not None
+        failure = self._workload_exit_failure(exit_code, typed_input=True)
+        if failure is None:
+            try:
+                if adapter_launch.adapter_for(spec).chunked:
+                    self._stage_inference_result()
+                else:
+                    self._stage_training_result()
+            except (OSError, ProtocolError):
+                failure = ("INTERNAL", "INVALID_RESULT")
+        if failure is None:
+            return
+        self._emit_workload_failure(failure, exit_code)
+
+    def _workload_exit_failure(
+        self, exit_code: int, *, typed_input: bool
+    ) -> tuple[str, str] | None:
+        """FAILED class/reason for a workload exit; None for exit 0 (B16-R26).
+
+        Only a rise of this container's cgroup ``oom_kill`` since START is an OOM, so a
+        counter that was already non-zero, or an unreadable file, never makes one.
+        """
+        if exit_code == 0:
+            return None
+        if typed_input and exit_code == WORKLOAD_EXIT_INVALID_INPUT:
+            return ("INVALID_INPUT", "INVALID_INPUT")
+        current = self._read_oom_kill_count()
+        if (
+            self._oom_kill_baseline is not None
+            and current is not None
+            and current > self._oom_kill_baseline
+        ):
+            return ("OOM", "CONTAINER_OOM")
+        return ("INTERNAL", "WORKLOAD_EXIT_NONZERO")
+
+    def _emit_workload_failure(self, failure: tuple[str, str], exit_code: int) -> None:
+        self._emit(
+            "FAILED",
+            {
+                "failure_class": failure[0],
+                "reason_code": failure[1],
+                "exit_code": _normalize_exit_code(exit_code),
+                "oom_killed": failure[0] == "OOM",
+                "runtime_limit_reached": False,
+            },
+        )
+        self._persist()
+
+    def _read_oom_kill_count(self) -> int | None:
+        """Bounded read of ``oom_kill`` from cgroup v2 ``memory.events``; None if absent."""
+        try:
+            with open(self.fs_root / MEMORY_EVENTS_PATH, "rb") as handle:
+                raw = handle.read(_MAX_MEMORY_EVENTS_BYTES + 1)
+        except OSError:
+            return None
+        if len(raw) > _MAX_MEMORY_EVENTS_BYTES:
+            return None
+        for line in raw.decode("ascii", "replace").splitlines():
+            name, _, value = line.partition(" ")
+            if name == "oom_kill" and value.isdigit():
+                return int(value)
+        return None
+
+    def _stage_training_result(self) -> None:
+        spec = self.launch_spec
+        assert spec is not None
+        adapter = adapter_launch.adapter_for(spec)
+        provenance = spec["provenance"]
+        assert isinstance(provenance, dict)
+        output = self._staging_dir()
+        bodies = {}
+        for rule in adapter.result_files:
+            path = output / rule.logical_name
+            metadata = path.lstat()
+            if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+                raise ProtocolError("result must be a regular non-symlink file")
+            bodies[rule.logical_name] = _read_bounded(path, MAX_TRAINING_SNAPSHOT_BYTES)
+        model = bodies["model.safetensors"]
+        try:
+            pytorch_arch.validate_model_header(
+                safetensors_format.parse_header(model, total_size=len(model))
+            )
+            metrics = adapter_launch.parse_training_metrics(
+                bodies["metrics.json"],
+                parameters=spec["parameters"],
+                input_checksum=str(provenance["input_checksum"]),
+                spec_checksum=str(spec["spec_checksum"]),
+                model_checksum="sha256:" + hashlib.sha256(model).hexdigest(),
+            )
+        except (
+            safetensors_format.SafetensorsError,
+            adapter_launch.LaunchSpecError,
+        ) as exc:
+            raise ProtocolError("training result files are invalid") from exc
+        parameters = spec["parameters"]
+        assert isinstance(parameters, dict)
+        self._training_progress(
+            {"step": metrics["steps"], "epoch": parameters["epochs"], "item_cursor": 0}
+        )
+        descriptors = [
+            {
+                "staging_name": rule.logical_name,
+                "logical_name": rule.logical_name,
+                "kind": "RESULT_FILE",
+                "media_type": rule.media_type,
+                "size_bytes": len(bodies[rule.logical_name]),
+                "checksum": "sha256:" + hashlib.sha256(bodies[rule.logical_name]).hexdigest(),
+            }
+            for rule in adapter.result_files
+        ]
+        self._open_result(
+            {
+                "completion_token": _new_uuid_v7(),
+                "descriptors": descriptors,
+                "descriptor_checksum": "sha256:"
+                + hashlib.sha256(canonical_json(descriptors)).hexdigest(),
+                "source_path": str(output / adapter.result_files[0].logical_name),
+                "provenance": provenance,
+                "metrics": adapter_launch.manifest_metrics(metrics),
+            }
+        )
+
     def _launch_command(self) -> tuple[str, ...]:
         if self.launch_spec is None:
             raise RuntimeError("launch spec is absent")
         spec = self.launch_spec
+        if spec["schema_version"] == 3:
+            return adapter_launch.workload_command(spec)
         command: tuple[str, ...] = (
             "python",
             "-m",
@@ -1236,6 +1966,8 @@ class RunnerSupervisor:
                 "result": self._result,
                 "checkpoint": self._checkpoint,
                 "checkpoint_waiting": self._checkpoint_waiting,
+                "inference_chunks": self._inference_chunks,
+                "oom_kill_baseline": self._oom_kill_baseline,
                 "stop_reason": self._stop_reason,
             }
             _atomic_write(self.state_path, _canonical_json(payload), mode=0o600)
@@ -1273,6 +2005,14 @@ class RunnerSupervisor:
             if waiting is not None and not isinstance(waiting, dict):
                 raise ValueError("waiting checkpoint state is invalid")
             self._checkpoint_waiting = waiting
+            chunks = payload.get("inference_chunks", [])
+            if not isinstance(chunks, list) or len(chunks) > chunk_manifest.MAX_CHUNKS:
+                raise ValueError("inference chunk state is invalid")
+            self._inference_chunks = chunks
+            baseline = payload.get("oom_kill_baseline")
+            if baseline is not None and (type(baseline) is not int or baseline < 0):
+                raise ValueError("oom_kill baseline is invalid")
+            self._oom_kill_baseline = baseline
             stop_reason = payload.get("stop_reason")
             self._stop_reason = str(stop_reason) if stop_reason is not None else None
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
@@ -1487,6 +2227,111 @@ def _match_bindings(descriptors: list[object], bindings: object, *, label: str) 
             seen.add(value)
 
 
+def _checkpoint_descriptors(record: dict[str, object]) -> list[object]:
+    # CPU records keep their single-file shape so persisted runner state stays compatible.
+    if "descriptors" in record:
+        return list(record["descriptors"])
+    return [record["descriptor"]]
+
+
+def _new_chunk_state(purpose: str, document: dict, *, end: int) -> dict[str, object]:
+    return {
+        "purpose": purpose,
+        "item_count": document["item_count"],
+        "start": None,
+        "end": end,
+        "batch_index": 0,
+        "batch_count": 0,
+        "sequence": None,
+        "descriptors": None,
+        "aux": None,
+        "aux_sequence": None,
+        "aux_binding": None,
+    }
+
+
+def _chunk_state(record: dict[str, object]) -> dict:
+    chunks = record.get("chunks")
+    return chunks if isinstance(chunks, dict) else {}
+
+
+def _reserved_id(record: dict[str, object]) -> object:
+    return record["checkpoint_id"] if "checkpoint_id" in record else record.get("result_id")
+
+
+def _chunk_manifest_reference(record: dict[str, object]) -> dict[str, object]:
+    chunks = record.get("chunks")
+    if not isinstance(chunks, dict):
+        return {}
+    binding = chunks.get("aux_binding")
+    if not isinstance(binding, dict):
+        raise ProtocolError("chunk-output manifest is not bound")
+    return {
+        "chunk_output_manifest": {
+            "artifact_id": binding["artifact_id"],
+            "checksum": binding["checksum"],
+        }
+    }
+
+
+def _unlink_staged(staging: Path, descriptors: list[object], *extra: object) -> None:
+    for descriptor in (*descriptors, *extra):
+        if isinstance(descriptor, dict):
+            with suppress(FileNotFoundError):
+                (staging / str(descriptor["staging_name"])).unlink()
+
+
+def _result_descriptors(record: dict[str, object]) -> list[object]:
+    if "descriptors" in record:
+        return list(record["descriptors"])
+    return [record["descriptor"]]
+
+
+def _read_bounded(path: Path, limit: int) -> bytes:
+    """Read one regular non-symlink file of at most ``limit`` bytes."""
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise ProtocolError("staged file cannot be opened as a regular file") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+            raise ProtocolError("staged file is not a bounded regular file")
+        with os.fdopen(os.dup(descriptor), "rb") as handle:
+            body = handle.read(limit + 1)
+    finally:
+        os.close(descriptor)
+    if len(body) != metadata.st_size:
+        raise ProtocolError("staged file changed while it was read")
+    return body
+
+
+def _digest_bounded(path: Path, limit: int) -> tuple[int, str]:
+    """Size and checksum of one regular non-symlink file of at most ``limit`` bytes."""
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise ProtocolError("staged file cannot be opened as a regular file") from exc
+    digest = hashlib.sha256()
+    size = 0
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+            raise ProtocolError("staged file is not a bounded regular file")
+        while block := os.read(descriptor, 64 * 1024):
+            size += len(block)
+            if size > limit:
+                break
+            digest.update(block)
+    except OSError as exc:
+        raise ProtocolError("staged file cannot be read") from exc
+    finally:
+        os.close(descriptor)
+    if size != metadata.st_size:
+        raise ProtocolError("staged file changed while it was read")
+    return size, "sha256:" + digest.hexdigest()
+
+
 def _atomic_write(path: Path, payload: bytes, *, mode: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -1530,6 +2375,11 @@ def _validate_launch_spec(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ProtocolError("launch spec fields are invalid")
     version = value.get("schema_version")
+    if type(version) is int and version == adapter_launch.SCHEMA_VERSION:
+        try:
+            return adapter_launch.validate_launch_spec(value)
+        except adapter_launch.LaunchSpecError as exc:
+            raise ProtocolError("launch spec is invalid") from exc
     # Version 2 adds checkpoint staging and optional restore; version 1 stays exact.
     required = _LAUNCH_SPEC_FIELDS | ({"checkpoint", "restore"} if version == 2 else set())
     if set(value) != required:

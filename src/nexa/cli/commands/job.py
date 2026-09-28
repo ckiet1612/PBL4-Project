@@ -95,7 +95,7 @@ def _with_headers(response) -> object:
     return payload
 
 
-def _load_json(path: Path) -> object:
+def _load_json(path: Path, *, label: str = "job spec") -> object:
     try:
         with path.open(encoding="utf-8") as source:
             return json.load(
@@ -105,7 +105,7 @@ def _load_json(path: Path) -> object:
                 parse_float=_parse_finite_float,
             )
     except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as exc:
-        raise CliError("job spec JSON is invalid", exit_code=2) from exc
+        raise CliError(f"{label} JSON is invalid", exit_code=2) from exc
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:

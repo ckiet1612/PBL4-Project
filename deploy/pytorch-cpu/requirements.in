@@ -1,0 +1,6 @@
+# Direct runtime dependencies of the PyTorch CPU workload image only (never uv.lock).
+# Compiled with --generate-hashes into requirements.linux-amd64.txt; see docs/evidence B16.
+torch==2.12.1+cpu
+numpy
+safetensors
+pyarrow

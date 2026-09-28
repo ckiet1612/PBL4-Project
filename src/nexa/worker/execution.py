@@ -5,7 +5,16 @@ from contextlib import nullcontext, suppress
 from dataclasses import asdict, replace
 
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.workloads import adapter_launch
 
+from .adapter_dispatch import (
+    adapter_checkpoint,
+    adapter_downloads,
+    adapter_execution_request,
+    adapter_of,
+    verify_adapter_restore_files,
+    verify_adapter_restore_manifest,
+)
 from .checkpoint_flow import CheckpointFlow, CheckpointProtocolError
 from .client import WorkerApiError
 from .dispatch import (
@@ -29,11 +38,20 @@ from .result_flow import ResultFlow
 from .runner_control import RunnerControl, RunnerControlError
 
 _CHECKPOINT_FRAMES = {"CHECKPOINT_FILES_READY", "CHECKPOINT_READY"}
+# B16 inference chunk frames belong to the checkpoint cycle or the result by purpose.
+_CHUNK_FRAMES = {"CHUNK_FILE_BATCH", "AUXILIARY_MANIFEST_READY"}
 # A pause that commits no checkpoint and stops nothing ends as a runner failure.
 PAUSE_DEADLINE_NS = 40 * 1_000_000_000
 PAUSE_STOP_GRACE_NS = 5 * 1_000_000_000
 # Runner FAILED reasons forwarded verbatim; any other runner text stays internal.
-_FORWARDED_FAILURES = {("INCOMPATIBLE", "CHECKPOINT_RESTORE_UNAVAILABLE")}
+_FORWARDED_FAILURES = {
+    ("INCOMPATIBLE", "CHECKPOINT_RESTORE_UNAVAILABLE"),
+    # B16 adapter runners classify a rejected dataset or a non-finite training state.
+    ("INVALID_INPUT", "INVALID_INPUT"),
+    ("INTERNAL", "INVALID_RESULT"),
+    # The runner saw its container cgroup ``oom_kill`` rise while the workload ran (B16-R26).
+    ("OOM", "CONTAINER_OOM"),
+}
 # A runner that stops on its own deadline names the cause; any other stop is internal.
 _STOP_FAILURES = {
     "RUNTIME_LIMIT": ("TIMEOUT", "RUNTIME_LIMIT_REACHED"),
@@ -124,10 +142,19 @@ class WorkerExecutionMixin:
             raise ValueError("input staging directory is a symlink")
         source = directory / "input.json"
         architecture = self.provider.discover().architecture
+        adapter = adapter_of(context)
         # Nothing is journaled before prepare, so a pre-launch failure can
         # tombstone against the launch-free request.
-        request = execution_request({**context, "restore_checkpoint": None}, source, architecture)
-        artifact = context["input_artifacts"][0]
+        if adapter is None:
+            request = execution_request(
+                {**context, "restore_checkpoint": None}, source, architecture
+            )
+            downloads = [(context["input_artifacts"][0], source)]
+        else:
+            request = adapter_execution_request(
+                {**context, "restore_checkpoint": None}, directory, architecture
+            )
+            downloads = adapter_downloads(context, directory)
         start_callback = None
         identity = None
         try:
@@ -142,9 +169,14 @@ class WorkerExecutionMixin:
                     # The Job has checkpoint state but the claim found none
                     # restorable; input replay is not allowed for this template.
                     raise RestoreUnavailable("claim froze no restore for a checkpointed Job")
-                launch, restore_file = self._checkpoint_launch(
-                    authority, context, directory, architecture
-                )
+                if adapter is None:
+                    launch, restore_file = self._checkpoint_launch(
+                        authority, context, directory, architecture
+                    )
+                else:
+                    launch = self._adapter_checkpoint_launch(
+                        authority, context, adapter, directory, architecture
+                    )
             except RestoreUnavailable:
                 # Never fall back to a from-zero run: the claim froze a restore.
                 if self._execution_failed(
@@ -155,19 +187,31 @@ class WorkerExecutionMixin:
                 ):
                     self._retire_fenced_startup(attempt_id)
                 return
-            request = execution_request(
-                context,
-                source,
-                architecture,
-                checkpoint=launch,
-                restore_file=restore_file,
-                restore_source=directory / "restore-state.json",
-            )
-            if source.exists() and not _matches_descriptor(source, artifact):
-                # A worker killed mid-download leaves a partial private file.
-                source.unlink()
-            if not source.exists():
-                self.client.download_execution(authority, artifact, source)
+            if adapter is None:
+                request = execution_request(
+                    context,
+                    source,
+                    architecture,
+                    checkpoint=launch,
+                    restore_file=restore_file,
+                    restore_source=directory / "restore-state.json",
+                )
+            else:
+                checkpoint, restore, restore_files = launch
+                request = adapter_execution_request(
+                    context,
+                    directory,
+                    architecture,
+                    checkpoint=checkpoint,
+                    restore=restore,
+                    restore_files=restore_files,
+                )
+            for artifact, target in downloads:
+                if target.exists() and not _matches_descriptor(target, artifact):
+                    # A worker killed mid-download leaves a partial private file.
+                    target.unlink()
+                if not target.exists():
+                    self.client.download_execution(authority, artifact, target)
             # Executor performs descriptor verification on every prepare/start replay.
             prepared = self.executor.prepare(request)
             identity = self.executor.start(prepared)
@@ -280,6 +324,39 @@ class WorkerExecutionMixin:
             raise RestoreUnavailable("restore state bytes are unavailable") from exc
         verify_restore_state(raw, context=context, cursor=cursor)
         return replace(launch, restore=cursor), restore_file
+
+    def _adapter_checkpoint_launch(self, authority, context, adapter, directory, architecture):
+        """Return (checkpoint, restore, ordered restore files) checked before Docker work."""
+        image_capable = context["template_snapshot"].get(
+            "checkpointable"
+        ) is True and self.executor.checkpoint_supported(
+            context["image_digest"], adapter.checkpoint_format
+        )
+        checkpoint = adapter_checkpoint(
+            context, adapter, image_capable=image_capable, architecture=architecture
+        )
+        if context["restore_checkpoint"] is None:
+            return checkpoint, None, ()
+        restore, ordered = verify_adapter_restore_manifest(context, adapter, checkpoint[0])
+        target_dir = directory / "restore"
+        target_dir.mkdir(exist_ok=True, mode=0o700)
+        if target_dir.is_symlink():
+            raise RestoreUnavailable("restore staging directory is a symlink")
+        contents = {}
+        try:
+            for name, view in ordered:
+                target = target_dir / name
+                if target.exists() and not _matches_descriptor(target, view):
+                    # A worker killed mid-download leaves a partial private file.
+                    target.unlink()
+                if not target.exists():
+                    self.client.download_execution(authority, view, target)
+                contents[name] = target.read_bytes()
+        except ValueError as exc:
+            raise RestoreUnavailable("restore state bytes are unavailable") from exc
+        threads = adapter_launch.threads_for(context["allocation"]["resources"]["cpu_millis"])
+        verify_adapter_restore_files(contents, context=context, restore=restore, threads=threads)
+        return checkpoint, restore, ordered
 
     def _retire_fenced_startup(self, attempt_id):
         # Called only after the server has revoked the attempt and accepted
@@ -555,12 +632,16 @@ class WorkerExecutionMixin:
                 reason = ("INTERNAL", "CHECKPOINT_PROTOCOL_ERROR")
             elif stop_reason in _STOP_FAILURES:
                 reason = _STOP_FAILURES[stop_reason]
-            elif reason not in _FORWARDED_FAILURES:
+            elif reason not in _FORWARDED_FAILURES or (reason[0] == "OOM") != (
+                payload.get("oom_killed") is True
+            ):
                 reason = ("INTERNAL", "WORKLOAD_EXIT_NONZERO")
             failure_class, reason_code = reason
             self._execution_failed(attempt_id, failure_class=failure_class, reason_code=reason_code)
             return
-        if envelope["type"] in _CHECKPOINT_FRAMES:
+        if envelope["type"] in _CHECKPOINT_FRAMES or (
+            envelope["type"] in _CHUNK_FRAMES and envelope["payload"].get("purpose") == "CHECKPOINT"
+        ):
             # A runner that rejected this cycle's control is stopping (B15-R14):
             # its later checkpoint frames drive nothing, and holding one pending
             # would keep its STOPPED frame, which names the cause, unread.
@@ -703,10 +784,11 @@ class WorkerExecutionMixin:
                 from datetime import UTC, datetime
 
                 authority = record.authority
-                # Without a Docker-proven exit the runner is still presumed alive.
+                # Without a Docker-proven exit the runner is still presumed alive; only
+                # its forwarded cgroup OOM report marks the observation as an OOM kill.
                 exited = exited or {
                     "exit_code": None,
-                    "oom_killed": False,
+                    "oom_killed": failure_class == "OOM",
                     "observed_at": datetime.now(UTC)
                     .isoformat(timespec="milliseconds")
                     .replace("+00:00", "Z"),

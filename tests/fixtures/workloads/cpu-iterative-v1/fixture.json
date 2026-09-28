@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "fixture": "cpu-iterative-v1",
+  "template": {
+    "template_id": "cpu-iterative",
+    "version": 1
+  },
+  "input": {
+    "file": "input.json",
+    "media_type": "application/vnd.nexa.cpu-iterative-input+json",
+    "checksum": "sha256:9f955459ad04acc13894487c9dd008d30654a0ec8302595e1bc6e2487fe0a20d",
+    "size_bytes": 19
+  },
+  "parameters": {
+    "iterations": 250000000,
+    "seed": 7,
+    "modulus": 2147483647
+  },
+  "expected_result_checksum": "sha256:7de722a0578b29d9d1a8e672e67a6525deb61ef81cff16503e1eb6b7412a6f35",
+  "source": "R0 of docs/evidence/B14-cpu-checkpoint-restore.md (reused by B15); every crash/resume run must return these exact result bytes"
+}

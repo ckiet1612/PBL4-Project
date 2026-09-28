@@ -10,6 +10,8 @@ from .commands.admin import register as register_admin
 from .commands.artifact import register as register_artifact
 from .commands.config import register as register_config
 from .commands.job import register as register_job
+from .commands.sweep import register as register_sweep
+from .commands.template import register as register_template
 from .commands.token import register as register_token
 from .errors import OutputMode
 
@@ -31,6 +33,8 @@ config = _group("config")
 token = _group("token")
 artifact = _group("artifact")
 job = _group("job")
+template = _group("template")
+sweep = _group("sweep")
 admin = _group("admin")
 
 
@@ -63,6 +67,8 @@ register_config(config)
 register_token(token)
 register_artifact(artifact)
 register_job(job)
+register_template(template)
+register_sweep(sweep)
 register_admin(admin)
 
 

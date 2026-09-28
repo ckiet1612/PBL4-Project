@@ -120,6 +120,37 @@ unchanged. `inspect(identity)` returns the Docker exit code and `OOMKilled` of
 an exact identity, and the worker uses it to prove a workload container exited
 without a runner terminal frame (see [worker agent](worker-agent.md)).
 
+## Several workload images and adapter mounts (B16; đã triển khai, chờ Task Review)
+
+Discovery probes `NEXA_CPU_IMAGE_REF` and every entry of `NEXA_WORKLOAD_IMAGE_REFS`
+separately. Each entry must be pinned `@sha256`. An image advertises an adapter
+only when its labels match one `workload_adapters` descriptor exactly. An
+unlabelled or mismatched image still advertises nothing.
+
+**Picking the image.** `_pinned_image_ref` launches the configured reference
+whose digest equals the claimed `image_digest`. It never substitutes another
+image. `checkpoint_supported(image_digest, checkpoint_format)` compares the image
+label with the adapter's own checkpoint format, for example
+`pytorch-cifar10-state-v1` or `batch-inference-state-v1`, and caches the result
+per image and format.
+
+**Launch spec.** For a PyTorch adapter the control directory holds the closed v3
+`launch-spec.json`, which is immutable and mounted read-only. The supervisor
+command is the fixed prefix plus `adapter_launch.workload_command(spec)`.
+
+**Mounts.** The primary input mount is `/input/dataset.arrow` instead of
+`/input/input.json`. `batch.inference` also mounts `/input/model.safetensors`.
+Restore files are mounted read-only under `/input/restore/`.
+
+**Unchanged.** The CPU launch, the journal binding (`adapter_launch` is absent
+for CPU), UIDs, tmpfs bounds, network, capabilities, seccomp, the PID/memory/CPU
+limits and restart policy `no` are all unchanged.
+
+The B16 Docker scenarios ran on VPS1 (AWS EC2 c7i.2xlarge, Ubuntu 24.04,
+cgroups v2, Docker Engine, amd64) with the production executor and worker
+image. That is environment L, not GPU and not release acceptance. See the
+[B16 evidence](evidence/B16-pytorch-sweep-inference.md).
+
 ## Evidence boundary
 
 Unit/fault tests cover locks, journal crash points, immutable replay, unknown

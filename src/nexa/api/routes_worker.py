@@ -408,7 +408,12 @@ async def upload_attempt_artifact(
         )
     authority = _header_authority(request, attempt_id)
     service = AttemptArtifactService(
-        services(request).artifact, _service(request), _credential(request), authority, kind
+        services(request).artifact,
+        _service(request),
+        _credential(request),
+        authority,
+        kind,
+        media_type,
     )
     tenant = await run_in_threadpool(service.tenant_id)
     content_length = request.headers.get("content-length")

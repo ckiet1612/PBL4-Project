@@ -19,6 +19,19 @@ _CONTAINER_ID_LENGTH = 64
 _CONTROL_SOCKET_PATH = "/run/nexa/control.sock"
 # Runner-closed checkpoint copies; the live workload snapshot is never read.
 _CHECKPOINT_OUTPUT = re.compile(r"^checkpoint-[1-9][0-9]{0,15}-(?:state|manifest)\.json$")
+# B16 training outputs: fixed-architecture tensors plus closed JSON documents.
+_ADAPTER_OUTPUT = re.compile(
+    r"^(?:model\.safetensors|metrics\.json"
+    r"|checkpoint-[1-9][0-9]{0,15}-(?:(?:model|optimizer|rng)\.safetensors|training-state\.json))$"
+)
+# B16 inference outputs: runner-closed chunk files, state copies and chunk manifests.
+_INFERENCE_OUTPUT = re.compile(
+    r"^(?:summary\.json|result-chunk-output-manifest\.json|chunk-[0-9]{8}\.(?:jsonl|parquet)"
+    r"|checkpoint-[1-9][0-9]{0,15}-(?:inference-state|chunk-output-manifest)\.json)$"
+)
+CPU_OUTPUT_MAX_BYTES = 512 * 1024
+# One member plus tar headers and end-of-archive blocks must fit the command bound.
+ADAPTER_OUTPUT_MAX_BYTES = MAX_COMMAND_OUTPUT_BYTES - 16 * 1024
 
 
 class DockerContainerNotFound(RuntimeError):
@@ -271,7 +284,7 @@ class DockerCli:
         return identifiers
 
     def read_output(self, container_id: str, descriptor: dict) -> bytes:
-        """Read one closed CPU output, bounded by the command backend and descriptor.
+        """Read one closed runner output, bounded by the command backend and descriptor.
 
         No extraction is performed. Links, directories and extra tar members are
         rejected before bytes can reach an attempt upload.
@@ -282,13 +295,15 @@ class DockerCli:
 
         _validate_container_id(container_id)
         name = descriptor["staging_name"]
-        if name not in {"result.json", "result-manifest.json"} and not _CHECKPOINT_OUTPUT.fullmatch(
-            name
-        ):
-            raise ValueError("unsupported CPU output staging name")
+        if name in {"result.json", "result-manifest.json"} or _CHECKPOINT_OUTPUT.fullmatch(name):
+            limit = CPU_OUTPUT_MAX_BYTES
+        elif _ADAPTER_OUTPUT.fullmatch(name) or _INFERENCE_OUTPUT.fullmatch(name):
+            limit = ADAPTER_OUTPUT_MAX_BYTES
+        else:
+            raise ValueError("unsupported container output staging name")
         size = descriptor["size_bytes"]
-        if not isinstance(size, int) or isinstance(size, bool) or not 0 <= size <= 512 * 1024:
-            raise ValueError("CPU output exceeds bounded reader")
+        if not isinstance(size, int) or isinstance(size, bool) or not 0 <= size <= limit:
+            raise ValueError("container output exceeds bounded reader")
         code, raw, _ = self.backend.run(
             # Docker's archive endpoint does not expose the container's tmpfs
             # mount. Archive from inside the verified running image as runner UID.
@@ -310,8 +325,8 @@ class DockerCli:
         )
         if code:
             raise RuntimeError("closed container output is unavailable")
-        if len(raw) > 1024 * 1024:
-            raise ValueError("CPU output archive exceeds bound")
+        if len(raw) > MAX_COMMAND_OUTPUT_BYTES:
+            raise ValueError("container output archive exceeds bound")
         with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
             entries = archive.getmembers()
             if (

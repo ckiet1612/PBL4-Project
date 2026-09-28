@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Literal
 
+from nexa.domain import workload_adapters
+from nexa.workloads import adapter_launch
+
 from .errors import CompatibilityReason
 
 Checksum = str
@@ -148,7 +151,12 @@ class ExecutionContext:
     def __post_init__(self) -> None:
         for name in ("tenant_id", "job_id", "logical_session_id"):
             _uuid(getattr(self, name), name)
-        if self.template_id != "cpu-iterative":
+        adapter = workload_adapters.descriptor(self.adapter_id, self.adapter_version)
+        if (
+            adapter is None
+            or adapter.template_id != self.template_id
+            or adapter.framework != self.framework
+        ):
             raise ValueError("template_id is not supported by the CPU executor")
         _positive(self.template_version, "template_version")
         _checksum(self.image_digest, "image_digest")
@@ -259,6 +267,80 @@ class CpuCheckpointLaunch:
 
 
 @dataclass(frozen=True, slots=True)
+class AdapterLaunch:
+    """Closed v3 launch spec of a PyTorch adapter; the runner re-validates the same bytes."""
+
+    spec: dict
+    interval_seconds: int | None = None
+
+    def __post_init__(self) -> None:
+        try:
+            adapter_launch.validate_launch_spec(self.spec)
+        except adapter_launch.LaunchSpecError as exc:
+            raise ValueError(f"adapter launch spec is invalid: {exc}") from exc
+        if self.spec["checkpoint"] is None:
+            if self.interval_seconds is not None:
+                raise ValueError("checkpoint interval requires a checkpoint launch")
+        elif (
+            not isinstance(self.interval_seconds, int)
+            or isinstance(self.interval_seconds, bool)
+            or not 5 <= self.interval_seconds <= 60
+        ):
+            raise ValueError("checkpoint interval must be between 5 and 60 seconds")
+
+
+def _check_adapter_launch(request: "StartExecution") -> None:
+    launch = request.adapter_launch
+    assert launch is not None
+    spec, context = launch.spec, request.context
+    if request.cpu_workload is not None or request.checkpoint is not None:
+        raise ValueError("adapter launch excludes the CPU workload spec")
+    adapter = workload_adapters.descriptor(context.adapter_id, context.adapter_version)
+    if adapter is None or adapter is not adapter_launch.adapter_for(spec):
+        raise ValueError("adapter launch does not match the execution context")
+    if spec["startup_nonce"] != request.startup_nonce:
+        raise ValueError("adapter launch startup_nonce does not match")
+    if spec["threads"] != adapter_launch.threads_for(context.resources.cpu_millis):
+        raise ValueError("adapter launch threads do not match the allocation")
+    expected = {
+        "tenant_id": context.tenant_id,
+        "job_id": context.job_id,
+        "session_id": context.logical_session_id,
+        "attempt_id": context.authority.attempt_id,
+        "job_fence": context.authority.job_fence,
+        "input_checksum": context.input_checksum,
+        "template_id": context.template_id,
+        "template_version": context.template_version,
+        "adapter_id": context.adapter_id,
+        "adapter_version": context.adapter_version,
+        "image_digest": context.image_digest,
+    }
+    if any(spec["provenance"][key] != value for key, value in expected.items()):
+        raise ValueError("adapter launch provenance does not match the execution context")
+    checkpoint = spec["checkpoint"]
+    if checkpoint is not None and (
+        checkpoint["compatibility"]["architecture"] != context.architecture
+        or checkpoint["compatibility"]["framework_version"] != context.framework_version
+    ):
+        raise ValueError("adapter launch compatibility does not match the execution context")
+    mounts = {mount.target_path: mount for mount in request.input_mounts}
+    if len(mounts) != len(request.input_mounts):
+        raise ValueError("adapter input targets must be unique")
+    targets = set(spec["inputs"].values())
+    restore = spec["restore"]
+    files = restore["files"] if restore is not None else []
+    targets |= {item["path"] for item in files}
+    if set(mounts) != targets:
+        raise ValueError("adapter input mounts do not match the launch spec")
+    if mounts[spec["inputs"]["dataset"]].content_checksum != context.input_checksum:
+        raise ValueError("adapter dataset mount does not match the input checksum")
+    for item in files:
+        mount = mounts[item["path"]]
+        if (mount.content_checksum, mount.size_bytes) != (item["checksum"], item["size_bytes"]):
+            raise ValueError("adapter restore mount does not match the restore files")
+
+
+@dataclass(frozen=True, slots=True)
 class StartExecution:
     context: ExecutionContext
     allocation: AllocationIdentity
@@ -271,6 +353,7 @@ class StartExecution:
     input_mounts: tuple[InputMount, ...] = ()
     cpu_workload: CpuWorkloadSpec | None = None
     checkpoint: CpuCheckpointLaunch | None = None
+    adapter_launch: AdapterLaunch | None = None
 
     def __post_init__(self) -> None:
         _uuid(self.startup_nonce, "startup_nonce")
@@ -291,8 +374,14 @@ class StartExecution:
             raise ValueError("runtime_limit_seconds must be between 1 and 300")
         if self.startup_limit_seconds != 30:
             raise ValueError("startup_limit_seconds must be 30")
+        if self.adapter_launch is not None:
+            _check_adapter_launch(self)
+            return
         if self.cpu_workload is not None:
-            if self.context.adapter_id != "cpu.iterative" or self.context.framework != "NEXA_CPU":
+            adapter = workload_adapters.descriptor(
+                self.context.adapter_id, self.context.adapter_version
+            )
+            if adapter is not workload_adapters.CPU_ITERATIVE:
                 raise ValueError("CPU workload spec requires the CPU iterative adapter")
             targets = {mount.target_path for mount in self.input_mounts}
             if self.cpu_workload.input_target_path not in targets:

@@ -64,6 +64,8 @@ nexa token list|create|revoke
 nexa artifact list|get|upload|download
 nexa job submit|list|get|session|events|checkpoints|attempts|result|result-download
 nexa job cancel|pause|resume|retry
+nexa template list|show|get
+nexa sweep submit|show
 nexa admin tenant list|create|get|update
 nexa admin user list|create|get|update
 nexa admin membership list|upsert|delete
@@ -85,9 +87,38 @@ read. API còn kiểm tra active user, tenant role/membership, ownership và
 B15 đăng ký control job `cancel`, `pause`, `resume`, `retry` (scope
 `jobs:write`), `job attempts` (scope `jobs:read`) và admin
 `worker`/`allocations`/`recovery-events` sau khi route và API integration
-evidence tồn tại. Template, logs, progress, admin job và admin fairness vẫn chưa
-được đăng ký vì FastAPI snapshot chưa có route/service tương ứng; retention
-sweep là tác vụ coordinator, không có lệnh CLI.
+evidence tồn tại. Logs, progress, admin job và admin fairness vẫn chưa được đăng
+ký vì FastAPI snapshot chưa có route/service tương ứng; retention sweep là tác vụ
+coordinator, không có lệnh CLI.
+
+B16 đăng ký `template list [--enabled true|false]` (`listTemplates`, mặc định
+chỉ template enabled) và `template show TEMPLATE_ID` (`getTemplate`; `get` là
+tên tương đương giữ lại từ B12), cả hai dùng `jobs:read` và tenant context. Không
+có REST admin cho template: version được đăng ký bằng lệnh bảo trì local
+
+```bash
+nexa-maintenance register-template --file deploy/templates/pytorch-cifar10-cnn.v1.json \
+  --image-digest sha256:<digest image đã build>
+```
+
+Lệnh idempotent: cùng nội dung trả `UNCHANGED`, nội dung khác cho cùng
+`(template_id, version)` bị từ chối (exit 1), file sai schema exit 2; lần đăng ký
+mới ghi `audit_records` trong cùng transaction và không sửa version đã có.
+
+B16 cũng đăng ký hai lệnh sweep, đều cần tenant context:
+
+- `sweep submit --file REQUEST.json [--idempotency-key KEY]` (`submitSweep`,
+  scope `jobs:write`):
+  - gửi `POST /v1/sweeps` và in `207` kèm `sweep_id`/`Location`;
+  - request có tối đa 100 child, lỗi request-level trả 422 và không ghi gì;
+  - lệnh tự sinh key khi thiếu nhưng không in key đó. Muốn tiếp tục sau khi mất
+    response thì phải truyền `--idempotency-key` từ đầu và chạy lại cùng key:
+    các child chưa có outcome được tiếp tục mà không tạo job trùng (B16-R27).
+- `sweep show SWEEP_ID [--cursor C] [--page-size N]` (`getSweep`, scope
+  `jobs:read`): đọc parent và một trang child theo `child_index`, gồm trạng thái
+  ACCEPTED/REJECTED, `job_id` hoặc lỗi snapshot.
+
+Xem [submit](submit.md#parameter-sweep-b16-đã-triển-khai-chờ-task-review).
 
 ## Token và response loss
 

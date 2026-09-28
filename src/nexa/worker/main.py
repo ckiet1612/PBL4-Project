@@ -196,6 +196,11 @@ def run(config: WorkerConfig, *, bootstrap: bool = False) -> int:
                     journal,
                     docker,
                     image_ref=os.environ["NEXA_CPU_IMAGE_REF"],
+                    image_refs=tuple(
+                        ref.strip()
+                        for ref in os.environ.get("NEXA_WORKLOAD_IMAGE_REFS", "").split(",")
+                        if ref.strip()
+                    ),
                     staging_root=config.state_root / "staging",
                     installation_id=config.installation_id,
                 ),

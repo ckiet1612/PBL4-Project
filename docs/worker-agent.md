@@ -1,4 +1,4 @@
-# B10/B11/B14/B15 worker agent: implementation boundary
+# B10/B11/B14/B15/B16 worker agent: implementation boundary
 
 This is the B10 worker implementation with scoped verification evidence; it is
 not an accepted production deployment. The REST API persists incarnation,
@@ -180,6 +180,54 @@ and can never be accepted. It is discarded the same way, only after the exact
 stopped container's cleanup is verified, so it cannot keep reconciliation
 incomplete (B15-R17).
 
+## PyTorch adapters and chunk uploads (B16; đã triển khai, chờ Task Review)
+
+**Images.** The worker takes the legacy `NEXA_CPU_IMAGE_REF` plus the optional
+`NEXA_WORKLOAD_IMAGE_REFS`, a comma-separated list where every entry is pinned
+`@sha256`. It probes each image separately. An image advertises an adapter and
+framework only when its labels match one registry descriptor exactly: runner
+protocol, adapter ID and version, framework and version, and checkpoint
+format. The executor launches the image whose digest equals
+`ExecutionContext.image_digest`.
+
+**Launch.** For `pytorch.cifar10` and `batch.inference`,
+`worker/adapter_dispatch.py` turns the claimed execution graph into launch spec
+v3. It checks the provenance against the context, that `threads` matches the
+allocation, and the fixed input mounts. The CPU iterative graph still goes
+through `dispatch.py`.
+
+**Restore.** A restore downloads the files listed in the frozen checkpoint
+into private staging. For inference it also downloads the chunk-output
+manifest. Each file is checked against the manifest and mounted read-only under
+`/input/restore/`. The worker refuses an inherited restore for a chunked
+adapter (B16-R20).
+
+**Training checkpoint cycle.** It uses the B14 flow, with the four files taken
+in adapter-rule order (B16-R16).
+
+**Inference checkpoint cycle and result handshake.** Both run in
+`worker/inference_flow.py`:
+
+1. Each `CHUNK_FILE_BATCH` is uploaded once. Every binding is journaled
+   (`runner_state.inference_chunks`, per frame in `inference_chunk_batches`)
+   before the `BIND` control is sent. The runner unlinks bound chunk files, so a
+   replayed frame reuses the journal and never re-reads the container.
+2. The worker binds the state (or summary) file only when every chunk before
+   the document's cursor is bound.
+3. It binds the chunk-output manifest only when that manifest lists the
+   restored prefix and then exactly this attempt's journaled chunks.
+
+Upload keys are derived from attempt, callback, message sequence and
+descriptor, so a crash that repeats an upload gets the same artifact back.
+Chunk bytes are never logged.
+
+**Chunk conflicts.** If a later attempt recomputes a chunk the server has
+already recognized, for example after a fallback to an older checkpoint, it
+gets `409 state_conflict`. The worker cannot tell this apart from a transient
+conflict. Observed on VPS1: the attempt stops within its runtime limit,
+classified `INTERNAL/RUNNER_PROTOCOL_ERROR`, and no row is re-recognized
+(B16-R21, open).
+
 ## Pause, cancel and runner stop reasons (B15)
 
 Every renewal ACK carries the Job `desired_state`, which the agent journals
@@ -232,6 +280,20 @@ stays pollable (B15-R13). The reaper, a cancel or a disable can fence an offer
 the worker never claimed. The reconciliation page then reports it `REVOKED` and
 `UNCLAIMED` (`attempts.claimed_at IS NULL`), and the worker tombstones it with a
 `NO_CONTAINER` proof (B15-R12).
+
+A runner `FAILED` frame is forwarded unchanged only for these classes:
+
+- `INCOMPATIBLE/CHECKPOINT_RESTORE_UNAVAILABLE`;
+- `INVALID_INPUT/INVALID_INPUT`;
+- `INTERNAL/INVALID_RESULT`;
+- `OOM/CONTAINER_OOM` (B16-R26).
+
+An OOM frame is forwarded only with `oom_killed: true`, and `oom_killed: true`
+is accepted only on an OOM frame. Any other frame becomes
+`INTERNAL/WORKLOAD_EXIT_NONZERO`. The failure observation is `CONTAINER` with
+`exit_code` null, because the runner container is still alive. Its
+`oom_killed` is true exactly for a forwarded OOM. The API accepts OOM only with
+that observation. OOM and INVALID_INPUT are not retried.
 
 A runner that stops itself names the reason, and the agent maps it:
 

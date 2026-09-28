@@ -7,13 +7,17 @@ from uuid import UUID
 
 from sqlalchemy import insert, select, update
 
+from nexa.application import chunk_recognition
 from nexa.application.checkpoint_validation import (
     CHECKPOINT_MANIFEST_MAX_BYTES,
     CheckpointManifestError,
+    check_chunk_manifest,
     check_file_artifacts,
     checkpoint_provenance,
+    chunk_reference_required,
     expected_compatibility,
     validate_checkpoint_manifest,
+    validate_inference_state_files,
 )
 from nexa.application.errors import ApplicationError
 from nexa.application.execution_cleanup import _event
@@ -23,6 +27,7 @@ from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.transactions import run_transaction
+from nexa.workloads import chunk_manifest, inference_state
 
 
 def _conflict(message):
@@ -201,8 +206,28 @@ class CheckpointMixin:
 
         return run_transaction(self.session_factory, operation)
 
-    def _prefetch_checkpoint_manifest(self, *, credential, authority, callback_id, artifact_id):
+    @staticmethod
+    def _checkpoint_inference_prefetch(manifest):
+        """Bounded state/chunk-manifest reads a batch-inference publish needs, by artifact ID."""
+        reference = manifest.get("chunk_output_manifest") if isinstance(manifest, dict) else None
+        if not isinstance(reference, dict) or not isinstance(manifest.get("files"), list):
+            return {}
+        wanted = {
+            str(entry.get("artifact_id")): ("CHECKPOINT_FILE", inference_state.MAX_DOCUMENT_BYTES)
+            for entry in manifest["files"][:64]
+            if isinstance(entry, dict)
+        }
+        wanted[str(reference.get("artifact_id"))] = (
+            "CHUNK_OUTPUT_MANIFEST",
+            chunk_manifest.MAX_MANIFEST_BYTES,
+        )
+        return wanted
+
+    def _prefetch_checkpoint_manifest(
+        self, *, credential, authority, callback_id, artifact_id, manifest=None
+    ):
         """Read bounded manifest bytes before the publish transaction."""
+        wanted = self._checkpoint_inference_prefetch(manifest)
 
         def operation(session):
             self._mode(session)
@@ -236,11 +261,14 @@ class CheckpointMixin:
             )
             if row is None or row["size_bytes"] > CHECKPOINT_MANIFEST_MAX_BYTES:
                 return None
-            return dict(row)
+            return dict(row), chunk_recognition.prefetch_rows(
+                session, tenant_id=tenant_id, wanted=wanted
+            )
 
-        row = run_transaction(self.session_factory, operation)
-        if row is None:
+        found = run_transaction(self.session_factory, operation)
+        if found is None:
             return None
+        row, extra_rows = found
         if self.artifact_store is None:
             raise _storage_unavailable()
         try:
@@ -257,12 +285,82 @@ class CheckpointMixin:
             "sha256:" + hashlib.sha256(raw).hexdigest() != row["checksum"]
         ):
             raise _storage_unavailable("Artifact storage failed integrity validation")
-        return row["artifact_id"], raw
+        extras = chunk_recognition.prefetch_blobs(self.artifact_store, extra_rows, wanted)
+        return row["artifact_id"], raw, extras
+
+    def _recognized_chunk_graph(
+        self, session, *, job, attempt, grant, spec, provenance, manifest, entries, extras
+    ):
+        """B16: verify the inference state and recognize its chunk-output manifest."""
+        try:
+            contents = {
+                entry["logical_name"]: chunk_recognition.prefetched_bytes(
+                    session, extras, tenant_id=job["tenant_id"], artifact_id=entry["artifact_id"]
+                )
+                for entry in entries
+            }
+            model = chunk_recognition.model_checksum(session, tenant_id=job["tenant_id"], spec=spec)
+            if model is None:
+                raise chunk_recognition.ChunkDefect("job has no committed model")
+        except chunk_recognition.ChunkDefect as exc:
+            raise CheckpointManifestError("CHECKPOINT_FILES_INVALID", str(exc)) from exc
+        state = validate_inference_state_files(
+            contents,
+            manifest=manifest,
+            parameters=spec["canonical_spec"].get("parameters") or {},
+            model_checksum=model,
+        )
+        reference = manifest["chunk_output_manifest"]
+        try:
+            chunk_recognition.pin_extents(
+                session,
+                job=job,
+                attempt_id=attempt["attempt_id"],
+                job_fence=job["job_fence"],
+                item_count=state["item_count"],
+                chunk_size=state["chunk_size"],
+            )
+        except chunk_recognition.ChunkDefect as exc:
+            raise CheckpointManifestError("CHECKPOINT_STATE_INVALID", str(exc)) from exc
+        try:
+            row = chunk_recognition.lock_manifest(session, job=job, reference=reference)
+            try:
+                self._upload_from_attempt(
+                    session, artifact=row, job=job, attempt=attempt, grant=grant
+                )
+            except ApplicationError as exc:
+                raise chunk_recognition.ChunkDefect("chunk-output manifest lineage") from exc
+            raw = chunk_recognition.prefetched_bytes(
+                session, extras, tenant_id=job["tenant_id"], artifact_id=reference["artifact_id"]
+            )
+            chunks = check_chunk_manifest(
+                raw,
+                artifact=row,
+                reference=reference,
+                provenance=provenance,
+                model_checksum=model,
+                state=state,
+                chunk_total=manifest["cursor"]["step"],
+            )
+            edges = chunk_recognition.recognize(
+                session,
+                job=job,
+                attempt_id=attempt["attempt_id"],
+                job_fence=job["job_fence"],
+                session_id=UUID(str(provenance["session_id"])),
+                entries=chunks,
+                lineage=lambda artifact: self._upload_from_attempt(
+                    session, artifact=artifact, job=job, attempt=attempt, grant=grant
+                ),
+            )
+        except (chunk_recognition.ChunkDefect, chunk_manifest.ChunkManifestError) as exc:
+            raise CheckpointManifestError("CHECKPOINT_FILES_INVALID", str(exc)) from exc
+        return [chunk_recognition.manifest_edge(row), *edges]
 
     def _verified_checkpoint_graph(
         self, session, *, job, attempt, grant, reservation, request, prefetched
     ):
-        """Return (manifest artifact, file artifacts, parsed manifest) or raise a defect."""
+        """Return (manifest artifact, file artifacts, parsed manifest, chunk edges) or raise."""
         artifact = (
             session.execute(
                 select(s.artifacts)
@@ -337,7 +435,20 @@ class CheckpointMixin:
                 raise CheckpointManifestError(
                     "CHECKPOINT_FILES_INVALID", "Checkpoint file has no upload lineage"
                 ) from exc
-        return artifact, list(zip(entries, files, strict=True)), request.manifest
+        chunk_edges = []
+        if chunk_reference_required(provenance):
+            chunk_edges = self._recognized_chunk_graph(
+                session,
+                job=job,
+                attempt=attempt,
+                grant=grant,
+                spec=spec,
+                provenance=provenance,
+                manifest=request.manifest,
+                entries=entries,
+                extras=prefetched[2],
+            )
+        return artifact, list(zip(entries, files, strict=True)), request.manifest, chunk_edges
 
     def publish_checkpoint(self, *, credential, attempt_id, callback_id, payload_hash, request):
         authority = request.authority
@@ -346,6 +457,7 @@ class CheckpointMixin:
             authority=authority,
             callback_id=callback_id,
             artifact_id=request.manifest_artifact_id,
+            manifest=request.manifest,
         )
 
         def operation(session):
@@ -383,15 +495,17 @@ class CheckpointMixin:
             if reservation is None or reservation["authority_grant_id"] != grant["grant_id"]:
                 _conflict("Checkpoint reservation is not held by this Authority")
             try:
-                artifact, files, manifest = self._verified_checkpoint_graph(
-                    session,
-                    job=job,
-                    attempt=attempt,
-                    grant=grant,
-                    reservation=reservation,
-                    request=request,
-                    prefetched=prefetched,
-                )
+                # A rejected graph must leave no recognized chunk or pinned extent behind.
+                with session.begin_nested():
+                    artifact, files, manifest, chunk_edges = self._verified_checkpoint_graph(
+                        session,
+                        job=job,
+                        attempt=attempt,
+                        grant=grant,
+                        reservation=reservation,
+                        request=request,
+                        prefetched=prefetched,
+                    )
             except CheckpointManifestError as exc:
                 # A deterministic defect ends this identity; its sequence is never reused.
                 session.execute(
@@ -455,6 +569,7 @@ class CheckpointMixin:
                 (row["artifact_id"], "CHECKPOINT_FILE", entry["logical_name"])
                 for entry, row in files
             ]
+            references += chunk_edges
             for artifact_id, purpose, name in references:
                 session.execute(
                     insert(s.artifact_references).values(

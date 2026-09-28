@@ -103,3 +103,38 @@ or deletes the blob. No B14 path deletes, prunes or overwrites a committed
 checkpoint artifact, so every committed checkpoint, and therefore at least the two
 newest, stays referenced. Operational GC that must honour these references is
 B19. Checkpoint content is never written to logs, events or error bodies.
+
+## AI workload artifacts (B16; đã triển khai, chờ Task Review)
+
+The worker attempt upload allowlist is now per adapter
+(`nexa.domain.workload_adapters.AdapterDescriptor.upload_media_types`). Before
+the transaction a kind/media pair must appear in the union of all descriptors;
+inside the transaction the job's `template_versions.(adapter_id, adapter_version)`
+narrows it to that adapter, otherwise `422 validation_failed`:
+
+| Adapter | `RESULT_FILE` | `RESULT_MANIFEST` | `CHECKPOINT_FILE` | `CHECKPOINT_MANIFEST` | `CHUNK_OUTPUT_MANIFEST` |
+|---|---|---|---|---|---|
+| `cpu.iterative` 1.0.0 | `application/vnd.nexa.cpu-iterative-result+json`, `application/json` | `application/json` | `application/json` | `application/json` | — |
+| `pytorch.cifar10` 1.0.0 | `application/octet-stream` (`model.safetensors`), `application/json` (`metrics.json`) | `application/json` | `application/octet-stream` (`model/optimizer/rng.safetensors`), `application/json` (`training-state.json`) | `application/json` | — |
+| `batch.inference` 1.0.0 | `application/json` (`summary.json`), `application/x-ndjson` (`chunk-%08d.jsonl`), `application/vnd.apache.parquet` (`chunk-%08d.parquet`) | `application/json` | `application/json` (`inference-state.json`) | `application/json` | `application/json` |
+
+Checkpoint kinds are accepted only while the attempt is `CHECKPOINTING`, other
+kinds only while it is `RUNNING`. For the chunked `batch.inference` adapter,
+chunk files and the chunk-output manifest are also accepted while
+`CHECKPOINTING`, because the checkpoint cycle binds them (B16-R19). Tenant
+uploads for inputs use the existing endpoint: `DATASET` as
+`application/vnd.apache.arrow.file` for both AI templates, and `MODEL` as
+`application/octet-stream` for `batch-inference`. Submit rejects any other
+pair. Bounds: every checkpoint tensor file is at most 1 MiB, and each chunk
+file and chunk-output manifest is at most 1 MiB − 16 KiB, with at most 2048
+chunks per job (B16-R17). Every upload goes through the same bounded staging and
+durable commit as above.
+
+`RecognizedChunk` rows reference `CHUNK_OUTPUT` artifacts that are `COMMITTED`
+with the exact checksum. A later attempt may only carry a chunk forward if its
+row matches exactly (same artifact, checksum, source attempt and fence).
+Restore selection re-reads every chunk blob the candidate checkpoint
+references; a missing or corrupt chunk marks the checkpoint `CORRUPT` and falls
+back (B16-R07). No B16 path deletes or overwrites a committed artifact. GC is
+still B19. Chunk, tensor, dataset and model bytes are never written to logs,
+events or error bodies. See [B16 evidence](evidence/B16-pytorch-sweep-inference.md).

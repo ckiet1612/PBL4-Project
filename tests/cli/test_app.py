@@ -6,8 +6,7 @@ from nexa.cli.app import app
 
 def test_product_app_exposes_root_groups():
     names = {group.name for group in app.registered_groups}
-    assert {"config", "token", "artifact", "job", "admin"}.issubset(names)
-    assert "template" not in names
+    assert {"config", "token", "artifact", "job", "template", "admin"}.issubset(names)
 
 
 def test_both_cli_entry_points_are_packaged():

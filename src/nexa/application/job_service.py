@@ -17,6 +17,7 @@ from nexa.application.identity_service import IdentityService
 from nexa.application.job_control import JobControlMixin
 from nexa.application.json_codec import jcs_request_hash, json_wire_value
 from nexa.config import Settings
+from nexa.domain import workload_adapters
 from nexa.domain.identity import (
     AuthorizationError,
     Principal,
@@ -51,27 +52,6 @@ from nexa.infrastructure.persistence.schema import (
 )
 from nexa.infrastructure.persistence.transactions import run_transaction
 from nexa.infrastructure.security import CursorCodec, CursorError, read_secret_file
-
-_TEMPLATE_ARTIFACT_REQUIREMENTS = {
-    ("cpu-iterative", 1): (
-        "INPUT",
-        "application/vnd.nexa.cpu-iterative-input+json",
-        None,
-        None,
-    ),
-    ("pytorch-cifar10-cnn", 1): (
-        "DATASET",
-        "application/vnd.apache.arrow.file",
-        None,
-        None,
-    ),
-    ("batch-inference", 1): (
-        "DATASET",
-        "application/vnd.apache.arrow.file",
-        "MODEL",
-        "application/octet-stream",
-    ),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -419,9 +399,7 @@ class JobService(JobControlMixin):
                 )
 
     @staticmethod
-    def _validate_template_and_artifacts(
-        session: Session, tenant_id: UUID, spec: Any
-    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+    def enabled_template(session: Session, template_id: str, version: int) -> dict[str, Any]:
         template = (
             session.execute(
                 select(templates, template_versions)
@@ -429,11 +407,11 @@ class JobService(JobControlMixin):
                     template_versions,
                     and_(
                         template_versions.c.template_id == templates.c.template_id,
-                        template_versions.c.version == spec.template_version,
+                        template_versions.c.version == version,
                     ),
                 )
                 .where(
-                    templates.c.template_id == spec.template_id,
+                    templates.c.template_id == template_id,
                     templates.c.enabled.is_(True),
                 )
             )
@@ -446,6 +424,13 @@ class JobService(JobControlMixin):
                 status=422,
                 message="The requested template is unavailable",
             )
+        return dict(template)
+
+    @staticmethod
+    def _validate_template_and_artifacts(
+        session: Session, tenant_id: UUID, spec: Any
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+        template = JobService.enabled_template(session, spec.template_id, spec.template_version)
         JobService._validate_parameter_schema(
             dict(template), spec.parameters.model_dump(mode="json")
         )
@@ -473,16 +458,15 @@ class JobService(JobControlMixin):
                 message="The referenced artifact was not found",
             )
         input_artifact = artifacts_by_id[spec.input_artifact_id]
-        requirements = _TEMPLATE_ARTIFACT_REQUIREMENTS.get(
-            (spec.template_id, spec.template_version)
-        )
-        if requirements is None:
+        adapter = workload_adapters.template_descriptor(template)
+        if adapter is None:
             raise ApplicationError(
                 code="infeasible_request",
                 status=422,
                 message="The template artifact compatibility rules are unavailable",
             )
-        input_kind, input_media_type, model_kind, model_media_type = requirements
+        input_kind, input_media_type = adapter.input_kind, adapter.input_media_type
+        model_kind, model_media_type = adapter.model_kind, adapter.model_media_type
         model_artifact = artifacts_by_id.get(getattr(spec, "model_artifact_id", None))
         if (
             input_artifact["kind"] != input_kind
@@ -495,7 +479,6 @@ class JobService(JobControlMixin):
                     or model_artifact["media_type"] != model_media_type
                 )
             )
-            or (spec.template_id == "cpu-iterative" and spec.resources.gpu_count != 0)
         ):
             raise ApplicationError(
                 code="infeasible_request",
@@ -550,6 +533,20 @@ class JobService(JobControlMixin):
         width = max(len(actual_parts), len(minimum_parts))
         return actual_parts + (0,) * (width - len(actual_parts)) >= minimum_parts + (0,) * (
             width - len(minimum_parts)
+        )
+
+    @classmethod
+    def template_runs_on(cls, template: dict[str, Any], inventory: dict[str, Any]) -> bool:
+        """A registered adapter's template matches one worker inventory capability."""
+        adapter = workload_adapters.runtime_descriptor(template)
+        if adapter is None:
+            return False
+        try:
+            requirements = cls._inventory_requirements(template)
+        except ApplicationError:
+            return False
+        return requirements.get("framework") == adapter.framework and cls._inventory_supports(
+            inventory, requirements
         )
 
     @classmethod

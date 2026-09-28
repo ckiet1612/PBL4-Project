@@ -30,7 +30,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
-from nexa.application.errors import ApplicationError
 from nexa.application.job_service import JobService
 from nexa.coordinator.accounting import epoch_ms
 from nexa.coordinator.eligibility import pending_eligibility_tenants, process_eligibility_batch
@@ -638,15 +637,8 @@ def read_snapshot(session, now, policy, worker, inventory, cursors, *, replay_el
         .join(s.templates, s.templates.c.template_id == s.template_versions.c.template_id)
         .where(s.templates.c.enabled.is_(True))
     ).mappings():
-        try:
-            requirements = JobService._inventory_requirements(dict(template))
-            # B11 intentionally implements the CPU adapter only.
-            if template["adapter_id"] == "cpu.iterative" and JobService._inventory_supports(
-                dict(inventory), requirements
-            ):
-                compatible.append((template["template_id"], template["version"]))
-        except ApplicationError:
-            continue
+        if JobService.template_runs_on(dict(template), dict(inventory)):
+            compatible.append((template["template_id"], template["version"]))
     capacity = ResourceCapacity(
         inventory["allocatable_cpu_millis"],
         inventory["allocatable_memory_bytes"],

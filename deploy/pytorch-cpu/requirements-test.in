@@ -1,0 +1,4 @@
+# Test-only layer for B16 torch tests on VPS1 (never part of the product image or uv.lock).
+# Versions follow uv.lock so container and host test runs use the same tooling.
+pytest==9.1.1
+hypothesis==6.168.0

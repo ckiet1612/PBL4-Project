@@ -16,6 +16,8 @@ from nexa.api.routes_artifacts import router as artifacts_router
 from nexa.api.routes_auth import router as auth_router
 from nexa.api.routes_bootstrap import router as bootstrap_router
 from nexa.api.routes_jobs import router as jobs_router
+from nexa.api.routes_sweeps import router as sweeps_router
+from nexa.api.routes_templates import router as templates_router
 from nexa.api.routes_worker import router as worker_router
 from nexa.application.admin_workers import AdminWorkerService
 from nexa.application.artifact_service import ArtifactService
@@ -24,6 +26,8 @@ from nexa.application.execution_service import ExecutionService
 from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
 from nexa.application.policy_service import PolicyService
+from nexa.application.sweep_service import SweepService
+from nexa.application.template_registry import TemplateCatalog
 from nexa.config import Settings
 from nexa.infrastructure.artifacts.store import FilesystemArtifactStore
 from nexa.infrastructure.persistence.database import (
@@ -73,13 +77,16 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                 settings.artifact_root,
                 max_file_bytes=settings.artifact_max_file_bytes,
             )
+            job_service = JobService(session_factory, settings, identity, artifact_store)
             app.state.services = ApiServices(
                 settings=settings,
                 identity=identity,
                 admin=AdminWorkerService(session_factory, settings, identity),
                 policy=PolicyService(session_factory, settings, identity),
                 artifact=ArtifactService(session_factory, settings, identity, artifact_store),
-                jobs=JobService(session_factory, settings, identity, artifact_store),
+                jobs=job_service,
+                templates=TemplateCatalog(session_factory, identity),
+                sweeps=SweepService(job_service),
                 worker=ExecutionService(
                     session_factory,
                     settings,
@@ -230,5 +237,7 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
     app.include_router(bootstrap_router)
     app.include_router(artifacts_router)
     app.include_router(jobs_router)
+    app.include_router(templates_router)
+    app.include_router(sweeps_router)
     app.include_router(worker_router)
     return app

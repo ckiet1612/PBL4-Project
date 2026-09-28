@@ -1,0 +1,16 @@
+{
+  "base_spec": {
+    "template_id": "pytorch-cifar10-cnn",
+    "template_version": 1,
+    "input_artifact_id": "01923456-789a-7bcd-8ef0-000000000001",
+    "resources": {"cpu_millis": 1000, "memory_bytes": 1073741824, "gpu_count": 0},
+    "priority": 1,
+    "runtime_limit_seconds": 300,
+    "checkpoint_interval_seconds": 5,
+    "parameters": {"epochs": 2, "batch_size": 32, "learning_rate": 0.01, "seed": 7, "subset_size": 500}
+  },
+  "dimensions": [
+    {"name": "learning_rate", "values": [0.1, 0.01, 1e-2, 0.001]},
+    {"name": "seed", "values": [1, 2]}
+  ]
+}

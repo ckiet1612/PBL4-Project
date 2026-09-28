@@ -1,4 +1,4 @@
-# B11/B15 coordinator and CPU execution
+# B11/B15/B16 coordinator and execution
 
 The coordinator is a separate process. Run it with `NEXA_DATABASE_URL` after the
 current Alembic schema is ready:
@@ -129,6 +129,27 @@ Restore events (`CHECKPOINT_CORRUPT`, `CHECKPOINT_INCOMPATIBLE`,
 `CHECKPOINT_RESTORE_UNAVAILABLE`) advance the Job event sequence with an audit row
 but, like claim acknowledgment itself, never change the Job version.
 See [B14 evidence](evidence/B14-cpu-checkpoint-restore.md).
+
+## Capability eligibility (B16; đã triển khai, chờ Task Review)
+
+Eligibility and the policy snapshot no longer compare `adapter_id` with
+`cpu.iterative`. Both call `JobService.template_runs_on(template, inventory)`:
+
+1. `workload_adapters.runtime_descriptor` resolves the template's adapter. A
+   template family owned by one adapter never runs on another, and any other
+   template ID keeps the B11 binding by adapter ID and version (B16-R11).
+2. The template's capability requirement must name the adapter's framework
+   (`NEXA_CPU` or `PYTORCH`).
+3. The requirement must match the worker inventory: architecture, adapter ID and
+   version, image digest, device, and framework and version.
+
+A template with no registered adapter, or with a requirement that does not
+match, is never offered to a worker. The job waits for a matching worker and
+the scheduler does not skip it silently. GPU requests are still excluded
+(ACC-06, no GPU provider).
+
+The coordinator imports no ML framework. Sweep parents never receive an
+allocation or a slot, because only accepted child Jobs enter the queue.
 
 ## B15 reaper, retry promotion and retention sweep
 
