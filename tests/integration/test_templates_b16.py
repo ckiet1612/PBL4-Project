@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 from hashlib import sha256
 from pathlib import Path
 
@@ -297,7 +298,9 @@ def test_maintenance_command_registers_and_reports_conflicts(
         "NEXA_LOCAL_WORKER_FINGERPRINT": "sha256:" + "a" * 64,
         "NEXA_MAINTENANCE_CIDRS": "127.0.0.0/8",
     }
-    monkeypatch.delenv("NEXA_TEST_DATABASE_URL", raising=False)
+    # load_settings rejects unknown NEXA_* variables, so drop every test-only NEXA_TEST_* one.
+    for key in [key for key in os.environ if key.startswith("NEXA_TEST_")]:
+        monkeypatch.delenv(key)
     for key, value in environment.items():
         monkeypatch.setenv(key, value)
     source = str(TEMPLATES / "batch-inference.v1.json")

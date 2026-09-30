@@ -1,0 +1,26 @@
+# Round 2 (CI-R03). R1 before fix / R2 after fix: 3 maintenance tests, --run-postgres, GITHUB_ACTIONS=true, prefix 'docker exec -i nexa_b13_pg'
+R1: 3 failed, 2 warnings in 4.20s
+AssertionError: error: maintenance configuration is invalid or unavailable
+R2: 3 passed, 2 warnings in 6.48s
+
+# R3: GITHUB_ACTIONS=true NEXA_TEST_PG_CLIENT_PREFIX='docker exec -i nexa_b13_pg' pytest -q --run-postgres -rs --durations=25
+SKIPPED of test_rem_b13_r12_search_path.py: 0
+skip reasons (count):
+  11  opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+  4  opt-in B15 Docker control/recovery evidence
+  3  opt-in B16 Docker evidence (NEXA_RUN_DOCKER=1)
+  2  opt-in B11 Linux Docker vertical slice
+  1  opt-in B14-K5 Docker evidence
+  1  opt-in B14 Docker checkpoint evidence
+  1  opt-in B11 Linux Docker relay regression
+  1  opt-in B10 worker restart evidence
+  1  could not import 'torch': No module named 'torch'
+============================= slowest 25 durations =============================
+20.83s call     tests/integration/test_sweep_b16.py::test_one_hundred_child_sweep_latency
+12.44s call     tests/integration/test_cli_b12_vertical.py::test_product_cli_http_postgres_vertical_and_authorization
+11.82s call     tests/integration/test_rem_b13_r12_search_path.py::test_0021_decimal_helpers_match_b05_bodies
+7.20s call     tests/benchmarks/test_b13_runtime_fairness.py::test_realtime_cohort_keeps_queued_demand_and_records_three_windows
+5.17s call     tests/workloads/test_workload_supervisor.py::test_supervisor_kills_descendant_when_direct_parent_exits_first
+5.16s call     tests/integration/test_cli_b12_vertical.py::test_cli_token_response_loss_does_not_mint_a_second_secret
+2346 passed, 25 skipped, 2 warnings in 797.22s (0:13:17)
+exit=0 wall=800s password_occurrences=0
