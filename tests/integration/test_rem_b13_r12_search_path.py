@@ -445,12 +445,21 @@ def _dump_and_restore(source_url: str, target_url: str) -> subprocess.CompletedP
     if dump is None or restore is None:
         pytest.skip("pg_dump/pg_restore unavailable; set NEXA_TEST_PG_CLIENT_PREFIX")
     source_args, source_env = _tool_arguments(source_url)
-    archive = subprocess.run(
+    dumped = subprocess.run(
         [*dump, "--format=custom", "--no-owner", *source_args],
         env=source_env,
         capture_output=True,
-        check=True,
-    ).stdout
+        check=False,
+    )
+    if dumped.returncode != 0:
+        # Only the tool's own stderr is reported: never the URL, arguments or environment.
+        # pytrace=False keeps pytest from printing frame locals, which hold the password URL.
+        pytest.fail(
+            f"pg_dump exited with {dumped.returncode}: "
+            f"{dumped.stderr.decode(errors='replace')[-2000:]}",
+            pytrace=False,
+        )
+    archive = dumped.stdout
     target_args, target_env = _tool_arguments(target_url)
     return subprocess.run(
         [*restore, "--exit-on-error", "--no-owner", *target_args],

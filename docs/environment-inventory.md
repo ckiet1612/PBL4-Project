@@ -96,11 +96,11 @@ Missing Linux/GPU does not block B01 contract or CPU-core implementation. It blo
 | Git remote/revision | `origin` points to `https://github.com/ckiet1612/PBL4-Project.git`; local `main` HEAD was `9d361b8b9b919efe0427beac1027e66439a449e5` before B02 edits | observed |
 | GitHub authentication/branch protection | No credential/rule inspection performed | unverified |
 | GitHub Actions workflow | Read-only B02 workflow exists; Ruby/Psych command audit and actionlint 1.7.12 pass | observed |
-| GitHub-hosted execution access | Credentials, branch protection and an actual hosted run were not tested | unverified |
+| GitHub-hosted execution access | Hosted runs execute on push: B11 run `35964010775` was the last green `Python quality`; B12 through the B01–B16 remediation (latest `36696888507`, cancelled at the 15-minute job timeout) are red from the job timeout, Typer ANSI styling under `GITHUB_ACTIONS` and runner pg_dump 16 against the PostgreSQL 17 service. CI-python-fix addresses these; the post-fix hosted run is pending | observed (post-fix run pending) |
 | GHCR push/pull/signing/provenance access | Not tested; no credential read | unverified |
 | Release permission | Not granted to B01; release belongs to B25 | user-provided scope |
 
-B02 queried only public dependency/tool release registries and did not inspect GitHub credentials. Workflow behavior is locally validated; a GitHub-hosted run remains unverified and B25 separately needs explicit publish authority.
+B02 queried only public dependency/tool release registries and did not inspect GitHub credentials. GitHub-hosted runs have executed (see the row above; evidence in `docs/evidence/CI-python-fix.md`); whether the fixed workflow is green awaits a new hosted run. GitHub credentials and branch protection remain unverified, and B25 separately needs explicit publish authority.
 
 ## Personnel and ownership
 

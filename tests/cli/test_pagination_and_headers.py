@@ -1,3 +1,4 @@
+import click
 import httpx
 import pytest
 from typer.testing import CliRunner
@@ -33,7 +34,8 @@ def test_admin_required_filters_fail_before_transport(monkeypatch, args, missing
     )
     result = CliRunner().invoke(app, args)
     assert result.exit_code == 2, result.stdout + result.stderr
-    assert missing in result.stderr
+    # Typer forces rich terminal styling when GITHUB_ACTIONS is set; compare the plain text.
+    assert missing in click.unstyle(result.stderr)
 
 
 def test_admin_audit_filters_are_forwarded_unchanged(monkeypatch):

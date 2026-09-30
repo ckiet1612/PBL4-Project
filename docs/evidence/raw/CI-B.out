@@ -1,0 +1,13 @@
+# B1 (before fix): GITHUB_ACTIONS=true pytest -q tests/cli/test_pagination_and_headers.py
+E       assert '--from' in "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot admin audit list [OPTIONS]\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root admin audit ...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n"
+E        +  where "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot admin audit list [OPTIONS]\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root admin audit ...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n" = <Result SystemExit(2)>.stderr
+E       assert '--to' in "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot admin audit list [OPTIONS]\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root admin audit ...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n"
+E        +  where "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot admin audit list [OPTIONS]\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root admin audit ...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n" = <Result SystemExit(2)>.stderr
+FAILED tests/cli/test_pagination_and_headers.py::test_admin_required_filters_fail_before_transport[args0---from]
+FAILED tests/cli/test_pagination_and_headers.py::test_admin_required_filters_fail_before_transport[args1---to]
+2 failed, 7 passed in 0.53s
+
+# B2 (after fix) GITHUB_ACTIONS=true
+9 passed in 0.45s
+# B2 (after fix) GITHUB_ACTIONS unset
+9 passed in 0.36s

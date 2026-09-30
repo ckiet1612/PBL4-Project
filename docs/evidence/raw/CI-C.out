@@ -1,0 +1,16 @@
+# C1: prefix 'docker run --rm -i --network container:nexa_b13_pg -e PGHOST=127.0.0.1 -e PGPASSWORD postgres:16', -k three pg_dump cases
+_____________________ test_before_0021_plain_restore_fails _____________________
+pg_dump exited with 1: pg_dump: error: aborting because of server version mismatch
+pg_dump: detail: server version: 17.11 (Debian 17.11-1.pgdg13+2); pg_dump version: 16.15 (Debian 16.15-1.pgdg13+2)
+____________ test_plain_dump_restore_preserves_every_object_and_row ____________
+pg_dump exited with 1: pg_dump: error: aborting because of server version mismatch
+pg_dump: detail: server version: 17.11 (Debian 17.11-1.pgdg13+2); pg_dump version: 16.15 (Debian 16.15-1.pgdg13+2)
+____________ test_restored_constraints_still_reject_invalid_values _____________
+pg_dump exited with 1: pg_dump: error: aborting because of server version mismatch
+pg_dump: detail: server version: 17.11 (Debian 17.11-1.pgdg13+2); pg_dump version: 16.15 (Debian 16.15-1.pgdg13+2)
+3 failed, 6 deselected in 6.32s
+password occurrences in full output: 0
+
+# C2: prefix 'docker exec -i nexa_b13_pg', GITHUB_ACTIONS=true, whole file
+9 passed in 20.09s
+password occurrences in full output: 0

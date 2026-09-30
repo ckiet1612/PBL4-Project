@@ -42,15 +42,18 @@ Hãy hình dung dự án như xây một ngôi nhà:
   - Task Review vòng 1 không duyệt vì bốn điểm chặn; vòng 2 đã sửa hết.
 
   Chi tiết ở [evidence remediation](docs/evidence/B01-B16-findings-remediation.md) và mục Bàn giao B1–B16 Findings Remediation bên dưới.
+- **Kiểm thử tự động trên GitHub (CI) đã được sửa ngày 30/09/2026 (task CI-python-fix), chờ xác nhận bằng lần chạy đầu tiên sau khi push.** Từ B12, phần kiểm thử Python trên GitHub luôn đỏ vì ba lỗi của môi trường CI và của cách viết test, không phải lỗi sản phẩm: chạy quá 15 phút, chữ bị chèn mã màu, và công cụ sao lưu cơ sở dữ liệu cũ hơn máy chủ. Cả ba đã được sửa và kiểm trên máy local; Task Ask đã kiểm tra lại thay cho một vòng Task Review đầy đủ. Chi tiết ở [evidence CI-python-fix](docs/evidence/CI-python-fix.md) và mục Bàn giao CI-python-fix bên dưới.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B16 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B16 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
 
 Các chặng tiếp theo là **B17 — Web UI cho user**, **B18 — Web UI cho admin** và **B19 — Metrics, audit, storage limits**. Cả ba đã đủ điều kiện (B17 cần B12 và B16, B18 và B19 cần B15), và có thể làm song song. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
 
-Owner còn hai việc sau đợt remediation:
+Owner còn các việc sau:
 
 - chọn phương án cho OD-1, OD-2 và OD-3;
-- giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường.
+- giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường;
+- push bản sửa CI và kiểm lần chạy GitHub đầu tiên sau đó;
+- quyết định có xử lý CI-R01 hay không.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -426,3 +429,29 @@ image nền và build cache dùng chung. Phê duyệt này không đóng các m�
 owner và không nâng gate nghiệm thu nào. Nó cũng không thay Web UI (B17/B18), số liệu và dọn
 dữ liệu (B19), race/bảo mật (B20), chuyển máy và sao lưu (B21), tải lớn (B22), GPU (B23) hay
 release. B17, B18 và B19 vẫn là các chặng tiếp theo.
+
+## Bàn giao CI-python-fix
+
+Task CI-python-fix sửa phần kiểm thử Python trên GitHub Actions, vốn đỏ từ B12 (lần xanh cuối là
+B11). Task chỉ đổi file CI và test, không đổi mã sản phẩm, migration hay lockfile. Task Code
+hoàn tất ngày 30/09/2026; Task Ask kiểm tra lại thay cho một vòng Task Review đầy đủ.
+[Evidence CI-python-fix](docs/evidence/CI-python-fix.md) ghi nguyên nhân, cách sửa và kết quả.
+
+- **Ba nguyên nhân và cách sửa:**
+  - job chạy quá giới hạn 15 phút → tăng lên 30 phút cho job Python;
+  - Typer tự thêm mã màu khi chạy trên GitHub nên 2 test CLI không tìm thấy tên tham số → test
+    bỏ mã màu trước khi so sánh;
+  - máy CI có công cụ sao lưu PostgreSQL bản 16, còn máy chủ là bản 17 → công cụ sao lưu chạy
+    ngay trong container PostgreSQL 17 của CI.
+- **Kiểm trên Mac:**
+  - hai test CLI đỏ trước khi sửa, xanh sau khi sửa;
+  - suite mặc định khi giả lập môi trường GitHub được 1772 passed;
+  - công cụ sao lưu bản 16 thật báo lệch phiên bản, xác nhận đúng nguyên nhân;
+  - test sao lưu/khôi phục chạy qua container được 9 passed, không skip.
+- **Còn mở:**
+  - lần chạy GitHub đầu tiên sau khi push, cần xanh, dưới 30 phút và không skip test sao
+    lưu/khôi phục;
+  - CI-R01: khi test PostgreSQL fail, pytest in URL có mật khẩu của DB test (có từ trước, chờ
+    owner quyết định).
+
+Task này không thay các chặng B17–B25 và không nâng gate nghiệm thu nào.

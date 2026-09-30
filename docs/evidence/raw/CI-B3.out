@@ -1,0 +1,8 @@
+# B3: GITHUB_ACTIONS=true pytest -q -rs (default suite, no PostgreSQL)
+SKIPPED lines: 136 (all reasons below)
+   1 could not import 'torch': No module named 'torch'
+   1 opt-in B11 Linux Docker relay regression
+  11 opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+ 123 requires --run-postgres and NEXA_TEST_DATABASE_URL
+1772 passed, 599 skipped, 2 warnings in 47.39s
+exit=0
