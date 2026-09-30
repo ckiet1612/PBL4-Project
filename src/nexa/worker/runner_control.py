@@ -81,9 +81,10 @@ class RunnerControl:
             },
         }
         channel.settimeout(timeout_seconds)
-        channel.sendall(encode_frame(frame))
         decoder = FrameDecoder()
         try:
+            # A relay whose container is gone fails the send as well as the read.
+            channel.sendall(encode_frame(frame))
             ack = self._receive_ack(
                 channel, decoder, sequence, timeout_seconds, keep_terminal=keep_terminal
             )

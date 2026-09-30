@@ -1,0 +1,254 @@
+{
+ "source": "B15 Docker P (Docker Desktop VM) worker logs, 2026-09-27, worker image before remediation; saved with NEXA_B15_WORKER_LOG_OUT outside the repo",
+ "layer": "P",
+ "fields": "per occurrence: run, UTC time (ms), logged operation/detail, requests the worker logged in the 2 s before (seconds before, method, route kind, status); attempt/worker IDs and ports removed",
+ "runs": [
+  {
+   "run": "b15-run7",
+   "log_lines": 618,
+   "worker_loop_failed": 33,
+   "occurrences": [
+    {
+     "utc": "2026-09-26T21:17:08.747Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.06,
+       "POST",
+       "workers/poll",
+       200
+      ],
+      [
+       0.57,
+       "POST",
+       "attempts/artifacts",
+       201
+      ],
+      [
+       1.08,
+       "POST",
+       "workers/poll",
+       200
+      ]
+     ]
+    },
+    {
+     "utc": "2026-09-26T21:19:37.598Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.24,
+       "POST",
+       "workers/poll",
+       200
+      ],
+      [
+       1.26,
+       "POST",
+       "workers/poll",
+       200
+      ],
+      [
+       1.33,
+       "POST",
+       "attempts/renew",
+       200
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "run": "b15-run12",
+   "log_lines": 653,
+   "worker_loop_failed": 15,
+   "occurrences": [
+    {
+     "utc": "2026-09-26T22:53:28.979Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.57,
+       "POST",
+       "attempts/artifacts",
+       201
+      ],
+      [
+       0.61,
+       "POST",
+       "workers/heartbeat",
+       200
+      ],
+      [
+       0.97,
+       "POST",
+       "workers/poll",
+       200
+      ],
+      [
+       1.25,
+       "GET",
+       "workers/reconciliation",
+       200
+      ],
+      [
+       1.26,
+       "POST",
+       "attempts/renew",
+       200
+      ],
+      [
+       1.87,
+       "POST",
+       "attempts/checkpoint-reservations",
+       201
+      ],
+      [
+       1.98,
+       "POST",
+       "workers/poll",
+       200
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "run": "b15-run16",
+   "log_lines": 1384,
+   "worker_loop_failed": 75,
+   "occurrences": [
+    {
+     "utc": "2026-09-27T01:07:47.039Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.83,
+       "POST",
+       "attempts/start",
+       200
+      ],
+      [
+       1.42,
+       "GET",
+       "attempts/execution-artifacts",
+       200
+      ],
+      [
+       1.46,
+       "GET",
+       "attempts/execution-artifacts",
+       200
+      ],
+      [
+       1.49,
+       "POST",
+       "attempts/claim",
+       200
+      ],
+      [
+       1.6,
+       "POST",
+       "workers/poll",
+       200
+      ]
+     ]
+    },
+    {
+     "utc": "2026-09-27T01:14:20.200Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.73,
+       "POST",
+       "workers/heartbeat",
+       200
+      ],
+      [
+       1.0,
+       "POST",
+       "workers/poll",
+       200
+      ],
+      [
+       1.99,
+       "GET",
+       "workers/reconciliation",
+       200
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "run": "b15-run17",
+   "log_lines": 1436,
+   "worker_loop_failed": 79,
+   "occurrences": [
+    {
+     "utc": "2026-09-27T02:25:50.391Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.67,
+       "POST",
+       "attempts/adopt",
+       200
+      ],
+      [
+       0.72,
+       "POST",
+       "workers/heartbeat",
+       200
+      ],
+      [
+       0.75,
+       "GET",
+       "workers/reconciliation",
+       200
+      ],
+      [
+       0.92,
+       "POST",
+       "workers/incarnations",
+       201
+      ]
+     ]
+    },
+    {
+     "utc": "2026-09-27T02:28:54.487Z",
+     "operation": "_result_once",
+     "detail": "JournalCorruption",
+     "requests_before_2s": [
+      [
+       0.18,
+       "GET",
+       "workers/reconciliation",
+       200
+      ],
+      [
+       0.79,
+       "POST",
+       "workers/poll",
+       200
+      ],
+      [
+       1.82,
+       "POST",
+       "workers/poll",
+       200
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "total_occurrences": 7,
+ "logged_diagnostic": "class name only: no stack, message, file length or writer (the pre-remediation warning printed type(exc).__name__)"
+}

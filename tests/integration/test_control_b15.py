@@ -2515,7 +2515,7 @@ def test_list_job_attempts_is_newest_first_with_a_signed_keyset_cursor(
         assert other.status_code == 404, other.text
         forged = _read(control, path, cursor=cursor[:-4] + "AAAA")
         assert forged.status_code == 400 and forged.json()["code"] == "invalid_cursor"
-        assert _read(control, path, page_size=101).status_code in (400, 422)
+        assert _read(control, path, page_size=101).status_code == 400
 
 
 def test_renew_and_read_routes_write_three_digit_timestamps(migrated_postgres_engine, tmp_path):

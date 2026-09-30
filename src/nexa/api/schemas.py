@@ -749,11 +749,13 @@ class ErrorResponse(BaseModel):
     code: str
     message: str
     request_id: str
+    # Present only where a contract names a safe classification (B16-R21).
+    reason: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,63}$")
 
 
 class SweepDimension(StrictRequest):
     name: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
-    # uniqueItems is enforced as RFC 8785 de-duplication during expansion (B16-R10).
+    # uniqueItems by RFC 8785 form: a repeat is 422 during expansion (B16-R10).
     values: list[StrictBool | StrictInt | StrictFloat | StrictStr] = Field(
         min_length=1, max_length=100
     )

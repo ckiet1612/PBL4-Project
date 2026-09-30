@@ -1,12 +1,14 @@
 import hashlib
 import json
 import os
+import shutil
 import socket
 import struct
 import sys
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
 
@@ -263,7 +265,8 @@ def test_supervisor_registration_respects_persisted_startup_deadline(
             assert observed == []
             assert runner.state is RunnerState.STOPPED
             assert all(item["type"] != "STARTED" for item in runner.pending_messages)
-            assert runner.pending_messages[-1]["payload"]["reason"] == "RUNTIME_LIMIT"
+            # A startup-limit stop is not a runtime-limit stop (B15-R10).
+            assert runner.pending_messages[-1]["payload"]["reason"] == "STARTUP_LIMIT"
 
         persisted = json.loads(state_path.read_text(encoding="utf-8"))
         assert persisted["state"] == runner.state.value
@@ -288,7 +291,7 @@ def test_watchdog_keeps_startup_deadline_after_authority_is_accepted() -> None:
     runner.enforce_deadlines()
 
     assert runner.state is RunnerState.STOPPED
-    assert runner.pending_messages[-1]["payload"]["reason"] == "RUNTIME_LIMIT"
+    assert runner.pending_messages[-1]["payload"]["reason"] == "STARTUP_LIMIT"
     assert all(item["type"] != "STARTED" for item in runner.pending_messages)
 
 
@@ -555,9 +558,29 @@ def _stopped_runner(clock) -> RunnerSupervisor:  # type: ignore[no-untyped-def]
     return runner
 
 
-def _serving(runner: RunnerSupervisor, **kwargs) -> tuple[threading.Thread, str]:  # type: ignore[no-untyped-def]
+_CONTROL_SOCKET_DIRECTORIES: list[str] = []
+
+
+def _control_socket_path(prefix: str = "nexa-r14-") -> str:
     # AF_UNIX paths are short on macOS; pytest's tmp_path can exceed the limit.
-    path = os.path.join(tempfile.mkdtemp(prefix="nexa-r14-", dir="/tmp"), "control.sock")
+    directory = tempfile.mkdtemp(prefix=prefix, dir="/tmp")
+    _CONTROL_SOCKET_DIRECTORIES.append(directory)
+    return os.path.join(directory, "control.sock")
+
+
+def _remove_control_socket_directories() -> None:
+    while _CONTROL_SOCKET_DIRECTORIES:
+        shutil.rmtree(_CONTROL_SOCKET_DIRECTORIES.pop())
+
+
+@pytest.fixture(autouse=True)
+def _control_socket_cleanup() -> Iterator[None]:
+    yield
+    _remove_control_socket_directories()
+
+
+def _serving(runner: RunnerSupervisor, **kwargs) -> tuple[threading.Thread, str]:  # type: ignore[no-untyped-def]
+    path = _control_socket_path()
     server = threading.Thread(
         target=trusted_runner.serve_control, args=(runner, path), kwargs=kwargs, daemon=True
     )

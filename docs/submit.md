@@ -136,11 +136,15 @@ Với cấu hình lớn hơn, hãy đo lại trước khi hạ `memory_bytes`.
 `POST /v1/sweeps` (`nexa sweep submit`) nhận `base_spec` (một `JobSubmitRequest` không kèm
 tham số sweep) và `dimensions` (tên tham số của template con, danh sách giá trị).
 
-- **Request-level.** Tích số giá trị sau dedup phải ≤ 100. Tích này được tính
-  bằng phép nhân, không dựng danh sách. Dedup theo RFC 8785, nên `1e-2` và
-  `0.01` là một giá trị (B16-R10). Mỗi giá trị phải hợp lệ với schema của
-  template con, và template phải enabled. Lỗi ở mức này trả `422` và không ghi
-  gì.
+- **Request-level.** Tên dimension không được trùng. Giá trị trong một dimension
+  cũng không được trùng theo dạng RFC 8785 (`uniqueItems`): `1e-2`, `0.010` và
+  `0.01` là một giá trị, còn `1`, `true` và `"1"` là ba giá trị. Request có tên
+  hoặc giá trị lặp bị từ chối `422 validation_failed` (remediation B16-R10, chờ
+  Task Review; thay đổi breaking: B16 bỏ trùng một cách im lặng). Tích số giá trị
+  phải ≤ 100 và được tính bằng phép nhân, không dựng danh sách. Mỗi giá trị phải
+  hợp lệ với schema của template con, và template phải enabled. Lỗi ở mức này
+  trả `422` và không ghi gì. Sweep đã lưu trước quy tắc này vẫn replay nguyên
+  trạng với cùng key; chỉ request mới bị kiểm tra.
 - **Parent.** Parent được ghi cùng idempotency record và response `207` có
   `sweep_id`/`Location`.
 - **Children.** Mỗi child được admit trong một transaction riêng, qua đúng core

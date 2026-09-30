@@ -102,11 +102,18 @@ def _hardened_while_running(harness, container, resources):
     return row
 
 
-def _peaks(harness, sampler, job_id):
+def _peaks(harness, sampler, job_id, without_container=frozenset()):
+    """Peak memory of every attempt that ran a workload container.
+
+    An attempt refused before container create (``without_container``) must have no
+    sample; every other attempt must have one within the limit.
+    """
     peaks = {
         str(row["attempt_id"]): sampler.attempt_peak(str(row["attempt_id"]))
         for row in harness.attempts(job_id)
     }
+    for attempt_id in without_container:
+        assert peaks.pop(attempt_id) is None, f"memory sample for refused attempt {attempt_id}"
     for attempt_id, peak in peaks.items():
         assert peak is not None, f"no memory sample for attempt {attempt_id}"
         assert peak <= PEAK_LIMIT_BYTES, f"attempt {attempt_id} peaked at {peak} bytes"
@@ -265,7 +272,8 @@ def test_b16_pytorch_training_crash_resume_corruption_and_sweep(migrated_postgre
             harness.wait_retry_released(job, 1)
             committed = harness.checkpoints(job)
             newest, previous = committed[-1], committed[-2]
-            harness.corrupt_blob(harness.checkpoint_file(newest[0], "model.safetensors"))
+            model_file = harness.checkpoint_file(newest[0], "model.safetensors")
+            injected = harness.corrupt_blob(model_file)
             harness.coordinator.start()
             harness.wait_succeeded(job, timeout=300)
             _r2, files2, m2 = _metrics(harness, job)
@@ -291,6 +299,8 @@ def test_b16_pytorch_training_crash_resume_corruption_and_sweep(migrated_postgre
             comparison = b16.compare_training(m0, m2, rules)
             assert comparison["within_tolerance"], comparison
             assert b16.stable_provenance(harness.result_manifest(job)["provenance"]) == provenance0
+            # The corruption mark is one-way in the database; the shared blob is not.
+            harness.repair_blob(model_file, injected)
             evidence["D3_corrupt_newest"] = {
                 "corrupted_checkpoint": {"checkpoint_id": str(newest[0]), "sequence": newest[1]},
                 "restored_cursor": harness.checkpoint_manifest(previous[0])["cursor"],
@@ -551,14 +561,14 @@ def test_b16_chunked_inference_carry_forward_and_blob_loss(migrated_postgres_eng
                 "timeline": timeline,
             }
 
-            # D6. Delete a chunk blob named only by the newest checkpoint (coordinator
-            # paused): the newest is CORRUPT CHECKPOINT_BLOB_MISSING and the retry falls back
-            # to the previous checkpoint. The recomputed chunks after that cursor were
-            # already recognized by attempt 1, so they are refused (open finding B16-R21):
-            # the oracle is no changed recognition and no result. How the refused attempt
-            # ends is recorded, not asserted; the short runtime limit bounds the run.
-            short = _inference_spec(entry, dataset_id, model_id, runtime_limit_seconds=90)
-            job = harness.submit("b16-docker-infer-blob-missing", short)
+            # D6. Delete the blob of the first chunk after the previous cursor, named only
+            # by the newest checkpoint (coordinator paused): the newest is CORRUPT
+            # CHECKPOINT_BLOB_MISSING and the retry falls back to the previous checkpoint.
+            # That chunk stays recognized by attempt 1 but its bytes are gone, so the claim
+            # carries no recognized set and the worker fails the attempt
+            # INTERNAL/CHUNK_OUTPUT_UNAVAILABLE before creating a container (B16-R21):
+            # no blind retry, no result, no recognition changed.
+            job = harness.submit("b16-docker-infer-blob-missing", spec)
             first, container = harness.running_attempt(job, 1)
             harness.wait_committed(job, first["attempt_id"], 2)
             harness.coordinator.pause()
@@ -571,10 +581,93 @@ def test_b16_chunked_inference_carry_forward_and_blob_loss(migrated_postgres_eng
             assert newest_cursor["step"] > previous_cursor["step"], (newest_cursor, previous_cursor)
             before = harness.chunks(job)
             victim = before[previous_cursor["step"]]
-            harness.delete_blob(victim["artifact_id"])
+            # The chunk file is deduplicated with that chunk of D4/D5 and of D6b below,
+            # so the lost blob is put back once D6 has been checked.
+            saved = harness.take_blob(victim["artifact_id"])
             harness.coordinator.start()
-            ended = harness.wait_state(job, TERMINAL, timeout=600)
+            ended = harness.wait_state(job, TERMINAL, timeout=300)
             timeline = _settled(harness, job)
+            second = timeline["attempts"][1]["attempt_id"]
+            corrupt = {row["checkpoint_id"]: row["corrupt"] for row in timeline["checkpoints"]}
+            assert corrupt[str(newest[0])] == "CHECKPOINT_BLOB_MISSING"
+            assert timeline["restores"][second] == {
+                "checkpoint_id": str(previous[0]),
+                "sequence": previous[1],
+            }
+            assert _ordered(
+                _event_pairs(timeline),
+                [
+                    ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                    ("CHECKPOINT_CORRUPT", "CHECKPOINT_BLOB_MISSING"),
+                    ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"),
+                    ("ATTEMPT_FAILED", "CHUNK_OUTPUT_UNAVAILABLE"),
+                ],
+            ), _event_pairs(timeline)
+            assert ended["state"] == "FAILED"
+            assert len(timeline["attempts"]) == 2
+            assert (
+                timeline["attempts"][1]["failure_class"],
+                timeline["attempts"][1]["failure_reason"],
+            ) == ("INTERNAL", "CHUNK_OUTPUT_UNAVAILABLE")
+            assert timeline["job"]["retry_count"] == 1
+            assert timeline["results"] == []
+            # The refused attempt never created a workload container.
+            assert {row["attempt_id"] for row in timeline["containers"]} == {
+                str(first["attempt_id"])
+            }
+            # No recognition is added, replaced or re-attributed.
+            after = harness.chunks(job)
+            assert after == before
+            harness.put_back_blob(victim["artifact_id"], saved)
+            evidence["D6_blob_missing"] = {
+                "deleted_chunk": {
+                    "chunk_id": victim["chunk_id"],
+                    "artifact_id": str(victim["artifact_id"]),
+                },
+                "newest": {"checkpoint_id": str(newest[0]), "cursor": newest_cursor},
+                "previous": {"checkpoint_id": str(previous[0]), "cursor": previous_cursor},
+                "recognized_before": len(before),
+                "recognized_after": len(after),
+                "terminal_state": ended["state"],
+                "attempt_failures": [
+                    (row["failure_class"], row["failure_reason"]) for row in timeline["attempts"]
+                ],
+                "memory_peak_bytes": _peaks(harness, sampler, job, without_container={second}),
+                "timeline": timeline,
+            }
+
+            # D6b. Delete the newest checkpoint's state blob instead (coordinator paused):
+            # the retry falls back to the previous cursor with every recognized chunk
+            # after it readable. The runner recomputes them byte for byte, carries each
+            # forward under its original source and finishes the rest: SUCCEEDED, one
+            # result, no chunk recognized twice (B16-R21).
+            job = harness.submit("b16-docker-infer-state-missing", spec)
+            first, container = harness.running_attempt(job, 1)
+            harness.wait_committed(job, first["attempt_id"], 2)
+            harness.coordinator.pause()
+            harness.kill_workload(container)
+            harness.wait_retry_released(job, 1)
+            committed = harness.checkpoints(job)
+            newest, previous = committed[-1], committed[-2]
+            newest_cursor = harness.checkpoint_manifest(newest[0])["cursor"]
+            previous_cursor = harness.checkpoint_manifest(previous[0])["cursor"]
+            before = harness.chunks(job)
+            # Carry-forward is exercised: attempt 1 recognized chunks after the fallback cursor.
+            assert len(before) >= newest_cursor["step"] > previous_cursor["step"], (
+                len(before),
+                newest_cursor,
+                previous_cursor,
+            )
+            # Every chunk carried forward is readable: D6 put its shared lost blob back.
+            assert all(
+                harness.blob_intact(row["artifact_id"], row["checksum"])
+                for row in before[previous_cursor["step"] :]
+            )
+            harness.delete_blob(harness.checkpoint_file(newest[0], "inference-state.json"))
+            harness.coordinator.start()
+            harness.wait_succeeded(job, timeout=300)
+            _r2, summary_checksum2, summary2 = _summary(harness, job)
+            timeline = harness.reconcile(job, 2)
             second = timeline["attempts"][1]["attempt_id"]
             corrupt = {row["checkpoint_id"]: row["corrupt"] for row in timeline["checkpoints"]}
             assert corrupt[str(newest[0])] == "CHECKPOINT_BLOB_MISSING"
@@ -591,24 +684,23 @@ def test_b16_chunked_inference_carry_forward_and_blob_loss(migrated_postgres_eng
                 ],
             ), _event_pairs(timeline)
             after = harness.chunks(job)
-            assert ended["state"] != "SUCCEEDED"
-            assert timeline["results"] == []
-            # No recognition is replaced or re-attributed; later attempts may only add
-            # chunks beyond every earlier recognition.
+            report2 = b16.chunk_report(after, reference, item_count, chunk_size)
+            assert report2["recognized"] == report2["distinct_chunk_ids"] == chunk_count
+            assert report2["coverage_exact"] and report2["checksums_equal_baseline"], report2
+            assert report2["chunks_per_source_attempt"] == {
+                str(first["attempt_id"]): len(before),
+                second: chunk_count - len(before),
+            }
             assert after[: len(before)] == before
-            evidence["D6_blob_missing"] = {
-                "deleted_chunk": {
-                    "chunk_id": victim["chunk_id"],
-                    "artifact_id": str(victim["artifact_id"]),
-                },
+            assert summary2["prediction_counts"] == summary0["prediction_counts"]
+            evidence["D6b_state_missing_fallback"] = {
                 "newest": {"checkpoint_id": str(newest[0]), "cursor": newest_cursor},
                 "previous": {"checkpoint_id": str(previous[0]), "cursor": previous_cursor},
                 "recognized_before": len(before),
-                "recognized_after": len(after),
-                "terminal_state": ended["state"],
-                "attempt_failures": [
-                    (row["failure_class"], row["failure_reason"]) for row in timeline["attempts"]
-                ],
+                "carried_forward_after_fallback_cursor": len(before) - previous_cursor["step"],
+                "chunk_report": report2,
+                "summary_checksum": summary_checksum2,
+                "summary_bitwise_equal": summary_checksum2 == summary_checksum0,
                 "memory_peak_bytes": _peaks(harness, sampler, job),
                 "timeline": timeline,
             }

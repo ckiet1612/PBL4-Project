@@ -149,8 +149,8 @@ def apply_decision(session, decision, *, worker, job, now, epoch, holder_id):
         )
         if result.rowcount != 1:
             raise RuntimeError("missing admitted job counter")
-    # One UPDATE per job: a second one re-checks the row's foreign keys and waits
-    # on a users row that a request transaction holds FOR UPDATE (B15-R04).
+    # One UPDATE per job (B15-R04): a second one would re-check the row's foreign
+    # keys, taking KEY SHARE on the submitter's users row.
     _event(
         session,
         job,

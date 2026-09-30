@@ -12,7 +12,7 @@ def extend_retention(session, job_id, terminal_at, retention_days):
 
     Callers stamp `terminal_at` in their single job UPDATE: a second UPDATE of the
     same row re-runs its foreign-key checks, taking KEY SHARE on the submitter's
-    users row, which request transactions lock FOR UPDATE before policy/job locks.
+    users row (B15-R04), which request transactions lock before policy/job locks.
     """
     session.execute(
         update(s.idempotency_records)
@@ -131,6 +131,25 @@ def restorable_scope(job_id):
             )
         ),
     )
+
+
+def retry_lineage(session, tenant_id, job_id):
+    """`job_id` and every Job it was manually retried from, in the tenant (B15-R05).
+
+    The manual-retry chain `retry_of_job_id` is the only way a Job may inherit another
+    Job's checkpoint; UNION stops the walk on a (never written) cycle.
+    """
+    chain = (
+        select(s.jobs.c.job_id, s.jobs.c.retry_of_job_id)
+        .where(s.jobs.c.tenant_id == tenant_id, s.jobs.c.job_id == job_id)
+        .cte("retry_chain", recursive=True)
+    )
+    chain = chain.union(
+        select(s.jobs.c.job_id, s.jobs.c.retry_of_job_id).where(
+            s.jobs.c.tenant_id == tenant_id, s.jobs.c.job_id == chain.c.retry_of_job_id
+        )
+    )
+    return set(session.execute(select(chain.c.job_id)).scalars())
 
 
 def restore_order(job_id):

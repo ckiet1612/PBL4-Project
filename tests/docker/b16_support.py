@@ -17,6 +17,7 @@ import json
 import math
 import os
 import socket
+import stat
 import subprocess
 import threading
 from pathlib import Path
@@ -474,15 +475,61 @@ class B16Harness(_Harness):
             ).scalar_one()
 
     def corrupt_blob(self, artifact_id):
-        """Fault injection on the test storage root only: flip the first byte."""
+        """Fault injection on the test storage root only: flip the first byte.
+
+        The blob may be shared with a later job's artifact (per-tenant content dedup),
+        so the bytes and mode are returned for :meth:`repair_blob`.
+        """
         path = self._blob_path(artifact_id)
         original = path.read_bytes()
+        saved = (original, stat.S_IMODE(path.stat().st_mode))
         os.chmod(path, 0o600)
         path.write_bytes(bytes([original[0] ^ 0x01]) + original[1:])
+        return saved
+
+    def repair_blob(self, artifact_id, saved):
+        raw, mode = saved
+        path = self._blob_path(artifact_id)
+        descriptor = os.open(path, os.O_WRONLY | os.O_TRUNC)
+        try:
+            os.write(descriptor, raw)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        os.chmod(path, mode)
+        assert path.read_bytes() == raw
 
     def delete_blob(self, artifact_id):
         """Fault injection on the test storage root only: the blob file disappears."""
         self._blob_path(artifact_id).unlink()
+
+    def take_blob(self, artifact_id):
+        """Delete a blob but keep its bytes and mode for :meth:`put_back_blob`.
+
+        Committed artifacts are deduplicated per tenant by content, so a deterministic
+        chunk file of one job is the same blob as that chunk of every later job: a
+        scenario that deletes it must put it back before the next scenario runs.
+        """
+        path = self._blob_path(artifact_id)
+        saved = (path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
+        path.unlink()
+        return saved
+
+    def blob_intact(self, artifact_id, checksum):
+        path = self._blob_path(artifact_id)
+        return path.is_file() and "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() == (
+            checksum
+        )
+
+    def put_back_blob(self, artifact_id, saved):
+        raw, mode = saved
+        path = self._blob_path(artifact_id)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        try:
+            os.write(descriptor, raw)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
 
     def chunks(self, job_id):
         with self.engine.connect() as connection:

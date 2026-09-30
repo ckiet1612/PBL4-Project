@@ -1,0 +1,286 @@
+{
+ "command": "bash ~/nexa-rem/tools/run_probes.sh repo <db-suffix> REM-M8-probes-repo  # python -m benchmarks.rem.maintenance_probes --tree repo (defaults: 100 tenants x 1000 jobs, terminal every 100th, 16 blocked retries, 60 idle probes, holder 300 ms, 5 contention samples)",
+ "environment": {
+  "os": "Linux-7.0.0-1013-aws-x86_64-with-glibc2.39",
+  "postgres_version_num": "170011"
+ },
+ "evidence_layer": "L direct-DB microbenchmark; not acceptance",
+ "fixture": {
+  "blocked_due_retries": 16,
+  "expired_submit_records": 100000,
+  "jobs": 100000,
+  "terminal_jobs": 1000
+ },
+ "retention_sweep": {
+  "after": {
+   "due": 0,
+   "expired_walkable": 0
+  },
+  "before": {
+   "due": 1000,
+   "expired_walkable": 100000
+  },
+  "drain": {
+   "deleted": 1000,
+   "explain_after_first_tick": [
+    {
+     "execution_ms": 0.824,
+     "plan": {
+      "loops": 1,
+      "node": "Limit",
+      "plans": [
+       {
+        "loops": 1,
+        "node": "LockRows",
+        "plans": [
+         {
+          "index": "ix_idempotency_records_expiry",
+          "loops": 1,
+          "node": "Index Scan",
+          "plans": [
+           {
+            "index": "pk_jobs",
+            "loops": 100,
+            "node": "Index Scan",
+            "relation": "jobs",
+            "rows": 1,
+            "shared_hit": 396,
+            "shared_read": 42,
+            "total_ms": 0.004
+           }
+          ],
+          "relation": "idempotency_records",
+          "removed_by_filter": 0,
+          "rows": 100,
+          "shared_hit": 601,
+          "shared_read": 42,
+          "total_ms": 0.759
+         }
+        ],
+        "rows": 100,
+        "shared_hit": 701,
+        "shared_read": 42,
+        "total_ms": 0.798
+       }
+      ],
+      "rows": 100,
+      "shared_hit": 701,
+      "shared_read": 42,
+      "total_ms": 0.806
+     },
+     "planning_ms": 0.15,
+     "statement_head": "SELECT idempotency_records.idempotency_id, (SELECT jobs.state FROM jobs WHERE jobs.job_id = idempotency_records.resource_id) AS job_state FROM idempotency_recor"
+    }
+   ],
+   "tick": {
+    "count": 1001,
+    "max_ms": 31.69,
+    "median_ms": 23.43,
+    "p95_ms": 26.344,
+    "total_ms": 22934.733
+   },
+   "ticks": 1001,
+   "ticks_with_writes": 1000
+  },
+  "steady": {
+   "explain": [
+    {
+     "execution_ms": 0.109,
+     "plan": {
+      "loops": 1,
+      "node": "Limit",
+      "plans": [
+       {
+        "loops": 1,
+        "node": "LockRows",
+        "plans": [
+         {
+          "index": "ix_idempotency_records_b15_sweep",
+          "loops": 1,
+          "node": "Index Scan",
+          "plans": [
+           {
+            "index": "pk_jobs",
+            "loops": 0,
+            "node": "Index Scan",
+            "relation": "jobs",
+            "rows": 0,
+            "shared_hit": 0,
+            "shared_read": 0,
+            "total_ms": 0.0
+           }
+          ],
+          "relation": "idempotency_records",
+          "removed_by_filter": 0,
+          "rows": 0,
+          "shared_hit": 113,
+          "shared_read": 0,
+          "total_ms": 0.096
+         }
+        ],
+        "rows": 0,
+        "shared_hit": 113,
+        "shared_read": 0,
+        "total_ms": 0.096
+       }
+      ],
+      "rows": 0,
+      "shared_hit": 113,
+      "shared_read": 0,
+      "total_ms": 0.097
+     },
+     "planning_ms": 0.127,
+     "statement_head": "SELECT idempotency_records.idempotency_id, (SELECT jobs.state FROM jobs WHERE jobs.job_id = idempotency_records.resource_id) AS job_state FROM idempotency_recor"
+    },
+    {
+     "execution_ms": 0.022,
+     "plan": {
+      "loops": 1,
+      "node": "Limit",
+      "plans": [
+       {
+        "loops": 1,
+        "node": "LockRows",
+        "plans": [
+         {
+          "index": "ix_idempotency_records_b16_sweep_parent",
+          "loops": 1,
+          "node": "Index Scan",
+          "plans": [
+           {
+            "index": "pk_sweep_parents",
+            "loops": 0,
+            "node": "Index Scan",
+            "relation": "sweep_parents",
+            "rows": 0,
+            "shared_hit": 0,
+            "shared_read": 0,
+            "total_ms": 0.0
+           },
+           {
+            "loops": 0,
+            "node": "Aggregate",
+            "plans": [
+             {
+              "loops": 0,
+              "node": "Nested Loop",
+              "plans": [
+               {
+                "index": "uq_sweep_children_sweep_id",
+                "loops": 0,
+                "node": "Index Scan",
+                "relation": "sweep_children",
+                "rows": 0,
+                "shared_hit": 0,
+                "shared_read": 0,
+                "total_ms": 0.0
+               },
+               {
+                "index": "ix_idempotency_records_resource",
+                "loops": 0,
+                "node": "Index Scan",
+                "relation": "idempotency_records",
+                "removed_by_filter": 0,
+                "rows": 0,
+                "shared_hit": 0,
+                "shared_read": 0,
+                "total_ms": 0.0
+               }
+              ],
+              "rows": 0,
+              "shared_hit": 0,
+              "shared_read": 0,
+              "total_ms": 0.0
+             }
+            ],
+            "rows": 0,
+            "shared_hit": 0,
+            "shared_read": 0,
+            "total_ms": 0.0
+           }
+          ],
+          "relation": "idempotency_records",
+          "removed_by_filter": 0,
+          "rows": 0,
+          "shared_hit": 1,
+          "shared_read": 0,
+          "total_ms": 0.002
+         }
+        ],
+        "rows": 0,
+        "shared_hit": 1,
+        "shared_read": 0,
+        "total_ms": 0.003
+       }
+      ],
+      "rows": 0,
+      "shared_hit": 1,
+      "shared_read": 0,
+      "total_ms": 0.003
+     },
+     "planning_ms": 0.15,
+     "statement_head": "SELECT idempotency_records.idempotency_id, (SELECT sweep_parents.accepted_count + sweep_parents.rejected_count = sweep_parents.child_count AS anon_1 FROM sweep_"
+    }
+   ],
+   "tick": {
+    "count": 30,
+    "max_ms": 8.38,
+    "median_ms": 5.779,
+    "p95_ms": 6.352,
+    "total_ms": 160.351
+   }
+  }
+ },
+ "retry_probe": {
+  "announcing_probe": {
+   "locking_statements": 86,
+   "ms": 274.782
+  },
+  "contention": [
+   {
+    "ms": 70.649,
+    "policy_lock_wait_ms": 1.448,
+    "result": 0
+   },
+   {
+    "ms": 43.089,
+    "policy_lock_wait_ms": 0.871,
+    "result": 0
+   },
+   {
+    "ms": 55.662,
+    "policy_lock_wait_ms": 1.099,
+    "result": 0
+   },
+   {
+    "ms": 57.396,
+    "policy_lock_wait_ms": 0.807,
+    "result": 0
+   },
+   {
+    "ms": 48.177,
+    "policy_lock_wait_ms": 1.257,
+    "result": 0
+   }
+  ],
+  "holder_ms": 300,
+  "idle_probe": {
+   "count": 60,
+   "max_ms": 64.385,
+   "median_ms": 20.792,
+   "p95_ms": 60.691,
+   "total_ms": 1978.991
+  },
+  "locking_statements_per_hour_at_1s": 0,
+  "locking_statements_per_idle_probe": [
+   0
+  ],
+  "waiting_reasons_after_announcement": [
+   "waiting_for_quota"
+  ]
+ },
+ "source_tree": "remediation working tree",
+ "source_tree_sha256": "b84530c38b4234032be6e3356ec027c2377ca0ca8978e3c806929fd317d50079",
+ "timestamp_utc": "2026-09-29T02:41:08.217635+00:00",
+ "tree": "repo"
+}

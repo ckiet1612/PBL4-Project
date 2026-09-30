@@ -330,8 +330,24 @@ def _check_adapter_launch(request: "StartExecution") -> None:
     restore = spec["restore"]
     files = restore["files"] if restore is not None else []
     targets |= {item["path"] for item in files}
+    recognized = dict(
+        zip(
+            adapter_launch.recognized_paths(spec),
+            spec.get(adapter_launch.RECOGNIZED_KEY) or [],
+            strict=True,
+        )
+    )
+    targets |= set(recognized)
     if set(mounts) != targets:
         raise ValueError("adapter input mounts do not match the launch spec")
+    for path, item in recognized.items():
+        mount = mounts[path]
+        if (mount.artifact_id, mount.content_checksum, mount.size_bytes) != (
+            item["artifact_id"],
+            item["checksum"],
+            item["size_bytes"],
+        ):
+            raise ValueError("adapter recognized mount does not match the recognized chunks")
     if mounts[spec["inputs"]["dataset"]].content_checksum != context.input_checksum:
         raise ValueError("adapter dataset mount does not match the input checksum")
     for item in files:

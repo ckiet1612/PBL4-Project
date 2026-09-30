@@ -203,9 +203,9 @@ def test_template_reads_are_tenant_scoped_and_contract_shaped(migrated_postgres_
 
             missing = cli.get("/v1/templates/unknown-template", headers={**read, **tenant})
             assert (missing.status_code, missing.json()["code"]) == (404, "resource_not_found")
-            # App-wide request validation maps malformed parameters to 422 (B16-R08).
+            # A malformed path parameter is wire input: 400 (B16-R08).
             malformed = cli.get("/v1/templates/Bad_Id", headers={**read, **tenant})
-            assert (malformed.status_code, malformed.json()["code"]) == (422, "validation_failed")
+            assert (malformed.status_code, malformed.json()["code"]) == (400, "validation_failed")
             foreign = cli.get(
                 "/v1/templates", headers={**read, "X-Nexa-Tenant-Id": other_tenant_id}
             )

@@ -1214,6 +1214,53 @@ def test_invalid_committed_upload_answer_fails_only_that_attempt(tmp_path, answe
     client.close()
 
 
+@pytest.mark.parametrize("call", ["reserve_checkpoint", "publish_checkpoint"])
+@pytest.mark.parametrize("answer", ["not_object", "not_json"])
+def test_invalid_reserve_or_publish_answer_fails_only_that_attempt(tmp_path, call, answer):
+    """B14-R08: a 2xx body that is not a JSON object is a protocol defect of this Attempt."""
+    harness = started(tmp_path)
+
+    def respond(request):
+        if answer == "not_object":
+            return httpx.Response(200, json=[{"accepted": True}])
+        return httpx.Response(200, content=b"accepted")
+
+    client = WorkerApiClient(
+        "http://worker.invalid", "c" * 32, transport=httpx.MockTransport(respond)
+    )
+    setattr(harness.api, call, getattr(client, call))
+    other = str(new_uuid7())
+    visited = []
+    result_attempt = harness.agent._result_attempt
+
+    def record(attempt_id, flow, checkpoints):
+        visited.append(attempt_id)
+        if attempt_id != other:
+            result_attempt(attempt_id, flow, checkpoints)
+
+    harness.advance(6)
+    for _ in range(8):
+        harness.agent._ipc_once()
+        # Another adopted Attempt after the defective one must still get its turn.
+        visited.clear()
+        harness.agent._adopted[other] = harness.authority
+        harness.agent._result_attempt = record
+        try:
+            harness.agent._result_once()
+        finally:
+            del harness.agent._adopted[other]
+            harness.agent._result_attempt = result_attempt
+        if harness.api.failures:
+            break
+    assert visited == [harness.attempt_id, other]
+    assert [(f["failure_class"], f["reason_code"]) for f in harness.api.failures] == [
+        ("INTERNAL", "CHECKPOINT_PROTOCOL_ERROR")
+    ]
+    assert len(harness.api.cleanups) == 1
+    assert harness.api.published == {}
+    client.close()
+
+
 def test_runner_invalid_control_answer_fails_closed(tmp_path):
     harness = started(tmp_path)
     harness.advance(6)

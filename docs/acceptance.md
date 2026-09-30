@@ -4,7 +4,7 @@ Dẫn xuất từ [PLAN.md](../PLAN.md) §2–§14; **PLAN được ưu tiên n�
 
 ## Trạng thái, applicability và evidence
 
-Remediation, focused rereview và fresh verification của B01 đã đóng R-03, R-05 và R-09; vì vậy **ACC-01 là `pass`** cho contract `1.0.0-b01` trên working tree nền `ac8a0e5`. ACC-02–ACC-39 vẫn `specified` vì chưa có implementation hoặc runtime evidence. Việc OpenAPI/schema được validate không được dùng để gán pass cho API, PostgreSQL, Linux, UI, load, portability, GPU hay release gate.
+Remediation, focused rereview và fresh verification của B01 đã đóng R-03, R-05 và R-09; vì vậy **ACC-01 là `pass`** cho contract `1.0.0-b01` trên working tree nền `ac8a0e5`. ACC-02–ACC-39 vẫn `specified`: B02–B16 đã có implementation và evidence theo phạm vi từng task trong `docs/evidence/`, nhưng evidence đó không phải nghiệm thu gate — chưa gate nào được chạy nghiệm thu đủ tiêu chí và environment của nó, và phần của B17–B25 chưa triển khai. Việc OpenAPI/schema được validate không được dùng để gán pass cho API, PostgreSQL, Linux, UI, load, portability, GPU hay release gate.
 
 | Trạng thái | Ý nghĩa |
 |---|---|

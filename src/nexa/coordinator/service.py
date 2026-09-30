@@ -5,7 +5,7 @@ import time
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import bindparam, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
 from nexa.infrastructure.persistence.ids import new_uuid7
@@ -185,12 +185,13 @@ class CoordinatorService:
 
     def promote_retries(self, epoch: int) -> int:
         """Move due RETRY_WAIT jobs back to QUEUED under live leadership."""
-        from nexa.coordinator.retry import promote_due_locked, retry_due
+        from nexa.coordinator import retry
         from nexa.infrastructure.persistence import schema as s
 
         def operation(session):
             self._timeouts(session)
-            if not retry_due(session, func.clock_timestamp()):
+            # No lock until the batch has something to write (B14-K1).
+            if not retry.retry_actionable(session, func.clock_timestamp()):
                 return 0
             self._leader(session, epoch)
             policy = (
@@ -205,7 +206,7 @@ class CoordinatorService:
             now = self._leader(session, epoch)
             if policy["operational_mode"] == "WRITE_FROZEN":
                 return 0
-            promoted = promote_due_locked(session, now=now, holder_id=self.holder_id)
+            promoted = retry.promote_due_locked(session, now=now, holder_id=self.holder_id)
             self._leader(session, epoch)
             return promoted
 
@@ -254,14 +255,19 @@ class CoordinatorService:
         return reaped
 
     def sweep_idempotency(self, epoch: int) -> int:
-        """Delete one bounded batch of expired job-request records under live leadership."""
-        from nexa.coordinator.retention import expired_records
+        """Delete one bounded batch of expired job-request records under live leadership.
+
+        Records of the batch that are not due are deferred in the same transaction.
+        """
+        from nexa.coordinator.retention import sweep_batch
         from nexa.infrastructure.persistence import schema as s
+
+        records = s.idempotency_records
 
         def operation(session):
             self._timeouts(session)
-            record_ids = expired_records(session)
-            if not record_ids:
+            batch = sweep_batch(session)
+            if not batch.due and not batch.deferred:
                 return 0
             self._leader(session, epoch)
             mode = session.execute(
@@ -271,13 +277,17 @@ class CoordinatorService:
             ).scalar_one()
             if mode == "WRITE_FROZEN":
                 return 0
-            session.execute(
-                delete(s.idempotency_records).where(
-                    s.idempotency_records.c.idempotency_id.in_(record_ids)
+            if batch.due:
+                session.execute(delete(records).where(records.c.idempotency_id.in_(batch.due)))
+            if batch.deferred:
+                session.execute(
+                    update(records)
+                    .where(records.c.idempotency_id == bindparam("record_id"))
+                    .values(expires_at=func.greatest(records.c.expires_at, bindparam("until"))),
+                    [{"record_id": record, "until": until} for record, until in batch.deferred],
                 )
-            )
             self._leader(session, epoch)
-            return len(record_ids)
+            return len(batch.due)
 
         return run_transaction(self.session_factory, operation)
 
@@ -316,7 +326,9 @@ class CoordinatorService:
             self._leader(session, epoch)
             policy, worker, inventory = self._locks(session)
             now = self._leader(session, epoch)
-            if policy["operational_mode"] == "WRITE_FROZEN":
+            # ADMISSION_OFF rejects new dispatch (SM:110); committed offers, running
+            # attempts, the reaper and held-allocation charging continue (B15-OBS-02).
+            if policy["operational_mode"] != "NORMAL":
                 return None
             if inventory is None or not JobService._worker_is_ready(dict(worker), now):
                 return None
@@ -365,7 +377,7 @@ class CoordinatorService:
             self._timeouts(session)
             self._leader(session, epoch)
             policy, worker, inventory = self._locks(session)
-            if inventory is None or policy["operational_mode"] == "WRITE_FROZEN":
+            if inventory is None or policy["operational_mode"] != "NORMAL":
                 return NoDecision("worker_or_mode_changed")
             job_id = getattr(decision, "job_id", None)
             if isinstance(decision, InvalidateReservation):

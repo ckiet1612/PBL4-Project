@@ -37,6 +37,16 @@ def restored_count(spec):
     return restore["cursor"]["step"] if restore is not None else 0
 
 
+def recognized_chunks(spec):
+    """Chunks recognized beyond the restored cursor, carried with their source (B16-R21)."""
+    return spec.get(adapter_launch.RECOGNIZED_KEY) or []
+
+
+def carried_count(spec):
+    """Chunks before this attempt's own work: the restored prefix, then the carried run."""
+    return restored_count(spec) + len(recognized_chunks(spec))
+
+
 def _chunks(record):
     return (record.runner_state or {}).get("inference_chunks") or []
 
@@ -123,7 +133,8 @@ def chunk_batch(
         raise error("chunk batches are out of order")
     record = journal.load(attempt_id)
     known = _chunks(record)
-    first = restored_count(spec) + len(known)
+    # The runner adopts every carried chunk before it batches this attempt's own ones.
+    first = carried_count(spec) + len(known)
     output_format = spec["parameters"]["output_format"]
     descriptors = [
         closed_descriptor(
@@ -176,14 +187,19 @@ def chunk_batch(
 
 
 def require_all_chunks(record, spec, reserved_id, next_chunk, *, error):
-    """Every chunk before ``next_chunk`` is bound once the state or summary file arrives."""
+    """Every chunk before ``next_chunk`` is bound once the state or summary file arrives.
+
+    A reservation whose chunks are all restored, carried or bound earlier receives no
+    chunk batch, so its upload was never opened (REM-R02); the count still decides.
+    """
     upload = _upload_state(record)
-    if upload.get("reserved_id") != reserved_id or upload["batch_count"] not in (
+    if upload.get("reserved_id") == reserved_id and upload["batch_count"] not in (
         None,
         upload["next_batch"],
     ):
         raise error("chunk batches are incomplete")
-    if restored_count(spec) + len(_chunks(record)) != next_chunk:
+    carried = carried_count(spec)
+    if min(next_chunk, carried) + len(_chunks(record)) != next_chunk:
         raise error("inference cursor does not match the bound chunks")
 
 
@@ -204,11 +220,26 @@ def check_chunk_manifest(raw, record, spec, *, total, item_count, error):
     except ValueError as exc:
         raise error("chunk-output manifest is invalid") from exc
     # The restored prefix is the runner's verified restore file; the server accepts it
-    # only as an exact prior recognition of this job (carry-forward).
+    # only as an exact prior recognition of this job (carry-forward). The claim's
+    # recognized chunks follow it unchanged, with their original source (B16-R21).
     restored = restored_count(spec)
-    expected = [
+    carried = carried_count(spec)
+    try:
+        expected = [
+            chunk_manifest.carried_entry(
+                item,
+                index=restored + offset,
+                item_count=item_count,
+                chunk_size=parameters["chunk_size"],
+                output_format=parameters["output_format"],
+            )
+            for offset, item in enumerate(recognized_chunks(spec)[: max(0, total - restored)])
+        ]
+    except ValueError as exc:
+        raise error("recognized chunks do not match this job's extent") from exc
+    expected += [
         chunk_manifest.entry(
-            restored + offset,
+            carried + offset,
             item_count=item_count,
             chunk_size=parameters["chunk_size"],
             source_attempt_id=provenance["attempt_id"],
@@ -221,10 +252,16 @@ def check_chunk_manifest(raw, record, spec, *, total, item_count, error):
         raise error("chunk-output manifest does not match the bound chunks")
 
 
-def binding_set_checksum(record, file_bindings, manifest_binding):
-    """Checksum of this reservation's bindings in source message order."""
-    start = _upload_state(record)["start"]
-    return checksum([*_chunks(record)[start:], *file_bindings, manifest_binding])
+def binding_set_checksum(record, reserved_id, file_bindings, manifest_binding):
+    """Checksum of this reservation's bindings in source message order.
+
+    A reservation without a chunk batch never opened its upload (REM-R02): it binds
+    no chunk file of its own.
+    """
+    upload = _upload_state(record)
+    chunks = _chunks(record)
+    start = upload["start"] if upload.get("reserved_id") == reserved_id else len(chunks)
+    return checksum([*chunks[start:], *file_bindings, manifest_binding])
 
 
 def manifest_reference(binding):
@@ -234,6 +271,7 @@ def manifest_reference(binding):
 __all__ = [
     "adapter_spec",
     "binding_set_checksum",
+    "carried_count",
     "check_chunk_manifest",
     "check_document",
     "chunk_batch",
@@ -241,6 +279,7 @@ __all__ = [
     "manifest_reference",
     "model_checksum",
     "open_upload",
+    "recognized_chunks",
     "require_all_chunks",
     "restored_count",
 ]

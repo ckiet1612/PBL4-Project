@@ -304,6 +304,7 @@ def _candidate():
         ),
         "files": rows,
         "provenance": dict(sealed["manifest"]["provenance"]),
+        "unproven": False,
     }
     plan = {
         "parameters": dict(h.PARAMETERS),
@@ -374,3 +375,14 @@ def test_restore_selection_treats_other_architecture_as_incompatible():
     outcome, value = verify_candidate(store, plan, candidate, arm)
     assert (outcome, value) == ("INCOMPATIBLE", "CHECKPOINT_COMPATIBILITY_MISMATCH")
     assert store.reads == ["manifest"]
+
+
+def test_restore_selection_never_reads_an_unproven_inherited_checkpoint():
+    """B15-R05: the server could not prove the source, so the bytes are not its business."""
+    store, plan, candidate = _candidate()
+    candidate["unproven"] = True
+    outcome, value = verify_candidate(
+        store, plan, candidate, expected_compatibility(TEMPLATE, c.ARCH)
+    )
+    assert (outcome, value) == ("INCOMPATIBLE", "CHECKPOINT_PROVENANCE_MISMATCH")
+    assert store.reads == []

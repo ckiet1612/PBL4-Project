@@ -1,0 +1,54 @@
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+................................................................sss..... [ 46%]
+........................................................................ [ 49%]
+.............
+B16 100-child sweep latency over 5 runs (nearest rank): p50=4.877s p95=5.311s min=4.611s
+........................................................... [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 73%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+.........................................                                [100%]
+=============================== warnings summary ===============================
+../venv-repo/lib/python3.12/site-packages/fastapi/testclient.py:1
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../venv-repo/lib/python3.12/site-packages/starlette/testclient.py:53
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/integration/test_jobs_b08.py::test_concurrent_same_key_commits_one_job_and_replays_one_snapshot
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/pydantic/_internal/_generate_schema.py:2274: UnsupportedFieldAttributeWarning: The 'alias' attribute with value 'page_size' was provided to the `Field()` function, which has no effect in the context it was used. 'alias' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/workloads/test_pytorch_workloads_b16.py:17: could not import 'torch': No module named 'torch'
+SKIPPED [3] tests/integration/test_rem_b13_r12_search_path.py:446: pg_dump/pg_restore unavailable; set NEXA_TEST_PG_CLIENT_PREFIX
+2342 passed, 4 skipped, 3 warnings in 898.75s (0:14:58)
+EXIT=0

@@ -947,7 +947,10 @@ class WorkerService:
                 session, worker, incarnation_id, require_reconciling=False
             )
             if (
-                mode != "NORMAL"
+                # ADMISSION_OFF, like DRAINING, forbids only new dispatch, which the
+                # coordinator enforces; an offer committed before it is existing work
+                # (SM:110, B15-OBS-02). No offer can exist once writes are frozen.
+                mode == "WRITE_FROZEN"
                 or worker["health"] != "READY"
                 # DRAINING forbids new allocation, which dispatch enforces; an offer
                 # committed before the drain is existing work (SM:103, B15-R22).

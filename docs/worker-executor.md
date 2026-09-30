@@ -95,7 +95,17 @@ runtime digest. A mismatch never targets another container. A server-confirmed
 `UNCLAIMED` identity can create an initial sequence-one tombstone only after an
 exact-label Docker lookup proves no matching container and no create is in
 flight. Docker unavailable, uncertain inspection or an existing candidate
-cannot produce `NO_CONTAINER`.
+cannot produce `NO_CONTAINER`. A server-revoked `CLAIMED` identity with no
+committed container (B11-H01) follows the same rule after the executor removes
+its own exact-identity containers: a bound one through cleanup, an unbound one
+only when Docker reports it created and never started. An unbound
+`CREATE_IN_FLIGHT` record is then tombstoned as an abandoned create (a missing
+record becomes a `CLAIMED` reconciliation tombstone) before the final scan, so a
+delayed create of the dead process is never started and is removed later.
+
+Reads take the attempt lock like writes. A corrupt or missing record raises
+`JournalCorruption` whose diagnostic holds only the cause, byte length and a
+16-hex-digit SHA-256 prefix (B15-OBS-01).
 
 Cleanup persists `CLEANUP_IN_FLIGHT` and stopped observation before remove.
 After a lost remove response, post-remove crash or journal write failure, replay
@@ -140,7 +150,9 @@ command is the fixed prefix plus `adapter_launch.workload_command(spec)`.
 
 **Mounts.** The primary input mount is `/input/dataset.arrow` instead of
 `/input/input.json`. `batch.inference` also mounts `/input/model.safetensors`.
-Restore files are mounted read-only under `/input/restore/`.
+Restore files are mounted read-only under `/input/restore/`. The recognized
+chunk files a chunked attempt carries forward are mounted read-only under
+`/input/recognized/` (B16-R21, RV03).
 
 **Unchanged.** The CPU launch, the journal binding (`adapter_launch` is absent
 for CPU), UIDs, tmpfs bounds, network, capabilities, seccomp, the PID/memory/CPU

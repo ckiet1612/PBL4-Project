@@ -1,15 +1,33 @@
 """Bounded worker-only REST client; all mutations have explicit callback identity."""
 
+import re
 from uuid import UUID
 
 import httpx
 
+# ErrorResponse ``reason`` is a fixed safe code; anything else is dropped unread.
+_SAFE_REASON = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
+
 
 class WorkerApiError(RuntimeError):
-    def __init__(self, status: int, code: str) -> None:
+    def __init__(self, status: int, code: str, reason: str | None = None) -> None:
         self.status = status
         self.code = code
+        # B16-R21: classifies a rejection deterministically, e.g. CHUNK_OUTPUT_CONFLICT.
+        self.reason = reason
         super().__init__(f"worker API returned {status} {code}")
+
+
+def _api_error(response) -> WorkerApiError:
+    try:
+        body = response.json()
+        code = body.get("code", "unknown_error")
+        reason = body.get("reason")
+    except (ValueError, AttributeError):
+        code, reason = "unknown_error", None
+    if not isinstance(reason, str) or not _SAFE_REASON.fullmatch(reason):
+        reason = None
+    return WorkerApiError(response.status_code, code, reason)
 
 
 class WorkerTransportError(RuntimeError):
@@ -45,11 +63,7 @@ class WorkerApiClient:
         except httpx.HTTPError:
             raise WorkerTransportError("worker API transport unavailable") from None
         if not 200 <= response.status_code < 300:
-            try:
-                code = response.json().get("code", "unknown_error")
-            except (ValueError, AttributeError):
-                code = "unknown_error"
-            raise WorkerApiError(response.status_code, code)
+            raise _api_error(response)
         result = response.json()
         if not isinstance(result, dict):
             raise ValueError("worker API returned a non-object response")
@@ -180,11 +194,7 @@ class WorkerApiClient:
     def _check_response(response):
         if not 200 <= response.status_code < 300:
             response.read()
-            try:
-                code = response.json().get("code", "unknown_error")
-            except (ValueError, AttributeError):
-                code = "unknown_error"
-            raise WorkerApiError(response.status_code, code)
+            raise _api_error(response)
 
     def download_execution(self, authority, artifact, target):
         """Stream into a private exclusive file, checking the claimed descriptor."""

@@ -73,7 +73,10 @@ class ExecutionService(
                 session, worker, incarnation_id, require_reconciling=False
             )
             if (
-                mode != "NORMAL"
+                # ADMISSION_OFF, like DRAINING, forbids only new dispatch, which the
+                # coordinator enforces; an offer committed before it is existing work
+                # (SM:110, B15-OBS-02). No offer can exist once writes are frozen.
+                mode == "WRITE_FROZEN"
                 or worker["health"] != "READY"
                 # DRAINING forbids new allocation, which dispatch enforces; an offer
                 # committed before the drain is existing work (SM:103, B15-R22).
@@ -428,6 +431,13 @@ class ExecutionService(
                 )
                 item = self._reconciliation_item(session, allocation, now)
                 restore = self._restore_decision(session, job, authority, scan, now)
+                # B16-R21: a chunked Job's claim names the recognized chunks the
+                # Attempt must carry forward beyond its restored cursor.
+                carried = (
+                    {"recognized_chunks": self._recognized_decision(session, job, scan)}
+                    if "recognized" in scan
+                    else {}
+                )
                 context = json_wire_value(
                     dict(
                         job_id=job["job_id"],
@@ -449,6 +459,7 @@ class ExecutionService(
                         startup_nonce=attempt["startup_nonce"],
                         startup_limit_seconds=30,
                         lease_duration_seconds=45,
+                        **carried,
                     )
                 )
                 session.execute(

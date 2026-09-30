@@ -15,7 +15,11 @@ from .models import Authority, ContainerIdentity, ResourceVector
 
 
 class JournalCorruption(RuntimeError):
-    pass
+    """An unreadable record; ``diagnostic`` holds only its cause, length and digest."""
+
+    def __init__(self, message: str, *, diagnostic: dict[str, object] | None = None) -> None:
+        super().__init__(message)
+        self.diagnostic = diagnostic or {}
 
 
 class JournalWriteError(RuntimeError):
@@ -93,7 +97,10 @@ class ExecutionJournal:
         return self.records / f"{attempt_id}.json"
 
     def exists(self, attempt_id: str) -> bool:
-        return self.path_for(attempt_id).exists()
+        # Reads take the attempt lock like writes: on a bind mount such as
+        # virtiofs a concurrent replace can hide the record (B15-OBS-01).
+        with self.lock(attempt_id):
+            return self.path_for(attempt_id).exists()
 
     def _lock_path(self, attempt_id: str) -> Path:
         return self.locks / f"{attempt_id}.lock"
@@ -118,9 +125,15 @@ class ExecutionJournal:
                     lock_file.close()
 
     def load(self, attempt_id: str) -> JournalRecord:
+        with self.lock(attempt_id):
+            return self._load_locked(attempt_id)
+
+    def _load_locked(self, attempt_id: str) -> JournalRecord:
         path = self.path_for(attempt_id)
+        raw = None
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            raw = path.read_bytes()
+            payload = json.loads(raw.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise TypeError("record must be an object")
             authority = Authority(**payload.pop("authority"))
@@ -133,7 +146,15 @@ class ExecutionJournal:
                 authority=authority, resources=resources, container=container, **payload
             )
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
-            raise JournalCorruption(f"journal record is invalid for attempt {attempt_id}") from exc
+            # Never the record content: it may hold input or checkpoint facts.
+            diagnostic = {
+                "cause": type(exc).__name__,
+                "length": len(raw) if raw is not None else None,
+                "sha256_16": hashlib.sha256(raw).hexdigest()[:16] if raw is not None else None,
+            }
+            raise JournalCorruption(
+                f"journal record is invalid for attempt {attempt_id}", diagnostic=diagnostic
+            ) from exc
         if (
             record.attempt_id != attempt_id
             or record.operation_sequence < 1
@@ -395,6 +416,40 @@ class ExecutionJournal:
                 )
             )
 
+    def tombstone_abandoned_create(
+        self,
+        attempt_id: str,
+        *,
+        expected_sequence: int,
+        reason: str,
+        inspection_checksum: str,
+    ) -> JournalRecord:
+        """Tombstone a create whose process died before it bound a container (B11-H01).
+
+        Only the executor may call this, under the attempt lock, after a fenced
+        claim's exact startup-identity scan found no container. The tombstone
+        makes any later start of the dead process's request impossible; a
+        container its delayed create still produces is never started.
+        """
+        with self.lock(attempt_id):
+            record = self.load(attempt_id)
+            self._expect_sequence(record, expected_sequence)
+            if record.state == "TOMBSTONED" and record.container is None:
+                return record
+            if record.state != "CREATE_IN_FLIGHT" or record.container is not None:
+                raise JournalWriteError("only an unbound create in flight can be abandoned")
+            sequence = record.operation_sequence + 1
+            return self._write(
+                replace(
+                    record,
+                    state="TOMBSTONED",
+                    operation_sequence=sequence,
+                    tombstone_sequence=sequence,
+                    reason=reason,
+                    inspection_checksum=inspection_checksum,
+                )
+            )
+
     def create_unclaimed_tombstone(
         self,
         *,
@@ -457,13 +512,18 @@ class ExecutionJournal:
         resources: ResourceVector,
         inspection_checksum: str,
         reason: str,
+        claim_state: str = "UNCLAIMED",
     ) -> JournalRecord:
         """Create the sequence-one tombstone available from reconciliation data.
 
         A revoked UNCLAIMED row deliberately does not include the immutable
-        execution spec. This record is terminal local evidence only and cannot
-        be passed back through ``prepare`` or used to start a container.
+        execution spec, and a revoked CLAIMED row whose worker died before
+        ``prepare`` has none locally (B11-H01). This record is terminal local
+        evidence only and cannot be passed back through ``prepare`` or used to
+        start a container.
         """
+        if claim_state not in {"UNCLAIMED", "CLAIMED"}:
+            raise JournalWriteError("reconciliation tombstone claim state is invalid")
         with self.lock(attempt_id):
             if self.exists(attempt_id):
                 record = self.load(attempt_id)
@@ -488,7 +548,7 @@ class ExecutionJournal:
                     resources=resources,
                     image_digest=None,
                     input_checksum=None,
-                    execution_binding={"source": "reconciliation", "claim_state": "UNCLAIMED"},
+                    execution_binding={"source": "reconciliation", "claim_state": claim_state},
                     state="TOMBSTONED",
                     operation_sequence=1,
                     tombstone_sequence=1,

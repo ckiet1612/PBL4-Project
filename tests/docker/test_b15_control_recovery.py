@@ -3,7 +3,8 @@
 Reuses the B14 stack: the production API (in-process uvicorn), the coordinator
 loop (in-process thread), the local worker as a container and CPU workload
 containers. Faults are injected only by this test: SIGKILL of a workload or
-worker container, disconnecting the worker container from its network and
+worker container, cutting the worker off the control plane (bridge disconnect; in
+loopback mode a 127.0.0.1 relay that resets its connections) and
 stopping every control-plane process while PostgreSQL and storage stay up.
 
 Evidence rows contain identifiers, states, sequences, timestamps and checksums
@@ -937,24 +938,14 @@ def test_b15_control_recovery_on_docker(migrated_postgres_engine, tmp_path):
             harness.wait_committed(job, first["attempt_id"], 1)
             incarnation = harness.worker_row()["current_incarnation_id"]
             watch = _ContainerWatch(container)
-            subprocess.run(
-                ["docker", "network", "disconnect", "bridge", harness.worker],
-                check=True,
-                capture_output=True,
-                timeout=15,
-            )
+            harness.cut_worker_network()
             try:
                 reaped = harness.wait_state(job, "RECOVERING", timeout=LEASE_SECONDS + 45)
                 lease = harness.lease(first["attempt_id"])
                 _wait(lambda: _runner_stop_time(container, watch), "runner self-stop", timeout=30)
                 finished, finished_source = _runner_stop_time(container, watch)
             finally:
-                subprocess.run(
-                    ["docker", "network", "connect", "bridge", harness.worker],
-                    check=True,
-                    capture_output=True,
-                    timeout=15,
-                )
+                harness.restore_worker_network()
             watch.close()
             assert lease["revoke_reason"] == "LEASE_EXPIRED"
             assert finished < lease["expires_at"], (finished, lease["expires_at"])

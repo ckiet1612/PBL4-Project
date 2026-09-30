@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text, update
 
 from nexa.application import sweep_expansion
 from nexa.application.sweep_service import SweepService
-from nexa.coordinator.retention import expired_records
+from nexa.coordinator.retention import sweep_batch
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.database import create_session_factory
 from nexa.infrastructure.persistence.ids import new_uuid7
@@ -505,7 +505,7 @@ def test_get_sweep_pages_by_child_index_within_the_tenant(migrated_postgres_engi
         missing = client.get(f"/v1/sweeps/{new_uuid7()}", headers=tenant)
         assert missing.status_code == 404
         too_large = client.get(f"/v1/sweeps/{sweep_id}", headers=tenant, params={"page_size": 101})
-        assert too_large.status_code == 422
+        assert too_large.status_code == 400
 
 
 def test_cli_tokens_need_the_exact_jobs_scope(migrated_postgres_engine, tmp_path):
@@ -551,7 +551,7 @@ def test_retention_keeps_a_sweep_record_until_every_child_record_is_gone(
 
     def due():
         with factory.begin() as session:
-            return set(expired_records(session))
+            return set(sweep_batch(session).due)
 
     parent_record = select(records.c.idempotency_id).where(records.c.operation_id == "submitSweep")
     with engine.connect() as connection:

@@ -19,13 +19,25 @@ from .docker_client import DockerCli, DockerContainerNotFound, DockerControlChan
 from .errors import ExecutorError
 from .execution import WorkerExecutionMixin
 from .executor import DockerExecutor, runtime_identity_digest
-from .journal import ExecutionJournal, JournalRecord
+from .journal import ExecutionJournal, JournalCorruption, JournalRecord
 from .models import Authority, ContainerIdentity, ResourceVector
 from .protocol import SequenceState, canonical_envelope_effect
 from .runner_control import TERMINAL_MESSAGE_TYPES, RunnerControl, RunnerControlError
 from .state import PendingOperationStore
 
 LOG = logging.getLogger(__name__)
+
+
+def _loop_failure_detail(exc: BaseException) -> str:
+    """A bounded, content-free description of one failed worker loop iteration."""
+    if isinstance(exc, WorkerApiError):
+        return f"{exc.status}/{exc.code}"
+    detail = type(exc).__name__
+    if isinstance(exc, JournalCorruption) and exc.diagnostic:
+        # Cause, byte length and digest only: tells a missing record from a
+        # torn or stale one without logging any record content (B15-OBS-01).
+        detail += "".join(f" {key}={exc.diagnostic[key]}" for key in sorted(exc.diagnostic))
+    return detail
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +111,7 @@ class WorkerAgent(WorkerExecutionMixin):
         self._containers: dict[str, ContainerIdentity] = {}
         self._replayable_claims: set[str] = set()
         self._reconcile_complete = False
+        self._reconcile_logged_complete = False
         self._readiness_blocked = False
         self._server_ready = False
         self._stop = asyncio.Event()
@@ -133,6 +146,7 @@ class WorkerAgent(WorkerExecutionMixin):
         agent._containers = {}
         agent._replayable_claims = set()
         agent._reconcile_complete = False
+        agent._reconcile_logged_complete = False
         agent._readiness_blocked = False
         agent._server_ready = False
         agent._stop = asyncio.Event()
@@ -242,6 +256,7 @@ class WorkerAgent(WorkerExecutionMixin):
                 if not result.complete:
                     self._server_ready = False
                 self._containers = discovered
+                self._log_reconciliation(result)
                 return result
             except WorkerApiError as exc:
                 if exc.status != 409 or restart >= self.page_restart_limit:
@@ -341,6 +356,29 @@ class WorkerAgent(WorkerExecutionMixin):
             image_id=str(inspection.get("Image")) if inspection.get("Image") else None,
         )
 
+    def _log_reconciliation(self, result: ReconciliationResult) -> None:
+        """Log a scan outcome as one bounded JSON line of counts (B15-R33).
+
+        A steady healthy scan stays silent; an incomplete scan, a scan that adopted an
+        attempt, and the first complete scan after start or after an incomplete one are
+        logged. Outcomes commit nothing, so they are not recovery events.
+        """
+        if result.complete and not result.adopted_attempts and self._reconcile_logged_complete:
+            return
+        self._reconcile_logged_complete = result.complete
+        LOG.info(
+            json.dumps(
+                {
+                    "event": "worker_reconcile",
+                    "complete": result.complete,
+                    "items_seen": result.items_seen,
+                    "adopted": len(result.adopted_attempts),
+                    "unresolved": len(result.unresolved_attempts),
+                },
+                separators=(",", ":"),
+            )
+        )
+
     def _reconcile_item(
         self, item: dict, discovered: dict[str, ContainerIdentity]
     ) -> tuple[str, bool, bool]:
@@ -362,6 +400,25 @@ class WorkerAgent(WorkerExecutionMixin):
         )
         local = self.journal.load(attempt_id) if self.journal.exists(attempt_id) else None
         actual = discovered.get(expected.container_id) if expected is not None else None
+        if (
+            item["authority_state"] == "LIVE"
+            and local is not None
+            and (local.runner_state or {}).get("cleanup_verified") is not None
+        ):
+            # The cleanup was verified while this scan waited for the lock: its page
+            # predates the release. Re-adopting the attempt would keep a removed
+            # container in the adopted set and hold the worker out of READY (REM-R06).
+            self._adopted.pop(attempt_id, None)
+            return attempt_id, True, False
+        if (
+            item["authority_state"] == "REVOKED"
+            and item["claim_state"] == "CLAIMED"
+            and expected is None
+            and authority.worker_incarnation_id != self.incarnation_id
+        ):
+            # The claim committed but the old process died before /start
+            # committed a container identity (B11-H01).
+            return attempt_id, self._resolve_fenced_claim(item, authority, discovered), False
         if local is not None and local.state == "CREATE_IN_FLIGHT" and local.container is None:
             return attempt_id, False, False
         exact = (
@@ -729,6 +786,85 @@ class WorkerAgent(WorkerExecutionMixin):
         )
         return self._send_resolution(callback_id)
 
+    def _resolve_fenced_claim(
+        self, item: dict, authority: Authority, discovered: dict[str, ContainerIdentity]
+    ) -> bool:
+        """Release a revoked claim of a dead incarnation with an exact NO_CONTAINER proof."""
+        if self.executor is None:
+            return False
+        resources = item["allocation"]["resources"]
+        try:
+            proof = self.executor.resolve_fenced_claim(
+                authority=authority,
+                startup_nonce=item["startup_nonce"],
+                resources=ResourceVector(
+                    resources["cpu_millis"], resources["memory_bytes"], resources["gpu_count"]
+                ),
+                reason="REVOKED_CLAIMED_RECONCILIATION",
+            )
+        except ExecutorError:
+            return False
+        for container_id, identity in list(discovered.items()):
+            if identity.attempt_id == authority.attempt_id:
+                discovered.pop(container_id)
+        body = {
+            "worker_id": self.worker_id,
+            "worker_incarnation_id": authority.worker_incarnation_id,
+            "attempt_id": authority.attempt_id,
+            "allocation_id": authority.allocation_id,
+            "job_fence": authority.job_fence,
+            "proof": {
+                "proof_type": proof.proof_type,
+                "startup_nonce": proof.startup_nonce,
+                "executor_operation_sequence": proof.executor_operation_sequence,
+                "tombstone_sequence": proof.tombstone_sequence,
+                "observed_at": proof.observed_at,
+                "inspection_checksum": proof.inspection_checksum,
+            },
+        }
+        pending = [
+            callback_id
+            for callback_id, value in self.state.operations.items()
+            if value["operation"] == "cleanup"
+            and value["payload"].get("attempt_id") == authority.attempt_id
+        ]
+        if len(pending) > 1:
+            return False
+        if pending:
+            # Resume the durable callback so the server deduplicates it.
+            prior = self.state.operations[pending[0]]["payload"].get("body", {})
+            prior_proof = prior.get("proof", {})
+            if (
+                any(
+                    prior.get(key) != body[key]
+                    for key in ("worker_id", "worker_incarnation_id", "attempt_id", "allocation_id")
+                )
+                or prior.get("job_fence") != body["job_fence"]
+                or any(
+                    prior_proof.get(key) != body["proof"][key]
+                    for key in (
+                        "proof_type",
+                        "startup_nonce",
+                        "executor_operation_sequence",
+                        "tombstone_sequence",
+                        "inspection_checksum",
+                    )
+                )
+            ):
+                return False
+            callback_id = pending[0]
+        else:
+            callback_id = str(new_uuid7())
+            self.state.begin(
+                callback_id,
+                operation="cleanup",
+                payload={"attempt_id": authority.attempt_id, "body": body},
+            )
+        resolved = self._send_resolution(callback_id)
+        if resolved:
+            self._retire_fenced_startup(authority.attempt_id)
+        return resolved
+
     def _queue_resolution(
         self, item: dict, _record: JournalRecord | None, identity: ContainerIdentity | None
     ) -> None:
@@ -763,29 +899,83 @@ class WorkerAgent(WorkerExecutionMixin):
         )
 
     def _send_resolution(self, callback_id: str) -> bool:
-        record = self.state.operations[callback_id]
-        payload = record["payload"]
-        method = self.client.cleanup if record["operation"] == "cleanup" else self.client.fail
-        self.state.first_send(callback_id)
-        try:
-            response = method(payload["attempt_id"], callback_id, payload["body"])
-        except WorkerApiError as exc:
-            if exc.status == 404:
+        """Send one pending failure/cleanup callback under its attempt's journal lock.
+
+        The reconciliation replay and the result thread can hold the same pending
+        callback. The lock serializes them and the operation is re-read under it,
+        so a callback another sender already finished is neither POSTed again nor
+        acknowledged after it vanished (B15-R39). Lock order: the attempt journal
+        lock, then the operation store's internal lock; never two attempts.
+        """
+        pending = self.state.operations.get(callback_id)
+        if pending is None:
+            return True
+        attempt_id = pending["payload"]["attempt_id"]
+        with self.journal.lock(attempt_id) if self.journal is not None else nullcontext():
+            record = self.state.operations.get(callback_id)
+            if record is None:
+                # Finished by another sender, or discarded by a verified cleanup.
+                return True
+            payload = record["payload"]
+            method = self.client.cleanup if record["operation"] == "cleanup" else self.client.fail
+            self.state.first_send(callback_id)
+            try:
+                response = method(payload["attempt_id"], callback_id, payload["body"])
+            except WorkerApiError as exc:
+                if exc.status == 404:
+                    return False
+                raise
+            self.state.acknowledge(callback_id, response)
+            if record["operation"] == "cleanup" and not (
+                response.get("verified") is True or response.get("allocation_state") == "RELEASED"
+            ):
                 return False
-            raise
-        self.state.acknowledge(callback_id, response)
-        if record["operation"] == "cleanup" and not (
-            response.get("verified") is True or response.get("allocation_state") == "RELEASED"
+            self._journal_resolution(attempt_id, record["operation"], callback_id)
+            self.state.finish(callback_id)
+            if record["operation"] == "cleanup":
+                self._discard_released_authority(payload["attempt_id"])
+            return True
+
+    def _journal_resolution(self, attempt_id: str, operation: str, callback_id: str) -> None:
+        """Record a finished failure or verified cleanup before its operation is dropped.
+
+        Whichever thread sent it, the journal then tells the result thread the
+        failure is acknowledged and tells any later scan that this attempt's
+        cleanup was verified, so neither is sent again (B15-R39).
+        """
+        if self.journal is None or not self.journal.exists(attempt_id):
+            return
+        state = self.journal.load(attempt_id).runner_state or {}
+        if operation == "cleanup":
+            if state.get("cleanup_verified") is None:
+                self.journal.update_runner_state(
+                    attempt_id,
+                    lambda local: {**local, "cleanup_verified": {"callback_id": callback_id}},
+                )
+            return
+        failure = state.get("failure_resolution")
+        if (
+            isinstance(failure, dict)
+            and failure.get("callback_id") == callback_id
+            and not failure.get("acknowledged")
         ):
-            return False
-        self.state.finish(callback_id)
-        if record["operation"] == "cleanup":
-            self._discard_released_authority(payload["attempt_id"])
-        return True
+            self.journal.update_runner_state(
+                attempt_id,
+                lambda local: {
+                    **local,
+                    "failure_resolution": {**local["failure_resolution"], "acknowledged": True},
+                },
+            )
 
     def _stop_orphan(self, identity: ContainerIdentity) -> bool:
         if self.executor is None:
             return False
+        # A Docker snapshot can predate a cleanup the result thread just
+        # verified; decide and send under the attempt lock (B15-R39).
+        with self.journal.lock(identity.attempt_id):
+            return self._stop_orphan_locked(identity)
+
+    def _stop_orphan_locked(self, identity: ContainerIdentity) -> bool:
         try:
             record = self.journal.load(identity.attempt_id)
             bound = record.container
@@ -798,6 +988,12 @@ class WorkerAgent(WorkerExecutionMixin):
                 or bound.startup_nonce != identity.startup_nonce
             ):
                 return False
+            if (
+                record.state == "TOMBSTONED"
+                and (record.runner_state or {}).get("cleanup_verified") is not None
+            ):
+                # The server already verified this exact identity's cleanup.
+                return True
             proof = self.executor.cleanup(bound)
             body = {
                 "worker_id": self.worker_id,
@@ -859,6 +1055,15 @@ class WorkerAgent(WorkerExecutionMixin):
                     and record.state not in {"CLEANUP_IN_FLIGHT", "TOMBSTONED"}
                 ):
                     return False
+                if record.state == "TOMBSTONED" and record.container is None:
+                    # A dead process's delayed create after its tombstone
+                    # (B11-H01): never started, so it holds no resources.
+                    if self.executor is None:
+                        return False
+                    try:
+                        return self.executor.remove_unstarted_orphan(identity)
+                    except ExecutorError:
+                        return False
             return self._stop_orphan(identity)
 
     def _blocking_pending_attempts(self) -> list[str]:
@@ -896,17 +1101,19 @@ class WorkerAgent(WorkerExecutionMixin):
                 )
 
     def _discard_released_authority(self, attempt_id: str) -> None:
-        """Renewals and failures still pending for a released attempt end with it.
+        """Claims, renewals and failures still pending for a released attempt end with it.
 
         Called only after verified cleanup: the server accepts that proof only
         once the lease is revoked (failure, cancel, pause, disable or expiry),
-        so no pending renewal can extend it again (B15-R09) and no failure can
+        so no pending renewal can extend it again (B15-R09), no failure can
         be accepted for it, for example one recorded while the reaper fenced
-        the attempt during a network loss (B15-R17).
+        the attempt during a network loss (B15-R17), and no claim replay can
+        grant it again, for example one a dead incarnation never saw
+        acknowledged (B11-H01).
         """
         for callback_id, pending in list(self.state.operations.items()):
             if (
-                pending["operation"] in {"renew", "failure"}
+                pending["operation"] in {"claim", "renew", "failure"}
                 and pending["payload"].get("attempt_id") == attempt_id
             ):
                 self.state.discard_released_authority(
@@ -953,11 +1160,14 @@ class WorkerAgent(WorkerExecutionMixin):
         for attempt_id, authority in tuple(self._adopted.items()):
             try:
                 with self.journal.lock(attempt_id):
-                    if (
-                        (self.journal.load(attempt_id).runner_state or {})
-                        .get("result_flow", {})
-                        .get("completed")
-                    ):
+                    state = self.journal.load(attempt_id).runner_state or {}
+                    if state.get("cleanup_verified") is not None:
+                        # Verified while this scan waited for the lock: the lease
+                        # ended and its renewals were discarded (B15-R09). A new one
+                        # could only be rejected, and would block readiness (REM-R05).
+                        self._adopted.pop(attempt_id, None)
+                        continue
+                    if state.get("result_flow", {}).get("completed"):
                         self._discard_completed_renewals(attempt_id)
                         continue
                     self._renew_attempt(attempt_id, authority)
@@ -1137,11 +1347,7 @@ class WorkerAgent(WorkerExecutionMixin):
                     else:
                         timed_out = True
                 except errors as exc:
-                    detail = (
-                        f"{exc.status}/{exc.code}"
-                        if isinstance(exc, WorkerApiError)
-                        else type(exc).__name__
-                    )
+                    detail = _loop_failure_detail(exc)
                     LOG.warning(
                         "worker_loop_failed operation=%s detail=%s", operation.__name__, detail
                     )
@@ -1202,6 +1408,10 @@ class WorkerAgent(WorkerExecutionMixin):
                 if record.container is None:
                     continue
                 state = record.runner_state or {}
+                if state.get("cleanup_verified") is not None:
+                    # Released: its container is gone and no runner is left (REM-R06).
+                    self._adopted.pop(attempt_id, None)
+                    continue
                 if (
                     state.get("pending_execution_message") is not None
                     or state.get("container_exit") is not None

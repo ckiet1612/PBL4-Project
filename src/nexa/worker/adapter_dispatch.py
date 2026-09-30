@@ -25,6 +25,7 @@ from .models import (
 from .result_flow import checksum
 
 RESTORE_DIRECTORY = "restore"
+RECOGNIZED_DIRECTORY = "recognized"
 _PROVENANCE_FROM_CONTEXT = (
     "tenant_id",
     "job_id",
@@ -265,6 +266,56 @@ def _verify_inference_restore(contents, context, restore, threads, dataset, mode
         raise RestoreUnavailable("restore state is invalid") from exc
 
 
+class ChunkOutputUnavailable(ValueError):
+    """A recognized chunk can be neither carried forward nor recomputed (B16-R21)."""
+
+
+def adapter_recognized(context, adapter, restore):
+    """The claim's recognized chunks from the restored cursor, checked before Docker work.
+
+    Absence (a non-chunked adapter, or a claim acknowledged before B16-R21) carries
+    nothing. ``null`` means the server could not read a recognized chunk: this Attempt
+    may not recompute it under its own source, so it fails before any container.
+    """
+    if not adapter.chunked or adapter_launch.RECOGNIZED_KEY not in context:
+        return []
+    value = context[adapter_launch.RECOGNIZED_KEY]
+    if value is None:
+        raise ChunkOutputUnavailable("recognized chunk output is unavailable")
+    try:
+        return chunk_manifest.validate_recognized(
+            value,
+            first=restore["cursor"]["step"] if restore is not None else 0,
+            chunk_size=context["spec"]["parameters"]["chunk_size"],
+        )
+    except chunk_manifest.ChunkManifestError as exc:
+        raise ChunkOutputUnavailable("recognized chunks are invalid") from exc
+
+
+def recognized_downloads(context, directory, recognized, restore):
+    """(view, private path) of each recognized chunk file the workload carries (B16-R21)."""
+    if not recognized:
+        return []
+    output_format = context["spec"]["parameters"]["output_format"]
+    media_type, _ = workload_adapters.CHUNK_MEDIA_TYPES[output_format]
+    first = restore["cursor"]["step"] if restore is not None else 0
+    return [
+        (
+            {
+                "artifact_id": item["artifact_id"],
+                "kind": "RESULT_FILE",
+                "media_type": media_type,
+                "size_bytes": item["size_bytes"],
+                "checksum": item["checksum"],
+            },
+            directory
+            / RECOGNIZED_DIRECTORY
+            / inference_state.chunk_file_name(first + offset, output_format),
+        )
+        for offset, item in enumerate(recognized)
+    ]
+
+
 def adapter_downloads(context, directory, *, restore_files=()):
     """(view, private path) pairs the worker downloads before prepare."""
     adapter = adapter_of(context)
@@ -277,7 +328,14 @@ def adapter_downloads(context, directory, *, restore_files=()):
 
 
 def adapter_execution_request(
-    context, directory, architecture, *, checkpoint=None, restore=None, restore_files=()
+    context,
+    directory,
+    architecture,
+    *,
+    checkpoint=None,
+    restore=None,
+    restore_files=(),
+    recognized=(),
 ):
     if context["execution_intent"] not in {"RUN", "CHECKPOINT_FOR_PAUSE"}:
         raise ValueError("worker executes only RUN or CHECKPOINT_FOR_PAUSE attempts")
@@ -339,6 +397,9 @@ def adapter_execution_request(
         "checkpoint": block,
         "restore": restore,
     }
+    if recognized:
+        # Only an Attempt with recognized chunks to carry forward names them (B16-R21).
+        launch_spec[adapter_launch.RECOGNIZED_KEY] = list(recognized)
     sources = {id(view): path for view, path in adapter_downloads(context, directory)}
     mounts = [
         InputMount(
@@ -369,6 +430,20 @@ def adapter_execution_request(
                 size_bytes=view["size_bytes"],
             )
         )
+    downloads = recognized_downloads(context, directory, recognized, restore)
+    for (view, source), target in zip(
+        downloads, adapter_launch.recognized_paths(launch_spec), strict=True
+    ):
+        # Read-only recognized chunk files the workload carries forward (B16-R21).
+        mounts.append(
+            InputMount(
+                artifact_id=view["artifact_id"],
+                source_path=str(source),
+                target_path=target,
+                content_checksum=view["checksum"],
+                size_bytes=view["size_bytes"],
+            )
+        )
     return StartExecution(
         context=execution,
         allocation=AllocationIdentity(authority.allocation_id, authority.attempt_id, resources),
@@ -383,10 +458,13 @@ def adapter_execution_request(
 
 
 __all__ = [
+    "ChunkOutputUnavailable",
     "adapter_checkpoint",
     "adapter_downloads",
     "adapter_execution_request",
     "adapter_of",
+    "adapter_recognized",
+    "recognized_downloads",
     "verify_adapter_restore_files",
     "verify_adapter_restore_manifest",
 ]

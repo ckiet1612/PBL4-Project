@@ -715,7 +715,9 @@ class AdminService:
                 .with_for_update()
             ).one()
             row = (
-                session.execute(select(users).where(users.c.user_id == user_id).with_for_update())
+                session.execute(
+                    select(users).where(users.c.user_id == user_id).with_for_update(key_share=True)
+                )
                 .mappings()
                 .one_or_none()
             )

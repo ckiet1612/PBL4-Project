@@ -35,6 +35,17 @@ _ENTRY_FIELDS = {
     "file",
 }
 _FILE_FIELDS = {"artifact_id", "logical_name", "media_type", "size_bytes", "checksum"}
+# B16-R21: one claim ``recognized_chunks`` item, the compact form of a recognized row.
+RECOGNIZED_FIELDS = {
+    "chunk_id",
+    "start_index",
+    "end_index_exclusive",
+    "artifact_id",
+    "size_bytes",
+    "checksum",
+    "source_attempt_id",
+    "source_job_fence",
+}
 
 
 class ChunkManifestError(ValueError):
@@ -151,6 +162,75 @@ def validate(
     return chunks
 
 
+def validate_recognized(value: object, *, first: int, chunk_size: int) -> list[dict]:
+    """Check claim ``recognized_chunks``: the contiguous run of chunks from ``first``.
+
+    The item count is unknown until the runner reads the input, so only the last item
+    may be short; :func:`carried_entry` later binds each range to the exact extent.
+    """
+    if not isinstance(value, list) or not _int(first, 0, MAX_CHUNKS):
+        raise ChunkManifestError("recognized chunks are not a list")
+    if first + len(value) > MAX_CHUNKS:
+        raise ChunkManifestError("recognized chunks exceed the chunk bound")
+    artifact_ids = set()
+    for offset, item in enumerate(value):
+        index = first + offset
+        if not isinstance(item, dict) or set(item) != RECOGNIZED_FIELDS:
+            raise ChunkManifestError("recognized chunk fields are not closed")
+        start = index * chunk_size
+        last = offset == len(value) - 1
+        end = item["end_index_exclusive"]
+        if (
+            item["chunk_id"] != inference_state.chunk_id(index)
+            or not _int(item["start_index"], start, start)
+            or not _int(end, start + 1, start + chunk_size)
+            or (not last and end != start + chunk_size)
+            or not isinstance(item["artifact_id"], str)
+            or not _UUID7.fullmatch(item["artifact_id"])
+            or not _int(item["size_bytes"], 1, MAX_CHUNK_FILE_BYTES)
+            or not isinstance(item["checksum"], str)
+            or not _CHECKSUM.fullmatch(item["checksum"])
+            or not isinstance(item["source_attempt_id"], str)
+            or not _UUID7.fullmatch(item["source_attempt_id"])
+            or not _int(item["source_job_fence"], 1, 2**53 - 1)
+        ):
+            raise ChunkManifestError(f"recognized chunk {index} is invalid")
+        if item["artifact_id"] in artifact_ids:
+            raise ChunkManifestError("recognized chunk artifact is listed twice")
+        artifact_ids.add(item["artifact_id"])
+    return value
+
+
+def carried_entry(
+    item: dict, *, index: int, item_count: int, chunk_size: int, output_format: str
+) -> dict:
+    """The original manifest entry of one recognized chunk, carried forward unchanged."""
+    try:
+        start, end = inference_state.chunk_extent(index, item_count, chunk_size)
+    except inference_state.InferenceStateError as exc:
+        raise ChunkManifestError("recognized chunk is outside the item range") from exc
+    if (
+        item["chunk_id"] != inference_state.chunk_id(index)
+        or (item["start_index"], item["end_index_exclusive"]) != (start, end)
+        or output_format not in CHUNK_MEDIA_TYPES
+    ):
+        raise ChunkManifestError(f"recognized chunk {index} does not match this job's extent")
+    return entry(
+        index,
+        item_count=item_count,
+        chunk_size=chunk_size,
+        source_attempt_id=item["source_attempt_id"],
+        source_job_fence=item["source_job_fence"],
+        file={
+            "artifact_id": item["artifact_id"],
+            "logical_name": inference_state.chunk_file_name(index, output_format),
+            "media_type": CHUNK_MEDIA_TYPES[output_format],
+            "size_bytes": item["size_bytes"],
+            "checksum": item["checksum"],
+        },
+    )
+
+
 def _reject_constant(value: str) -> object:
     raise ChunkManifestError(f"invalid JSON constant {value}")
 
@@ -191,9 +271,12 @@ __all__ = [
     "MAX_CHUNK_FILE_BYTES",
     "MAX_MANIFEST_BYTES",
     "MEDIA_TYPE",
+    "RECOGNIZED_FIELDS",
     "ChunkManifestError",
     "build",
+    "carried_entry",
     "entry",
     "parse",
     "validate",
+    "validate_recognized",
 ]

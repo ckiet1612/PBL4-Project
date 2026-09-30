@@ -19,17 +19,20 @@ from .docker_config import build_container_config
 from .errors import ExecutorError, ExecutorErrorCode
 from .journal import ExecutionJournal, JournalRecord, JournalWriteError
 from .models import (
+    Authority,
     CleanupProof,
     ContainerIdentity,
     ContainerObservation,
     InputMount,
     PreparedExecution,
+    ResourceVector,
     StartExecution,
 )
 
 _PROCESS_CLOCK_DOMAIN = f"process:{os.getpid()}:{time.monotonic_ns()}"
 CHECKPOINT_RUNNER_LABEL = "io.nexa.runner.checkpoint"
 CHECKPOINT_RUNNER_VALUE = "cpu-state-v1"
+_DOCKER_NEVER_STARTED = "0001-01-01T00:00:00Z"
 
 
 def _now() -> str:
@@ -498,6 +501,194 @@ class DockerExecutor:
             inspection_checksum=checksum,
             observed_at=_now(),
         )
+
+    def resolve_fenced_claim(
+        self,
+        *,
+        authority: Authority,
+        startup_nonce: str,
+        resources: ResourceVector,
+        reason: str,
+    ) -> CleanupProof:
+        """Prove that a revoked claim of a dead incarnation owns no container (B11-H01).
+
+        The server committed the claim but never a container identity, so only
+        a ``NO_CONTAINER`` proof can release it. Under the attempt lock, every
+        container with the exact startup identity is one this journal created:
+        a bound one is stopped and removed through ``cleanup``, and one from an
+        unbound create in flight, which this executor never starts, is removed.
+        The journal is tombstoned before the final scan, so a delayed create of
+        the dead process's request can never be started afterwards.
+        """
+        attempt_id = authority.attempt_id
+        labels = {
+            "nexa.managed": "true",
+            "nexa.attempt_id": attempt_id,
+            "nexa.allocation_id": authority.allocation_id,
+            "nexa.startup_nonce": startup_nonce,
+        }
+        if self.installation_id is not None:
+            labels["nexa.installation_id"] = self.installation_id
+        observation = json.dumps(
+            {"labels": labels, "container_ids": []}, sort_keys=True, separators=(",", ":")
+        ).encode()
+        checksum = self.journal.inspection_checksum(observation)
+        with self.journal.lock(attempt_id):
+            record = self.journal.load(attempt_id) if self.journal.exists(attempt_id) else None
+            if record is not None and (
+                record.allocation_id != authority.allocation_id
+                or record.startup_nonce != startup_nonce
+                or record.authority != authority
+                or record.resources != resources
+            ):
+                raise ExecutorError(
+                    ExecutorErrorCode.IDENTITY_MISMATCH,
+                    "fenced claim does not match the journal identity",
+                )
+            for container_id in self._find_startup_identity(labels):
+                if record is None or record.state == "PREPARED":
+                    raise ExecutorError(
+                        ExecutorErrorCode.IDENTITY_MISMATCH,
+                        "a container exists for a startup identity that was never created",
+                    )
+                if record.container is None:
+                    self._remove_unstarted(container_id, labels)
+                elif record.container.container_id == container_id:
+                    self.cleanup(record.container)
+                else:
+                    raise ExecutorError(
+                        ExecutorErrorCode.IDENTITY_MISMATCH,
+                        "Docker has another container for the startup identity",
+                    )
+                record = self.journal.load(attempt_id)
+            if (
+                record is not None
+                and record.state == "CLEANUP_IN_FLIGHT"
+                and record.container is not None
+            ):
+                # Removal committed before the dead process finished the journal.
+                self.cleanup(record.container)
+                record = self.journal.load(attempt_id)
+            try:
+                if record is None:
+                    record = self.journal.create_reconciliation_tombstone(
+                        attempt_id=attempt_id,
+                        allocation_id=authority.allocation_id,
+                        startup_nonce=startup_nonce,
+                        authority=authority,
+                        resources=resources,
+                        inspection_checksum=checksum,
+                        reason=reason,
+                        claim_state="CLAIMED",
+                    )
+                elif record.state == "PREPARED":
+                    record = self.journal.tombstone(
+                        attempt_id,
+                        expected_sequence=record.operation_sequence,
+                        reason=reason,
+                        inspection_checksum=checksum,
+                    )
+                elif record.state == "CREATE_IN_FLIGHT":
+                    record = self.journal.tombstone_abandoned_create(
+                        attempt_id,
+                        expected_sequence=record.operation_sequence,
+                        reason=reason,
+                        inspection_checksum=checksum,
+                    )
+            except JournalWriteError as exc:
+                raise ExecutorError(ExecutorErrorCode.INVALID_STATE, str(exc)) from exc
+            if record.state != "TOMBSTONED" or record.tombstone_sequence is None:
+                raise ExecutorError(
+                    ExecutorErrorCode.INVALID_STATE, "fenced claim cleanup did not tombstone"
+                )
+            if self._find_startup_identity(labels):
+                raise ExecutorError(
+                    ExecutorErrorCode.IDENTITY_MISMATCH,
+                    "Docker still has a container for the startup identity",
+                )
+        return CleanupProof(
+            proof_type="NO_CONTAINER",
+            startup_nonce=startup_nonce,
+            executor_operation_sequence=record.operation_sequence,
+            tombstone_sequence=record.tombstone_sequence,
+            inspection_checksum=checksum,
+            observed_at=_now(),
+        )
+
+    def remove_unstarted_orphan(self, identity: ContainerIdentity) -> bool:
+        """Remove a container that a tombstoned request's delayed create produced.
+
+        Returns False when the journal did not tombstone this exact request
+        without a container; a started container fails closed.
+        """
+        labels = {
+            "nexa.managed": "true",
+            "nexa.attempt_id": identity.attempt_id,
+            "nexa.allocation_id": identity.allocation_id,
+            "nexa.startup_nonce": identity.startup_nonce,
+        }
+        if self.installation_id is not None:
+            labels["nexa.installation_id"] = self.installation_id
+        with self.journal.lock(identity.attempt_id):
+            if not self.journal.exists(identity.attempt_id):
+                return False
+            record = self.journal.load(identity.attempt_id)
+            if (
+                record.state != "TOMBSTONED"
+                or record.container is not None
+                or record.allocation_id != identity.allocation_id
+                or record.startup_nonce != identity.startup_nonce
+            ):
+                return False
+            self._remove_unstarted(identity.container_id, labels)
+            return True
+
+    def _find_startup_identity(self, labels: dict[str, str]) -> tuple[str, ...]:
+        try:
+            return self.docker.find_by_labels(labels, timeout_seconds=5)
+        except (RuntimeError, UnicodeDecodeError) as exc:
+            raise ExecutorError(
+                ExecutorErrorCode.INSPECTION_UNAVAILABLE,
+                "Docker observation is unavailable",
+            ) from exc
+
+    def _remove_unstarted(self, container_id: str, labels: dict[str, str]) -> None:
+        # Called under the attempt lock. Only a container that Docker reports
+        # was created and never started is removed without a stopped proof.
+        try:
+            payload = self._inspect_raw(container_id, 5)
+        except DockerContainerNotFound:
+            return
+        config = payload.get("Config")
+        actual = config.get("Labels") if isinstance(config, dict) else None
+        state = payload.get("State")
+        if not isinstance(actual, dict) or any(
+            actual.get(key) != value for key, value in labels.items()
+        ):
+            raise ExecutorError(
+                ExecutorErrorCode.IDENTITY_MISMATCH, "Docker identity labels mismatch"
+            )
+        if (
+            not isinstance(state, dict)
+            or state.get("Running") is not False
+            or state.get("Status") != "created"
+            or state.get("StartedAt") not in {None, "", _DOCKER_NEVER_STARTED}
+        ):
+            raise ExecutorError(
+                ExecutorErrorCode.INVALID_STATE,
+                "a started container of an unbound request needs manual reconciliation",
+            )
+        try:
+            self.docker.remove(container_id, timeout_seconds=5)
+        except RuntimeError as exc:
+            raise ExecutorError(
+                ExecutorErrorCode.RUNTIME_ERROR, "container removal failed"
+            ) from exc
+        try:
+            self._inspect_raw(container_id, 5)
+        except DockerContainerNotFound:
+            return
+        raise ExecutorError(ExecutorErrorCode.RUNTIME_ERROR, "container removal was not observed")
 
     def _materialize_input(self, attempt_id: str, mount: InputMount) -> InputMount:
         source = Path(mount.source_path)

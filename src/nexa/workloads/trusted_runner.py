@@ -1,6 +1,7 @@
 """In-image runner state machine independent of worker liveness."""
 
 import argparse
+import errno
 import hashlib
 import json
 import math
@@ -14,13 +15,14 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, nullcontext, suppress
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
 from nexa.worker.protocol import (
+    STOP_EXIT_CODES,
     FrameDecoder,
     ProtocolError,
     SequenceState,
@@ -102,6 +104,52 @@ class RunnerState(StrEnum):
 
 class _StartupDeadlineExpired(RuntimeError):
     pass
+
+
+class _TypedFailure(ProtocolError):
+    """A runner failure whose FAILED frame names a safe class and reason."""
+
+    # The worker forwards these FAILED frames verbatim.
+    failure: tuple[str, str]
+
+
+class ChunkOutputConflict(_TypedFailure):
+    """The workload wrote output for a chunk the job already recognized (B16-R21)."""
+
+    failure = ("INTERNAL", "CHUNK_OUTPUT_CONFLICT")
+
+
+class CheckpointStorageFailed(_TypedFailure):
+    """No space or an I/O error while the runner copied checkpoint bytes (B14-K5)."""
+
+    failure = ("INTERNAL", "CHECKPOINT_STORAGE_FAILED")
+
+
+# A full or failing device: retrying the same bounded /output only fills it again.
+_STORAGE_ERRNOS = frozenset({errno.ENOSPC, errno.EDQUOT, errno.EIO})
+
+
+def _storage_error(exc: BaseException | None) -> bool:
+    return isinstance(exc, OSError) and exc.errno in _STORAGE_ERRNOS
+
+
+@contextmanager
+def _checkpoint_storage() -> Iterator[None]:
+    """Report a storage failure while staging checkpoint bytes as CheckpointStorageFailed.
+
+    Covers the raw ``OSError`` of a copy or write and a staging read whose protocol error
+    was raised from one; any other ``OSError`` is left unchanged.
+    """
+    try:
+        yield
+    except OSError as exc:
+        if not _storage_error(exc):
+            raise
+        raise CheckpointStorageFailed("checkpoint staging storage failed") from exc
+    except (ProtocolError, ValueError) as exc:
+        if isinstance(exc, _TypedFailure) or not _storage_error(exc.__cause__):
+            raise
+        raise CheckpointStorageFailed("checkpoint staging storage failed") from exc.__cause__
 
 
 class RunnerSupervisor:
@@ -259,16 +307,39 @@ class RunnerSupervisor:
                 return result
             if terminal:
                 return "INVALID"
+            storage = _checkpoint_storage() if self._stages_checkpoint(validated) else nullcontext()
             try:
-                self._apply_control_effect(validated)
-            except (ProtocolError, ValueError):
+                with storage:
+                    self._apply_control_effect(validated)
+            except (ProtocolError, ValueError) as exc:
                 instant = self.clock()
+                if isinstance(exc, _TypedFailure):
+                    self._emit_typed_failure(exc.failure)
                 self.request_stop("FAILURE", now=instant)
                 self.stop_workload(now=instant, grace_seconds=0)
                 return "INVALID"
             self._control_sequences.commit(sequence, effect)
             self._persist()
             return result
+
+    def _stages_checkpoint(self, envelope: dict[str, object]) -> bool:
+        """Whether this control copies or writes checkpoint staging bytes (B14-K5)."""
+        payload = envelope["payload"]
+        assert isinstance(payload, dict)
+        if envelope["type"] in {"REQUEST_CHECKPOINT", "FINALIZE_CHECKPOINT_MANIFEST"}:
+            return True
+        if envelope["type"] != "BIND_ARTIFACT_BATCH":
+            return False
+        if payload["purpose"] == "CHECKPOINT":
+            return True
+        record = self._checkpoint
+        # Chunk bindings of the open checkpoint write its chunk-output manifest.
+        return (
+            payload["purpose"] == "CHUNK_OUTPUT"
+            and isinstance(record, dict)
+            and record.get("reservation_callback_id") == payload["reservation_callback_id"]
+            and _reserved_id(record) == payload["reserved_id"]
+        )
 
     def _apply_control_effect(self, envelope: dict[str, object]) -> None:
         payload = envelope["payload"]
@@ -940,6 +1011,7 @@ class RunnerSupervisor:
         )
         if cursor["step"] < floor:
             raise ProtocolError("checkpoint state regressed below the committed cursor")
+        self._adopt_recognized_chunks(cursor["step"], document["item_count"])
         staging = self._staging_dir()
         if current is not None:
             _unlink_staged(staging, _checkpoint_descriptors(current), current["manifest"])
@@ -986,6 +1058,7 @@ class RunnerSupervisor:
             raw = _read_bounded(path, inference_state.MAX_DOCUMENT_BYTES)
             summary = self._inference_document(raw, summary=True)
             total = summary["chunk_count"]
+            self._adopt_recognized_chunks(total, summary["item_count"])
             if len(self._inference_chunks) > total:
                 raise ProtocolError("more chunks are bound than the inference produced")
             for index in range(len(self._inference_chunks), total):
@@ -1023,6 +1096,61 @@ class RunnerSupervisor:
                     "chunks": _new_chunk_state("RESULT", summary, end=total),
                 }
             )
+
+    def _recognized_files_are_valid(self) -> bool:
+        """Every mounted recognized chunk file is the exact claimed artifact (B16-R21)."""
+        spec = self.launch_spec
+        assert spec is not None
+        recognized = spec.get(adapter_launch.RECOGNIZED_KEY) or []
+        try:
+            for item, path in zip(recognized, adapter_launch.recognized_paths(spec), strict=True):
+                digest = _digest_bounded(
+                    self._container_path(path), chunk_manifest.MAX_CHUNK_FILE_BYTES
+                )
+                if digest != (item["size_bytes"], item["checksum"]):
+                    return False
+        except (ProtocolError, ValueError):
+            return False
+        return True
+
+    def _adopt_recognized_chunks(self, end: int, item_count: int) -> None:
+        """Carry recognized chunks before ``end`` forward instead of uploading them.
+
+        After an older restore (or input fallback) the workload takes over the chunks
+        the job already recognized from their verified files and never recomputes them
+        (B16-R21). Each is republished with its original source Attempt and fence; an
+        output file the workload still wrote for one of them is a chunk conflict.
+        """
+        spec = self.launch_spec
+        assert spec is not None
+        recognized = spec.get(adapter_launch.RECOGNIZED_KEY) or []
+        restore = spec["restore"]
+        restored = int(restore["cursor"]["step"]) if isinstance(restore, dict) else 0
+        first = len(self._inference_chunks)
+        stop = min(end, restored + len(recognized))
+        if first >= stop:
+            return
+        if first < restored:
+            raise ProtocolError("restored chunks are not loaded")
+        parameters = spec["parameters"]
+        assert isinstance(parameters, dict)
+        output_format = str(parameters["output_format"])
+        staging = self._staging_dir()
+        for index in range(first, stop):
+            item = recognized[index - restored]
+            try:
+                entry = chunk_manifest.carried_entry(
+                    item,
+                    index=index,
+                    item_count=item_count,
+                    chunk_size=int(parameters["chunk_size"]),
+                    output_format=output_format,
+                )
+            except chunk_manifest.ChunkManifestError as exc:
+                raise ProtocolError("recognized chunk does not match this job's extent") from exc
+            if os.path.lexists(staging / inference_state.chunk_file_name(index, output_format)):
+                raise ChunkOutputConflict("workload wrote output for a recognized chunk")
+            self._inference_chunks.append(entry)
 
     def _open_chunk_upload(self, record: dict[str, object], *, start: int | None = None) -> None:
         chunks = _chunk_state(record)
@@ -1335,6 +1463,10 @@ class RunnerSupervisor:
     def stop_frame_acknowledged(self) -> bool:
         return self._stop_frame_acknowledged
 
+    @property
+    def stop_reason(self) -> str | None:
+        return self._stop_reason
+
     def _find_pending(self, message_type: str) -> dict[str, object] | None:
         return next(
             (message for message in self._pending_messages if message["type"] == message_type),
@@ -1533,7 +1665,7 @@ class RunnerSupervisor:
                 return
             now = self.clock()
             if now >= self.created_at + self.startup_limit_seconds:
-                self.request_stop("RUNTIME_LIMIT", now=now)
+                self.request_stop("STARTUP_LIMIT", now=now)
                 self.stop_workload(now=now, grace_seconds=0)
                 return
             if self.authority_deadline is None or now >= self.authority_deadline:
@@ -1541,6 +1673,21 @@ class RunnerSupervisor:
                 self.stop_workload(now=now, grace_seconds=0)
                 return
             spec = self.launch_spec
+            if not self._recognized_files_are_valid():
+                # The worker downloaded and verified them; a mismatch never reaches compute.
+                self._emit(
+                    "FAILED",
+                    {
+                        "failure_class": "INTERNAL",
+                        "reason_code": "CHUNK_OUTPUT_UNAVAILABLE",
+                        "exit_code": None,
+                        "oom_killed": False,
+                        "runtime_limit_reached": False,
+                    },
+                )
+                self.request_stop("FAILURE", now=now)
+                self.stop_workload(now=now, grace_seconds=0)
+                return
             if not self._restore_state_is_valid():
                 # Worker verified the checkpoint too; a mismatch here never reaches compute.
                 self._emit(
@@ -1560,7 +1707,7 @@ class RunnerSupervisor:
                 pid = self.launch_workload(self._launch_command())
             except _StartupDeadlineExpired:
                 now = self.clock()
-                self.request_stop("RUNTIME_LIMIT", now=now)
+                self.request_stop("STARTUP_LIMIT", now=now)
                 self.stop_workload(now=now, grace_seconds=0)
                 return
             self._emit(
@@ -1625,6 +1772,8 @@ class RunnerSupervisor:
                     self._stage_inference_result()
                 else:
                     self._stage_training_result()
+            except ChunkOutputConflict as exc:
+                failure = exc.failure
             except (OSError, ProtocolError):
                 failure = ("INTERNAL", "INVALID_RESULT")
         if failure is None:
@@ -1664,6 +1813,19 @@ class RunnerSupervisor:
             },
         )
         self._persist()
+
+    def _emit_typed_failure(self, failure: tuple[str, str]) -> None:
+        """FAILED for a chunk conflict (B16-R21) or a checkpoint storage failure (B14-K5)."""
+        self._emit(
+            "FAILED",
+            {
+                "failure_class": failure[0],
+                "reason_code": failure[1],
+                "exit_code": None,
+                "oom_killed": False,
+                "runtime_limit_reached": False,
+            },
+        )
 
     def _read_oom_kill_count(self) -> int | None:
         """Bounded read of ``oom_kill`` from cgroup v2 ``memory.events``; None if absent."""
@@ -1784,7 +1946,10 @@ class RunnerSupervisor:
 
     def stop_workload(self, *, now: float, grace_seconds: float = 5) -> int | None:
         del now
-        reason = self._stop_reason or "FAILURE"
+        if self._stop_reason is None:
+            # The STOPPED frame and the exit status name the same reason.
+            self._stop_reason = "FAILURE"
+        reason = self._stop_reason
         if self._supervisor_socket is not None and self._workload_started:
             grace = min(grace_seconds, float(self.stop_grace_seconds))
             # A supervisor that reported its workload's exit has closed its socket;
@@ -1795,6 +1960,10 @@ class RunnerSupervisor:
             if not self._supervisor_exited.wait(timeout=grace + 1.5):
                 raise RuntimeError("workload supervisor did not confirm stop")
             exit_code = self._supervisor_exit_code
+            if exit_code is None:
+                # A connection that failed or broke protocol also wakes the waiters, but
+                # only an EXIT report proves the workload stopped (REM-R01).
+                raise RuntimeError("workload supervisor ended without an exit report")
             normalized_exit_code = _normalize_exit_code(exit_code)
             self._emit(
                 "STOPPED",
@@ -1880,8 +2049,11 @@ class RunnerSupervisor:
             try:
                 if not present:
                     raise ProtocolError("checkpoint state never appeared")
-                self._stage_checkpoint(waiting)
-            except (ProtocolError, ValueError):
+                with _checkpoint_storage():
+                    self._stage_checkpoint(waiting)
+            except (ProtocolError, ValueError) as exc:
+                if isinstance(exc, _TypedFailure):
+                    self._emit_typed_failure(exc.failure)
                 self._persist()
                 self.request_stop("FAILURE", now=instant)
                 self.stop_workload(now=instant, grace_seconds=0)
@@ -1900,7 +2072,7 @@ class RunnerSupervisor:
             self.runtime_started_at is None
             and instant >= self.created_at + self.startup_limit_seconds
         ):
-            reason = "RUNTIME_LIMIT"
+            reason = "STARTUP_LIMIT"
         elif self.authority_deadline is not None and instant >= self.authority_deadline:
             reason = "LEASE_DEADLINE"
         elif (
@@ -1923,8 +2095,9 @@ class RunnerSupervisor:
                 try:
                     self.enforce_deadlines()
                 except (OSError, RuntimeError):
-                    self.state = RunnerState.STOPPING
-                    self._persist()
+                    # An unconfirmed stop must end the runner, not leave it serving
+                    # while STOPPING until reconciliation removes it (B15-R14).
+                    self.fail_closed()
                     return
                 if self.state == RunnerState.STOPPED:
                     return
@@ -2555,6 +2728,20 @@ def _process_group_exists(process_group: int) -> bool:
     return True
 
 
+def exit_status(runner: RunnerSupervisor, *, failed: bool) -> int:
+    """PID 1 status: 0 only once a worker kept the STOPPED frame.
+
+    A stop no worker acknowledged exits with its reason's status so the container exit
+    still names the cause (B15-R14); a fail-closed runner without a stop reason keeps 124.
+    """
+    reason = runner.stop_reason
+    if not failed and runner.stop_frame_acknowledged:
+        return 0
+    if reason is not None:
+        return STOP_EXIT_CODES[reason]
+    return 124 if failed else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Nexa trusted runner")
     parser.add_argument(
@@ -2595,8 +2782,8 @@ def main() -> int:
             supervisor_socket_path=args.supervisor_socket if launch_spec is not None else None,
         )
     except (OSError, TimeoutError, RuntimeError):
-        return 124
-    return 0
+        return exit_status(runner, failed=True)
+    return exit_status(runner, failed=False)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 28/09/2026
+## Trạng thái ghi nhận ngày 30/09/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
@@ -28,10 +28,29 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - **B14 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 26/09/2026.** Công việc CPU giờ tự lưu tiến độ định kỳ. Khi container bị tắt đột ngột, hệ thống chờ một khoảng ngắn, xếp việc vào hàng chờ lại và chạy tiếp từ lần lưu hợp lệ mới nhất. Mọi lần lưu đều được kiểm tra quyền, nguồn gốc và tính tương thích. Lần lưu bị hỏng được đánh dấu để không bao giờ dùng lại, và hệ thống chuyển sang lần lưu cũ hơn. Khi không còn lần lưu hợp lệ, việc được phép chạy lại từ đầu thì chạy lại và có ghi sự kiện; việc không được phép thì dừng hẳn và báo lý do. Người dùng xem danh sách lần lưu qua API và lệnh `nexa job checkpoints`. Có sáu tình huống kiểm thử với container thật trên Docker Desktop Linux VM: tắt container ở nhiều thời điểm, làm hỏng lần lưu mới nhất, làm hỏng tất cả lần lưu và tắt worker khi đang lưu dở. Mọi kết quả đều giống từng byte với lần chạy không bị ngắt. Task Review vòng 1 không duyệt vì còn năm lỗi chặn. Vòng 2 đã sửa hết, và Task Review chạy lại độc lập kiểm thử PostgreSQL lẫn Docker trước khi duyệt. Còn một số lỗi nhỏ không chặn (B14-R03/R04/R05/R10/R11 và hai ghi chú), liệt kê trong [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md) và mục Bàn giao B14 bên dưới. Phê duyệt này không thay phần phục hồi đầy đủ của B15, các workload AI của B16, việc dọn dữ liệu cũ của B19, tải B22, bare Linux, GPU hay release.
 - **B15 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 27/09/2026.** Người dùng giờ có thể hủy, tạm dừng, chạy tiếp và thử lại công việc qua API và lệnh `nexa job cancel|pause|resume|retry`. Tạm dừng chỉ hoàn tất khi tiến độ đã được lưu và container cũ đã thật sự dừng. Chạy tiếp không tốn lượt thử lại. Thử lại thủ công tạo một công việc mới, có thể dùng lần lưu của công việc cũ. Khi worker mất liên lạc quá thời hạn, coordinator tự thu hồi quyền của lần chạy cũ nhưng vẫn giữ tài nguyên cho đến khi có bằng chứng container đã dừng, rồi mới chạy lại từ lần lưu gần nhất. Admin có thể ngừng giao việc mới cho một worker (drain), tắt hẳn worker (disable) và bật lại khi worker đã khỏe (enable). Các tình huống kiểm thử với container thật trên Docker Desktop Linux VM gồm: tạm dừng rồi chạy tiếp, hủy, tắt worker quá thời hạn, sập giữa lúc tạm dừng, drain/disable/enable, thử lại thủ công, quá giờ, mất mạng và khởi động lại cả hệ thống. Kết quả sau phục hồi giống từng byte với lần chạy không bị ngắt. Task Review vòng 1 không duyệt; vòng 2 đã sửa các lỗi chặn và chạy lại kiểm thử trước khi duyệt. B15 cũng sửa bốn lỗi nhỏ còn lại của B14 (B14-R03/R05/R10/R11). Còn một số điểm không chặn (B15-R11/R32/R33/R39, bốn diễn giải contract B15-R02/R05/R06/R34, B14-R04 và B13-R12), liệt kê trong [B15 evidence](docs/evidence/B15-control-recovery.md) và mục Bàn giao B15 bên dưới. Phê duyệt này không thay các workload AI của B16, Web UI của B17/B18, số liệu và dọn dữ liệu của B19, kiểm thử race/bảo mật của B20, khởi động lại máy và tải lớn của B22, bare Linux, GPU hay release.
 - **B16 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 28/09/2026.** Admin đăng ký được các mẫu việc AI được cho phép bằng một lệnh bảo trì, và người dùng xem danh sách mẫu qua API và lệnh `nexa template list|show`. Người dùng dạy được một mô hình nhỏ trên CPU, thử nhiều bộ cài đặt cùng lúc (tối đa 100 bộ, mỗi bộ là một công việc riêng, qua lệnh `nexa sweep submit|show`) và dùng mô hình xử lý dữ liệu theo từng phần. Mỗi bộ cài đặt được kiểm giới hạn riêng như một công việc bình thường; gửi lại cùng yêu cầu trả đúng kết quả cũ, không tạo việc trùng. Việc dạy mô hình lưu cả mô hình, trạng thái tối ưu, bộ sinh số ngẫu nhiên và vị trí đang đọc dữ liệu, nên chạy tiếp được sau khi container bị tắt đột ngột hoặc lần lưu mới nhất bị hỏng. Kết quả sau phục hồi nằm trong ngưỡng sai số đã khóa trước khi đo, và thực tế giống hệt lần chạy không bị ngắt. Việc xử lý theo từng phần giữ lại các phần đã xong, chỉ tính phần còn lại và không tạo phần trùng. Dữ liệu vượt giới hạn hoặc hỏng dừng với lỗi đầu vào, việc vượt giới hạn bộ nhớ dừng với lỗi OOM; cả hai không thử lại. Các tình huống container thật chạy trên VPS1 (một máy ảo Linux thật trên AWS, không có GPU); trên Mac chỉ chạy lại các kiểm thử CPU cũ với image mới. Task Review vòng 1 không duyệt vì ba lỗi chặn; vòng 2 đã sửa hết, và Task Review chạy lại độc lập kiểm thử tự động và PostgreSQL. Các kiểm thử container trên VPS1 được duyệt dựa trên evidence của Task Code. Còn mở, không chặn: B16-R21 (sau khi quay về lần lưu cũ hơn, việc xử lý từng phần bị dừng với lỗi chưa thống nhất, chờ quyết định), B16-R29 (một test cũ của B09 fail trên VPS1 vì cách so người dùng) và một câu tài liệu chưa chính xác về lỗi đầu vào. Phê duyệt này không thay Web UI của B17/B18, số liệu và dọn dữ liệu của B19, kiểm thử race/bảo mật của B20, chuyển máy và sao lưu của B21, tải lớn của B22, GPU của B23 hay release. Chi tiết ở [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md) và mục Bàn giao B16 bên dưới.
+- **Đợt B1–B16 Findings Remediation đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 30/09/2026.** Một đợt kiểm tra độc lập toàn bộ B01–B16 tìm ra 31 lỗi và điểm chưa rõ còn mở; đợt này sửa tận gốc hoặc chốt từng mục. Kết quả:
+  - **23 mục đã đóng.** Bằng chứng gồm kiểm thử tự động, kiểm thử PostgreSQL và container thật trên VPS1. Các điểm chính:
+    - sao lưu/khôi phục cơ sở dữ liệu chạy được mà không cần mẹo (B13-R12);
+    - việc xử lý dữ liệu từng phần chạy tiếp đến hết sau khi quay về lần lưu cũ, không tính lại phần đã được công nhận (B16-R21);
+    - container chết ngay lúc khởi động được thử lại thay vì bị coi là quá giờ (B15-R11);
+    - lỗi đĩa khi lưu tiến độ có mã riêng, không tốn lượt thử lại;
+    - dịch vụ caddy không còn rò tiến trình, đã kiểm liên tục 8 giờ 30 phút.
+  - **5 mục chờ môi trường** (B11-H01, B15-R39, B15-R11, B16-R29, B15-OBS-01). Bốn mục đầu đã đạt mọi điều kiện trên VPS1, chỉ còn thiếu một lượt chạy trên Docker Desktop của Mac. Mục cuối đã có sửa phòng thủ nhưng chưa chứng minh được nguyên nhân.
+  - **3 mục chờ owner quyết định** (OD-1, OD-2, OD-3).
+  - Task còn tự phát hiện 10 vấn đề mới: 9 đã đóng, 1 chưa tìm ra nguyên nhân (REM-R08, một lần test fail không tái hiện được).
+  - Có hai thay đổi API cố ý làm khác hành vi cũ: đường dẫn/tham số sai định dạng trả 400 thay vì 422, và sweep có giá trị trùng bị từ chối thay vì tự gộp.
+  - Task Review vòng 1 không duyệt vì bốn điểm chặn; vòng 2 đã sửa hết.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B16 ở đây đã được cập nhật theo xác nhận mới nhất của user.
+  Chi tiết ở [evidence remediation](docs/evidence/B01-B16-findings-remediation.md) và mục Bàn giao B1–B16 Findings Remediation bên dưới.
+
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B16 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
 
 Các chặng tiếp theo là **B17 — Web UI cho user**, **B18 — Web UI cho admin** và **B19 — Metrics, audit, storage limits**. Cả ba đã đủ điều kiện (B17 cần B12 và B16, B18 và B19 cần B15), và có thể làm song song. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
+
+Owner còn hai việc sau đợt remediation:
+
+- chọn phương án cho OD-1, OD-2 và OD-3;
+- giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -96,7 +115,7 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B10 | Worker local, heartbeat, reconcile | Đã hoàn thành và được duyệt: báo còn hoạt động, đối soát các lần chạy cũ sau khởi động lại, tiếp quản lần chạy còn quyền và giữ việc dọn dẹp chưa được xác nhận. Chỉ sẵn sàng nhận việc sau khi kiểm tra an toàn; đã kiểm thử trên Docker Desktop Linux VM. | B06, B09 |
 | B11 | Coordinator, allocation, dispatch, fenced result | Đã hoàn thành và được duyệt: nối hàng chờ với bộ phận điều phối, cấp tài nguyên, giao việc cho worker, nhận kết quả CPU có kiểm tra quyền và trả tài nguyên sau cleanup đúng định danh. Đã kiểm thử trên Docker Desktop Linux VM. | B04, B08, B10 |
 | B12 | CLI | Đã hoàn thành và được duyệt trong phạm vi lệnh có backend: tải tệp lên, gửi việc, xem tình trạng/sự kiện, lấy kết quả và quản trị danh tính/giới hạn. Đã kiểm thử luồng CPU qua CLI trên Docker Desktop Linux VM; các lệnh hủy/tạm dừng/chạy tiếp/thử lại được bổ sung ở B15. | B11 |
-| B13 | Fairness production, quota, ledger | Đã hoàn thành và được duyệt: cách chia công bằng chạy trong hệ thống thật, giữ đúng giới hạn mỗi nhóm và ghi lại tài nguyên đã cấp cùng thời gian giữ; khởi động lại không làm mất sổ ghi này. Đã kiểm thử với hàng chờ 100.000 việc trên Docker Desktop Linux VM. Lỗi B13-R12 có gốc từ B05 còn mở, chờ user quyết định. | B11 |
+| B13 | Fairness production, quota, ledger | Đã hoàn thành và được duyệt: cách chia công bằng chạy trong hệ thống thật, giữ đúng giới hạn mỗi nhóm và ghi lại tài nguyên đã cấp cùng thời gian giữ; khởi động lại không làm mất sổ ghi này. Đã kiểm thử với hàng chờ 100.000 việc trên Docker Desktop Linux VM. Lỗi B13-R12 có gốc từ B05 đã được sửa trong đợt B1–B16 Findings Remediation. | B11 |
 | B14 | CPU checkpoint/restore | Đã hoàn thành và được duyệt: công việc CPU lưu tiến độ giữa chừng, chạy tiếp từ lần lưu hợp lệ gần nhất, bỏ qua lần lưu hỏng và cho kết quả giống từng byte với khi chạy không bị ngắt. Đã kiểm thử sáu tình huống container thật trên Docker Desktop Linux VM. Hủy/tạm dừng và phục hồi đầy đủ thuộc B15; workload AI thuộc B16. | B11 |
 | B15 | Cancel, pause/resume, retry, recovery | Đã hoàn thành và được duyệt: hủy, tạm dừng, chạy tiếp và thử lại công việc qua API/CLI; tự thu hồi quyền khi worker mất liên lạc và khôi phục từ điểm lưu; chỉ cấp lại tài nguyên khi lần chạy cũ đã thực sự dừng; admin drain/disable/enable worker. Đã kiểm thử với container thật trên Docker Desktop Linux VM. | B12, B13, B14 |
 | B16 | PyTorch, sweep, chunk inference | Đã hoàn thành và được duyệt: thêm các mẫu việc AI được cho phép, gồm dạy một mô hình nhỏ trên CPU, thử tối đa 100 bộ cài đặt và dùng mô hình xử lý dữ liệu từng phần. Việc dạy mô hình chạy tiếp đúng sau lỗi trong ngưỡng sai số đã khóa trước; việc xử lý từng phần không tạo phần trùng. Đã kiểm thử với container thật trên VPS1 (Linux thật, không GPU). | B15 |
@@ -352,3 +371,58 @@ VPS1 được duyệt dựa trên evidence của Task Code.
 VPS1 là máy ảo trên AWS, không phải máy vật lý, GPU hay môi trường phát hành. Chưa có evidence
 cho Web UI (B17/B18), số liệu và dọn dữ liệu (B19), race/bảo mật (B20), chuyển máy và sao lưu
 (B21), tải lớn (B22), GPU (B23) hay release. B17, B18 và B19 là các chặng tiếp theo.
+
+## Bàn giao B1–B16 Findings Remediation
+
+Đợt B1–B16 Findings Remediation đã được Task Review duyệt theo xác nhận của user ngày 30/09/2026.
+[Evidence remediation](docs/evidence/B01-B16-findings-remediation.md) ghi lại từng finding
+kèm nguyên nhân, cách sửa, kiểm thử trước/sau và điều kiện đóng. Các mục Bàn giao B11–B16
+phía trên là ảnh chụp tại lúc từng chặng được duyệt; trạng thái hiện tại của các lỗi được
+nhắc ở đó xem tại đây và trong evidence.
+
+- **Hai migration mới:**
+  - `20260928_0021` sửa các hàm tính số thập phân của B05 để sao lưu/khôi phục và thống
+    kê cơ sở dữ liệu chạy đúng;
+  - `20260929_0022` ghi định danh nơi lưu tệp, để hệ thống không đánh dấu nhầm lần lưu là
+    hỏng khi gắn sai hoặc dựng lại ổ lưu trữ.
+- **Image mới cho Linux amd64:** CPU, worker, PyTorch và xử lý dữ liệu từng phần. Tất cả
+  build trên VPS1, không đẩy lên registry. Chưa build cho Mac (arm64). Runner, worker và
+  image workload phải dùng cùng bản. Muốn dùng, admin đăng ký template version mới bằng
+  `nexa-maintenance register-template` với digest image cuối; không sửa version đã đăng ký.
+- **Thay đổi hành vi nhìn thấy từ ngoài:**
+  - đường dẫn/tham số sai định dạng trả 400 thay vì 422;
+  - sweep có giá trị trùng trong một dimension bị từ chối 422;
+  - lỗi có thêm trường `reason`;
+  - `compose.yaml` bật `init` và giới hạn số tiến trình cho caddy.
+- **Kiểm thử trên bản cuối:**
+  - trên Mac, suite mặc định 1772 passed, 599 skipped;
+  - trên VPS1: suite PostgreSQL 2343 passed, 4 skipped; toàn bộ kiểm thử container 24 passed;
+    kiểm thử torch 162 passed.
+- **Không lượt kiểm thử nào chạy được trên Docker Desktop của Mac** trong đợt này, vì caddy
+  của stack `nexa_b10_smoke3` (khoảng 31.000 PID) làm VM của Docker Desktop hết chỗ cho
+  tiến trình mới.
+
+Còn mở:
+
+- **Chờ môi trường:** B11-H01, B15-R39, B15-R11, B16-R29 và B15-OBS-01. Hành động tối thiểu:
+  1. dừng `nexa_b10_smoke3-caddy-1` hoặc khởi động lại VM của Docker Desktop;
+  2. build image arm64 từ cây hiện tại;
+  3. chạy `tests/docker` trên Mac;
+  4. với B15-OBS-01, đếm cảnh báo `JournalCorruption`.
+- **Chờ owner:**
+  - OD-1 (B15-R06): có cho thử lại thủ công lần hai với khóa mới không;
+  - OD-2 (B13-OBS-01): chấp nhận hay tối ưu thời gian dispatch bị đứng sau thao tác admin.
+    Số đo ở 100.000 việc: khoảng 376 giây sau khi đổi capability, khoảng 43 giây sau khi
+    bật/tắt tenant;
+  - OD-3 (AUD-02): file benchmark 93 MB đang được track.
+- **Chưa tìm ra nguyên nhân:** REM-R08, một lần test container K5 fail không tái hiện được.
+- **Giới hạn đã ghi:** 13 mục trong phần "Giới hạn" của evidence, gồm:
+  - số phần dữ liệu đã công nhận tối đa 2048;
+  - thời gian tải phần đã công nhận nằm trong 30 giây khởi động;
+  - blob dùng chung theo tenant.
+
+VPS1 đã được dọn: không còn container, volume hay tmux của đợt này. Chỉ còn image của B16,
+image nền và build cache dùng chung. Phê duyệt này không đóng các mục chờ môi trường hay chờ
+owner và không nâng gate nghiệm thu nào. Nó cũng không thay Web UI (B17/B18), số liệu và dọn
+dữ liệu (B19), race/bảo mật (B20), chuyển máy và sao lưu (B21), tải lớn (B22), GPU (B23) hay
+release. B17, B18 và B19 vẫn là các chặng tiếp theo.

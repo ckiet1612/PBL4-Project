@@ -22,6 +22,11 @@
         "image_ref": "nexa/batch-inference:b16r2",
         "image_digest": "sha256:db50610aa8c93896202638ca7e731b6a0595ead3b6ea62ca331c313c4f42c4ae",
         "reason": "B16 round 2 rebuild: trusted runner cgroup OOM report and exit 65 mapping (B16-R24/R26)"
+      },
+      {
+        "image_ref": "nexa/rem-batch-inference:r2-amd64",
+        "image_digest": "sha256:32e963d043bab5b07952cc90034985208eb601e9236b06cf9bd04b6efa0e3449",
+        "reason": "B1-B16 remediation rebuild: trusted runner and worker changes (B15-R10/R14, B16-R21, B14-K5, REM-R01/R02/R05/R06, RV03 recognized-chunk carry-forward)"
       }
     ]
   },

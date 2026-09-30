@@ -26,7 +26,12 @@ from nexa.application.checkpoint_validation import (
 from nexa.application.errors import ApplicationError
 from nexa.application.execution_cleanup import _adjust_counters
 from nexa.application.idempotency import begin_idempotency, complete_idempotency
-from nexa.application.job_recovery import extend_retention, fence_attempt, restorable_scope
+from nexa.application.job_recovery import (
+    extend_retention,
+    fence_attempt,
+    restorable_scope,
+    retry_lineage,
+)
 from nexa.application.preconditions import VersionPrecondition, resolve_expected_version
 from nexa.domain.identity import Principal, require_tenant_membership
 from nexa.infrastructure.persistence import schema as s
@@ -566,10 +571,12 @@ class JobControlMixin:
                 s.checkpoint_corruptions.c.checkpoint_id == checkpoint_id
             )
         ).first()
-        # Manual retry keeps the immutable spec/input, so provenance must match exactly.
+        # Manual retry keeps the immutable spec/input, so provenance must match exactly,
+        # and the owner is the source Job or its ancestor on the retry chain (B15-R05).
         if (
             row["state"] != "COMMITTED"
             or corrupt is not None
+            or row["job_id"] not in retry_lineage(session, tenant_id, source_spec["job_id"])
             or owner_spec != source_spec["spec_checksum"]
             or scan != ("VALID", checkpoint_id)
         ):

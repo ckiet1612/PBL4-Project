@@ -1,0 +1,330 @@
+........F...............                                                 [100%]
+=================================== FAILURES ===================================
+____________ test_b16_chunked_inference_carry_forward_and_blob_loss ____________
+
+self = <tests.docker.b16_support.B16Harness object at 0x76b9cdc5ad80>
+job_id = '01a0ef4b-6511-75be-a1b7-70eb04ef32f7', timeout = 300
+
+    def wait_succeeded(self, job_id, timeout=300):
+        def done():
+            job = self.job(job_id)
+            if job["state"] in TERMINAL - {"SUCCEEDED"}:
+                raise AssertionError(f"job {job_id} ended {job['state']}")
+            return job["state"] == "SUCCEEDED" and job
+    
+        try:
+>           return _wait(done, f"job {job_id} SUCCEEDED", timeout=timeout, pause=0.5)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/docker/test_b14_checkpoint_restore.py:594: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/docker/test_b14_checkpoint_restore.py:61: in _wait
+    last = predicate()
+           ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def done():
+        job = self.job(job_id)
+        if job["state"] in TERMINAL - {"SUCCEEDED"}:
+>           raise AssertionError(f"job {job_id} ended {job['state']}")
+E           AssertionError: job 01a0ef4b-6511-75be-a1b7-70eb04ef32f7 ended FAILED
+
+tests/docker/test_b14_checkpoint_restore.py:590: AssertionError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-5/test_b16_chunked_inference_car0')
+
+    def test_b16_chunked_inference_carry_forward_and_blob_loss(migrated_postgres_engine, tmp_path):
+        env = b16.environment()
+        entry = b16.fixture("batch-inference-v1")
+        engine = migrated_postgres_engine
+        images = _images(env)
+        b16.register_templates(
+            engine, env["NEXA_B16_PYTORCH_IMAGE_REF"], env["NEXA_B16_INFERENCE_IMAGE_REF"]
+        )
+        dataset = b16.data_file(env["NEXA_B16_DATA_DIR"], entry["dataset"])
+        model = b16.data_file(env["NEXA_B16_DATA_DIR"], entry["model"])
+        item_count = entry["dataset"]["item_count"]
+        chunk_size = entry["job"]["parameters"]["chunk_size"]
+        chunk_count = entry["chunks"]["chunk_count"]
+        evidence = {
+            "fixture": entry["fixture"],
+            "images": images,
+            "dataset_checksum": entry["dataset"]["checksum"],
+            "model_checksum": entry["model"]["checksum"],
+        }
+        sampler = b16.MemorySampler().start()
+        with _client(engine, tmp_path) as client:
+            harness = b16.B16Harness(engine, tmp_path, client, env)
+            try:
+                harness.bootstrap()
+                dataset_id = harness.upload(entry["dataset"], dataset)
+                model_id = harness.upload(entry["model"], model)
+                _start(harness, engine)
+                spec = _inference_spec(entry, dataset_id, model_id)
+                resources = spec["resources"]
+    
+                # D4. Uninterrupted baseline: 40 recognized chunks covering [0, 2000).
+                started = time.monotonic()
+                baseline = harness.submit("b16-docker-infer-baseline", spec)
+                _first, container = harness.running_attempt(baseline, 1)
+                hardening_baseline = _hardened_while_running(harness, container, resources)
+                harness.wait_succeeded(baseline, timeout=300)
+                seconds = round(time.monotonic() - started, 1)
+                _r0, summary_checksum0, summary0 = _summary(harness, baseline)
+                timeline = harness.reconcile(baseline, 1)
+                chunks0 = harness.chunks(baseline)
+                reference = {row["chunk_id"]: row["checksum"] for row in chunks0}
+                report0 = b16.chunk_report(chunks0, reference, item_count, chunk_size)
+                assert report0["recognized"] == report0["distinct_chunk_ids"] == chunk_count
+                assert report0["coverage_exact"] and report0["ids_formatted"]
+                assert summary0["chunk_count"] == chunk_count
+                assert sum(summary0["prediction_counts"]) == item_count
+                assert list(timeline["restores"].values()) == [None]
+                evidence["D4_baseline"] = {
+                    "seconds": seconds,
+                    "checkpoints": len(timeline["checkpoints"]),
+                    "chunk_report": report0,
+                    "chunk_checksums": reference,
+                    "summary_checksum": summary_checksum0,
+                    "prediction_counts": summary0["prediction_counts"],
+                    "result_provenance": b16.stable_provenance(
+                        harness.result_manifest(baseline)["provenance"]
+                    ),
+                    "hardening": hardening_baseline,
+                    "memory_peak_bytes": _peaks(harness, sampler, baseline),
+                    "timeline": timeline,
+                }
+    
+                # D5. SIGKILL after 2 committed checkpoints: the retry restores the newest
+                # cursor and carries its recognized chunks forward; no chunk is recognized twice.
+                job = harness.submit("b16-docker-infer-crash-resume", spec)
+                first, container = harness.running_attempt(job, 1)
+                harness.wait_committed(job, first["attempt_id"], 2)
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                recognized_at_kill = harness.chunks(job)
+                harness.wait_succeeded(job, timeout=300)
+                _r1, summary_checksum1, summary1 = _summary(harness, job)
+                timeline = harness.reconcile(job, 2)
+                newest = max(harness.checkpoints(job, first["attempt_id"]), key=lambda row: row[1])
+                second = timeline["attempts"][1]["attempt_id"]
+                assert timeline["restores"][second] == {
+                    "checkpoint_id": str(newest[0]),
+                    "sequence": newest[1],
+                }
+                cursor = harness.checkpoint_manifest(newest[0])["cursor"]
+                chunks1 = harness.chunks(job)
+                report1 = b16.chunk_report(chunks1, reference, item_count, chunk_size)
+                assert report1["recognized"] == report1["distinct_chunk_ids"] == chunk_count
+                assert report1["coverage_exact"] and report1["checksums_equal_baseline"], report1
+                assert report1["chunks_per_source_attempt"] == {
+                    str(first["attempt_id"]): cursor["step"],
+                    second: chunk_count - cursor["step"],
+                }
+                # Carry-forward: the rows recognized before the kill are unchanged.
+                assert [row for row in chunks1 if row["source_attempt_id"] == first["attempt_id"]] == (
+                    recognized_at_kill[: cursor["step"]]
+                )
+                assert summary1["prediction_counts"] == summary0["prediction_counts"]
+                assert _ordered(
+                    _event_pairs(timeline),
+                    [
+                        ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                        ("ALLOCATION_RELEASED", "VERIFIED_CLEANUP"),
+                        ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"),
+                    ],
+                ), _event_pairs(timeline)
+                evidence["D5_crash_resume"] = {
+                    "restored_cursor": cursor,
+                    "recognized_at_kill": len(recognized_at_kill),
+                    "chunk_report": report1,
+                    "summary_checksum": summary_checksum1,
+                    "summary_bitwise_equal": summary_checksum1 == summary_checksum0,
+                    "memory_peak_bytes": _peaks(harness, sampler, job),
+                    "timeline": timeline,
+                }
+    
+                # D6. Delete the blob of the first chunk after the previous cursor, named only
+                # by the newest checkpoint (coordinator paused): the newest is CORRUPT
+                # CHECKPOINT_BLOB_MISSING and the retry falls back to the previous checkpoint.
+                # That chunk stays recognized by attempt 1 but its bytes are gone, so the claim
+                # carries no recognized set and the worker fails the attempt
+                # INTERNAL/CHUNK_OUTPUT_UNAVAILABLE before creating a container (B16-R21):
+                # no blind retry, no result, no recognition changed.
+                job = harness.submit("b16-docker-infer-blob-missing", spec)
+                first, container = harness.running_attempt(job, 1)
+                harness.wait_committed(job, first["attempt_id"], 2)
+                harness.coordinator.pause()
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                committed = harness.checkpoints(job)
+                newest, previous = committed[-1], committed[-2]
+                newest_cursor = harness.checkpoint_manifest(newest[0])["cursor"]
+                previous_cursor = harness.checkpoint_manifest(previous[0])["cursor"]
+                assert newest_cursor["step"] > previous_cursor["step"], (newest_cursor, previous_cursor)
+                before = harness.chunks(job)
+                victim = before[previous_cursor["step"]]
+                harness.delete_blob(victim["artifact_id"])
+                harness.coordinator.start()
+                ended = harness.wait_state(job, TERMINAL, timeout=300)
+                timeline = _settled(harness, job)
+                second = timeline["attempts"][1]["attempt_id"]
+                corrupt = {row["checkpoint_id"]: row["corrupt"] for row in timeline["checkpoints"]}
+                assert corrupt[str(newest[0])] == "CHECKPOINT_BLOB_MISSING"
+                assert timeline["restores"][second] == {
+                    "checkpoint_id": str(previous[0]),
+                    "sequence": previous[1],
+                }
+                assert _ordered(
+                    _event_pairs(timeline),
+                    [
+                        ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                        ("CHECKPOINT_CORRUPT", "CHECKPOINT_BLOB_MISSING"),
+                        ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"),
+                        ("ATTEMPT_FAILED", "CHUNK_OUTPUT_UNAVAILABLE"),
+                    ],
+                ), _event_pairs(timeline)
+                assert ended["state"] == "FAILED"
+                assert len(timeline["attempts"]) == 2
+                assert (
+                    timeline["attempts"][1]["failure_class"],
+                    timeline["attempts"][1]["failure_reason"],
+                ) == ("INTERNAL", "CHUNK_OUTPUT_UNAVAILABLE")
+                assert timeline["job"]["retry_count"] == 1
+                assert timeline["results"] == []
+                # The refused attempt never created a workload container.
+                assert {row["attempt_id"] for row in timeline["containers"]} == {
+                    str(first["attempt_id"])
+                }
+                # No recognition is added, replaced or re-attributed.
+                after = harness.chunks(job)
+                assert after == before
+                evidence["D6_blob_missing"] = {
+                    "deleted_chunk": {
+                        "chunk_id": victim["chunk_id"],
+                        "artifact_id": str(victim["artifact_id"]),
+                    },
+                    "newest": {"checkpoint_id": str(newest[0]), "cursor": newest_cursor},
+                    "previous": {"checkpoint_id": str(previous[0]), "cursor": previous_cursor},
+                    "recognized_before": len(before),
+                    "recognized_after": len(after),
+                    "terminal_state": ended["state"],
+                    "attempt_failures": [
+                        (row["failure_class"], row["failure_reason"]) for row in timeline["attempts"]
+                    ],
+                    "memory_peak_bytes": _peaks(harness, sampler, job, without_container={second}),
+                    "timeline": timeline,
+                }
+    
+                # D6b. Delete the newest checkpoint's state blob instead (coordinator paused):
+                # the retry falls back to the previous cursor with every recognized chunk
+                # after it readable. The runner recomputes them byte for byte, carries each
+                # forward under its original source and finishes the rest: SUCCEEDED, one
+                # result, no chunk recognized twice (B16-R21).
+                job = harness.submit("b16-docker-infer-state-missing", spec)
+                first, container = harness.running_attempt(job, 1)
+                harness.wait_committed(job, first["attempt_id"], 2)
+                harness.coordinator.pause()
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                committed = harness.checkpoints(job)
+                newest, previous = committed[-1], committed[-2]
+                newest_cursor = harness.checkpoint_manifest(newest[0])["cursor"]
+                previous_cursor = harness.checkpoint_manifest(previous[0])["cursor"]
+                before = harness.chunks(job)
+                # Carry-forward is exercised: attempt 1 recognized chunks after the fallback cursor.
+                assert len(before) >= newest_cursor["step"] > previous_cursor["step"], (
+                    len(before),
+                    newest_cursor,
+                    previous_cursor,
+                )
+                harness.delete_blob(harness.checkpoint_file(newest[0], "inference-state.json"))
+                harness.coordinator.start()
+>               harness.wait_succeeded(job, timeout=300)
+
+tests/docker/test_b16_workloads.py:657: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tests.docker.b16_support.B16Harness object at 0x76b9cdc5ad80>
+job_id = '01a0ef4b-6511-75be-a1b7-70eb04ef32f7', timeout = 300
+
+    def wait_succeeded(self, job_id, timeout=300):
+        def done():
+            job = self.job(job_id)
+            if job["state"] in TERMINAL - {"SUCCEEDED"}:
+                raise AssertionError(f"job {job_id} ended {job['state']}")
+            return job["state"] == "SUCCEEDED" and job
+    
+        try:
+            return _wait(done, f"job {job_id} SUCCEEDED", timeout=timeout, pause=0.5)
+        except AssertionError as exc:
+>           raise AssertionError(
+                f"{exc}; timeline={json.dumps(self.timeline(job_id), default=str)[-6000:]}; "
+                f"runner={_runner_diagnostics(self.engine, self.root)}; "
+                f"worker_log={self.worker_logs()}"
+            ) from exc
+E           AssertionError: job 01a0ef4b-6511-75be-a1b7-70eb04ef32f7 ended FAILED; timeline={"job_id": "01a0ef4b-6511-75be-a1b7-70eb04ef32f7", "submit_idempotency_key": "b16-docker-infer-state-missing", "submit_idempotency_records": 1, "coordinator_epoch": 1, "job": {"state": "FAILED", "desired_state": "RUNNING", "job_fence": 4, "event_sequence": 13, "checkpoint_sequence": 2, "retry_count": 1, "max_retries": 2}, "attempts": [{"attempt_number": 1, "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "state": "FAILED", "worker_incarnation_id": "01a0ef49-2658-75a7-bb7b-b9db69057e82", "job_fence": 1, "failure_class": "INFRASTRUCTURE", "failure_reason": "RUNNER_UNAVAILABLE"}, {"attempt_number": 2, "attempt_id": "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243", "state": "FAILED", "worker_incarnation_id": "01a0ef49-2658-75a7-bb7b-b9db69057e82", "job_fence": 3, "failure_class": "INTERNAL", "failure_reason": "CHUNK_OUTPUT_UNAVAILABLE"}], "leases": [{"lease_id": "01a0ef4b-6636-767c-a336-95189449b86a", "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "job_fence": 1, "current_worker_incarnation_id": "01a0ef49-2658-75a7-bb7b-b9db69057e82", "revoked": true, "revoke_reason": null}, {"lease_id": "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c245", "attempt_id": "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243", "job_fence": 3, "current_worker_incarnation_id": "01a0ef49-2658-75a7-bb7b-b9db69057e82", "revoked": true, "revoke_reason": null}], "grants": [{"attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "worker_incarnation_id": "01a0ef49-2658-75a7-bb7b-b9db69057e82", "job_fence": 1, "ended": true}, {"attempt_id": "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243", "worker_incarnation_id": "01a0ef49-2658-75a7-bb7b-b9db69057e82", "job_fence": 3, "ended": true}], "allocations": [{"allocation_id": "01a0ef4b-6636-767c-a336-95189449b869", "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "state": "RELEASED", "quarantined": true, "release_reason": "VERIFIED_CLEANUP"}, {"allocation_id": "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c244", "attempt_id": "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243", "state": "RELEASED", "quarantined": true, "release_reason": "VERIFIED_CLEANUP"}], "containers": [{"attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "container_id": "6e072b25b78d", "stopped": true, "verified": true}], "checkpoints": [{"sequence": 1, "checkpoint_id": "01a0ef4b-881e-7305-8af8-c3ffbf49a5bb", "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "corrupt": null}, {"sequence": 2, "checkpoint_id": "01a0ef4b-b4a2-73d6-8e35-e277aebebc06", "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "corrupt": "CHECKPOINT_BLOB_MISSING"}], "reservations": [{"sequence": 1, "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "state": "COMMITTED"}, {"sequence": 2, "attempt_id": "01a0ef4b-6636-767c-a336-95189449b868", "state": "COMMITTED"}], "restores": {"01a0ef4b-6636-767c-a336-95189449b868": null, "01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243": {"checkpoint_id": "01a0ef4b-881e-7305-8af8-c3ffbf49a5bb", "sequence": 1}}, "retries": [{"retry_number": 1, "reason": "INFRASTRUCTURE", "closed": true}], "results": [], "events": [{"sequence": 1, "event_type": "JOB_ACCEPTED", "reason": "Job accepted", "at": "2026-09-29T22:31:30.834+00:00"}, {"sequence": 2, "event_type": "JOB_DISPATCHING", "reason": null, "at": "2026-09-29T22:31:31.080+00:00"}, {"sequence": 3, "event_type": "ATTEMPT_STARTED", "reason": "attempt_started", "at": "2026-09-29T22:31:32.084+00:00"}, {"sequence": 4, "event_type": "CHECKPOINT_COMMITTED", "reason": "CHECKPOINT_COMMITTED", "at": "2026-09-29T22:31:43.949+00:00"}, {"sequence": 5, "event_type": "CHECKPOINT_COMMITTED", "reason": "CHECKPOINT_COMMITTED", "at": "2026-09-29T22:31:55.236+00:00"}, {"sequence": 6, "event_type": "ATTEMPT_FAILED", "reason": "RUNNER_UNAVAILABLE", "at": "2026-09-29T22:31:55.675+00:00"}, {"sequence": 7, "event_type": "ALLOCATION_RELEASED", "reason": "VERIFIED_CLEANUP", "at": "2026-09-29T22:31:55.864+00:00"}, {"sequence": 8, "event_type": "RETRY_READY", "reason": "BACKOFF_ELAPSED", "at": "2026-09-29T22:31:57.375+00:00"}, {"sequence": 9, "event_type": "JOB_DISPATCHING", "reason": null, "at": "2026-09-29T22:32:01.493+00:00"}, {"sequence": 10, "event_type": "CHECKPOINT_CORRUPT", "reason": "CHECKPOINT_BLOB_MISSING", "at": "2026-09-29T22:32:02.010+00:00"}, {"sequence": 11, "event_type": "CHECKPOINT_RESTORE_SELECTED", "reason": "CHECKPOINT_RESTORED", "at": "2026-09-29T22:32:02.038+00:00"}, {"sequence": 12, "event_type": "ATTEMPT_FAILED", "reason": "CHUNK_OUTPUT_UNAVAILABLE", "at": "2026-09-29T22:32:02.161+00:00"}, {"sequence": 13, "event_type": "ALLOCATION_RELEASED", "reason": "VERIFIED_CLEANUP", "at": "2026-09-29T22:32:02.225+00:00"}]}; runner={'pending_operations': {'unreadable': 'PermissionError: errno 13'}, '01a0ef4b-6636-767c-a336-95189449b868': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}, '01a0ef4a-0dd7-7e40-9327-24a9bf2cecc5': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}, '01a0ef4a-f47a-72cc-a759-059414735172': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}, '01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}, '01a0ef4b-5f80-71af-843e-2a370add0a1c': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}, '01a0ef49-3bf3-750d-8a91-4f1181d29f69': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}, '01a0ef4a-6cce-7eff-ba68-1dbb2d53e43b': {'journal_unreadable': 'PermissionError: errno 13', 'journal_state': None, 'runner_state_keys': [], 'containers': []}}; worker_log=a336-95189449b868/artifacts "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/artifacts "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/poll "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/artifacts "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/artifacts "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/poll "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/artifacts "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/poll "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/artifacts "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/checkpoints "HTTP/1.1 201 Created"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/fail "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-6636-767c-a336-95189449b868/cleanup "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/poll "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/heartbeat "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/poll "HTTP/1.1 409 Conflict"
+E           WARNING:nexa.worker.agent:worker_loop_failed operation=_poll_once detail=409/state_conflict
+E           INFO:httpx:HTTP Request: GET http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/reconciliation?page_size=100 "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/heartbeat "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/poll "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243/claim "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243/fail "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: GET http://<ip>:42129/v1/workers/018f05c4-a922-7d0d-9f55-f9084a72d0f2/reconciliation?page_size=100 "HTTP/1.1 200 OK"
+E           INFO:httpx:HTTP Request: POST http://<ip>:42129/v1/attempts/01a0ef4b-dd0a-7db0-bd8e-8c90ad46c243/cleanup "HTTP/1.1 200 OK"
+E           INFO:nexa.worker.agent:{"event":"worker_reconcile","complete":false,"items_seen":1,"adopted":0,"unresolved":1}
+
+tests/docker/test_b14_checkpoint_restore.py:596: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+=============================== warnings summary ===============================
+../venv-repo/lib/python3.12/site-packages/fastapi/testclient.py:1
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../venv-repo/lib/python3.12/site-packages/starlette/testclient.py:53
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 23 passed, 2 warnings in 2393.58s (0:39:53)
+EXIT=1

@@ -1,0 +1,117 @@
+{
+ "architecture": "linux/amd64",
+ "fill": {
+  "filled_bytes": 16773120,
+  "free_blocks": 0,
+  "state_present": true
+ },
+ "image": "nexa/rem-cpu-iterative@sha256:8ecfe240000348e492fbda2774acd78f214416a228bf7399632db686e179645e",
+ "seconds_fill_to_terminal": 64.7,
+ "timeline": {
+  "allocations": [
+   {
+    "allocation_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61cee",
+    "attempt_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61ced",
+    "quarantined": true,
+    "release_reason": "VERIFIED_CLEANUP",
+    "state": "RELEASED"
+   }
+  ],
+  "attempts": [
+   {
+    "attempt_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61ced",
+    "attempt_number": 1,
+    "failure_class": "INTERNAL",
+    "failure_reason": "CHECKPOINT_STORAGE_FAILED",
+    "job_fence": 1,
+    "state": "FAILED",
+    "worker_incarnation_id": "01a0efee-b68c-7e64-a999-9b1199ec6f81"
+   }
+  ],
+  "checkpoints": [],
+  "containers": [
+   {
+    "attempt_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61ced",
+    "container_id": "aa2f13dcd270",
+    "stopped": true,
+    "verified": true
+   }
+  ],
+  "coordinator_epoch": 1,
+  "events": [
+   {
+    "at": "2026-09-30T01:29:59.414+00:00",
+    "event_type": "JOB_ACCEPTED",
+    "reason": "Job accepted",
+    "sequence": 1
+   },
+   {
+    "at": "2026-09-30T01:29:59.569+00:00",
+    "event_type": "JOB_DISPATCHING",
+    "reason": null,
+    "sequence": 2
+   },
+   {
+    "at": "2026-09-30T01:30:00.764+00:00",
+    "event_type": "ATTEMPT_STARTED",
+    "reason": "attempt_started",
+    "sequence": 3
+   },
+   {
+    "at": "2026-09-30T01:31:03.602+00:00",
+    "event_type": "ATTEMPT_FAILED",
+    "reason": "CHECKPOINT_STORAGE_FAILED",
+    "sequence": 4
+   },
+   {
+    "at": "2026-09-30T01:31:06.402+00:00",
+    "event_type": "ALLOCATION_RELEASED",
+    "reason": "VERIFIED_CLEANUP",
+    "sequence": 5
+   }
+  ],
+  "grants": [
+   {
+    "attempt_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61ced",
+    "ended": true,
+    "job_fence": 1,
+    "worker_incarnation_id": "01a0efee-b68c-7e64-a999-9b1199ec6f81"
+   }
+  ],
+  "job": {
+   "checkpoint_sequence": 1,
+   "desired_state": "RUNNING",
+   "event_sequence": 5,
+   "job_fence": 2,
+   "max_retries": 2,
+   "retry_count": 0,
+   "state": "FAILED"
+  },
+  "job_id": "01a0efee-cb75-75e8-9ecc-10dd846f688a",
+  "leases": [
+   {
+    "attempt_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61ced",
+    "current_worker_incarnation_id": "01a0efee-b68c-7e64-a999-9b1199ec6f81",
+    "job_fence": 1,
+    "lease_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61cef",
+    "revoke_reason": null,
+    "revoked": true
+   }
+  ],
+  "reservations": [
+   {
+    "attempt_id": "01a0efee-cc48-71ff-9de6-c8f0a6f61ced",
+    "sequence": 1,
+    "state": "ABANDONED"
+   }
+  ],
+  "restores": {
+   "01a0efee-cc48-71ff-9de6-c8f0a6f61ced": null
+  },
+  "results": [],
+  "retries": [],
+  "submit_idempotency_key": "rem-k5-output-full",
+  "submit_idempotency_records": 1
+ },
+ "worker_image": "nexa/rem-worker:r2-amd64"
+}

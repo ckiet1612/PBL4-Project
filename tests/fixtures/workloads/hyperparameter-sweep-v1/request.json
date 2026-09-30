@@ -10,7 +10,7 @@
     "parameters": {"epochs": 2, "batch_size": 32, "learning_rate": 0.01, "seed": 7, "subset_size": 500}
   },
   "dimensions": [
-    {"name": "learning_rate", "values": [0.1, 0.01, 1e-2, 0.001]},
+    {"name": "learning_rate", "values": [0.1, 0.01, 0.001]},
     {"name": "seed", "values": [1, 2]}
   ]
 }

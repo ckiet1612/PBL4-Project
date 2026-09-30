@@ -243,6 +243,162 @@ def test_inference_restart_reproduces_identical_chunks(tmp_path: Path) -> None:
     assert not (second / inference_state.chunk_file_name(2, "JSONL")).exists()
 
 
+def _uninterrupted(tmp_path: Path, output_format: str) -> tuple[dict, dict[int, bytes], Path]:
+    """Every chunk file and every state of an uninterrupted run, and its summary."""
+    run = tmp_path / f"run-{output_format}"
+    drained = tmp_path / f"drained-{output_format}"
+    run.mkdir()
+    drained.mkdir()
+    states: dict[int, bytes] = {}
+
+    def drain(_: float) -> None:
+        raw = (run / batch_inference.STATE_FILE).read_bytes()
+        states[inference_state.parse_state(raw)["next_chunk"]] = raw
+        for entry in run.iterdir():
+            if inference_state.CHUNK_FILE.match(entry.name):
+                shutil.move(entry, drained / entry.name)
+
+    summary = batch_inference.run_inference(
+        inference=_inference(output_format), output_dir=run, window=1, sleep=drain
+    )
+    drain(0)
+    return summary, states, drained
+
+
+def _recognized_dir(tmp_path: Path, drained: Path, indexes, output_format: str) -> Path:
+    directory = tmp_path / f"recognized-{output_format}"
+    directory.mkdir()
+    for index in indexes:
+        name = inference_state.chunk_file_name(index, output_format)
+        shutil.copyfile(drained / name, directory / name)
+    return directory
+
+
+def _computed(monkeypatch: pytest.MonkeyPatch, inference) -> list[int]:
+    """Indexes the workload computes; a recognized chunk must never appear (B16-R21)."""
+    computed: list[int] = []
+    original = inference.chunk_bytes
+
+    def spy(index: int):
+        computed.append(index)
+        return original(index)
+
+    monkeypatch.setattr(inference, "chunk_bytes", spy)
+    return computed
+
+
+@pytest.mark.parametrize("output_format", ["JSONL", "PARQUET"])
+def test_recognized_chunks_are_carried_forward_not_recomputed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, output_format: str
+) -> None:
+    summary, states, drained = _uninterrupted(tmp_path, output_format)
+    total = summary["chunk_count"]
+    # Restored at cursor 2; chunks 2..4 were recognized by a newer, lost checkpoint.
+    recognized = _recognized_dir(tmp_path, drained, range(2, 5), output_format)
+    state_path = tmp_path / "restore.json"
+    state_path.write_bytes(states[2])
+    resumed = _inference(output_format)
+    resumed.restore(state_path)
+    computed = _computed(monkeypatch, resumed)
+    output = tmp_path / "second"
+    output.mkdir()
+    carried = batch_inference.run_inference(
+        inference=resumed, output_dir=output, recognized_dir=recognized, recognized_count=3
+    )
+    # The prediction counts of the carried chunks come from their files.
+    assert carried == summary
+    assert computed == list(range(5, total))
+    written = sorted(p.name for p in output.iterdir() if inference_state.CHUNK_FILE.match(p.name))
+    assert written == [inference_state.chunk_file_name(i, output_format) for i in range(5, total)]
+    for name in written:
+        assert (output / name).read_bytes() == (drained / name).read_bytes()
+
+
+def test_fallback_to_input_carries_recognized_chunks_from_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+    recognized = _recognized_dir(tmp_path, drained, range(3), "JSONL")
+    fresh = _inference()
+    computed = _computed(monkeypatch, fresh)
+    output = tmp_path / "second"
+    output.mkdir()
+    carried = batch_inference.run_inference(
+        inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=3
+    )
+    assert carried == summary
+    assert computed == list(range(3, summary["chunk_count"]))
+    # The first state already stands past the carried chunks.
+    assert inference_state.parse_state((output / batch_inference.STATE_FILE).read_bytes())
+
+
+@pytest.mark.parametrize("defect", ["missing", "other-chunk", "other-run", "truncated"])
+def test_unusable_recognized_chunk_fails_internal_before_any_compute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defect: str
+) -> None:
+    _summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+    recognized = _recognized_dir(tmp_path, drained, range(2), "JSONL")
+    first = recognized / inference_state.chunk_file_name(0, "JSONL")
+    if defect == "missing":
+        first.unlink()
+    elif defect == "other-chunk":
+        shutil.copyfile(recognized / inference_state.chunk_file_name(1, "JSONL"), first)
+    elif defect == "other-run":
+        header, records = first.read_bytes().split(b"\n", 1)
+        document = json.loads(header)
+        document[batch_inference.HEADER_KEY]["spec_checksum"] = "sha256:" + "0" * 64
+        first.write_bytes(canonical_json(document) + b"\n" + records)
+    else:
+        first.write_bytes(first.read_bytes()[:-10])
+    fresh = _inference()
+    computed = _computed(monkeypatch, fresh)
+    output = tmp_path / "second"
+    output.mkdir()
+    with pytest.raises(batch_inference.InternalWorkloadError):
+        batch_inference.run_inference(
+            inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=2
+        )
+    assert computed == []
+    assert list(output.iterdir()) == []
+
+
+def test_inference_main_carries_recognized_chunks(tmp_path: Path) -> None:
+    summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+    recognized = _recognized_dir(tmp_path, drained, range(4), "JSONL")
+    output = tmp_path / "main"
+    output.mkdir()
+    args = [
+        "--dataset",
+        str(INFER),
+        "--model",
+        str(MODEL),
+        "--output-dir",
+        str(output),
+        "--chunk-size",
+        "300",
+        "--batch-size",
+        "128",
+        "--output-format",
+        "JSONL",
+        "--threads",
+        "1",
+        "--spec-checksum",
+        SPEC,
+        "--recognized-dir",
+        str(recognized),
+        "--recognized-count",
+        "4",
+    ]
+    assert batch_inference.main(args) == 0
+    assert json.loads((output / batch_inference.SUMMARY_FILE).read_bytes()) == summary
+    assert not (output / inference_state.chunk_file_name(3, "JSONL")).exists()
+    assert (output / inference_state.chunk_file_name(4, "JSONL")).exists()
+    (recognized / inference_state.chunk_file_name(0, "JSONL")).unlink()
+    again = tmp_path / "again"
+    again.mkdir()
+    assert batch_inference.main([*args[:5], str(again), *args[6:]]) == EXIT_INTERNAL
+
+
 def test_jsonl_and_parquet_chunks_share_records_checksum(tmp_path: Path) -> None:
     jsonl, _ = _inference("JSONL").chunk_bytes(1)
     parquet, _ = _inference("PARQUET").chunk_bytes(1)
@@ -399,6 +555,37 @@ def test_chunk_file_above_the_upload_bound_is_invalid_input(tmp_path: Path) -> N
     code = batch_inference.main(_inference_args(output, dataset=dataset, chunk_size=6000))
     assert code == EXIT_INVALID_INPUT
     assert list(output.iterdir()) == []
+
+
+def test_oversized_later_chunk_is_invalid_input_after_the_earlier_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """B16-DOC-01: an oversized chunk k>0 is detected only when chunk k is produced.
+
+    Exit 65 still means INVALID_INPUT, but chunks 0..k-1 and the inference state are
+    already written by then (and may already be bound or recognized by a checkpoint).
+    """
+    dataset = _inference_dataset(tmp_path / "items-12.arrow", 12)
+    produce = batch_inference.Inference.chunk_bytes
+
+    def chunk_bytes(self, index):
+        payload, predictions = produce(self, index)
+        if index == 2:
+            payload += b" " * (MAX_CHUNK_FILE_BYTES + 1 - len(payload))
+        return payload, predictions
+
+    monkeypatch.setattr(batch_inference.Inference, "chunk_bytes", chunk_bytes)
+    output = tmp_path / "out"
+    output.mkdir()
+    code = batch_inference.main(_inference_args(output, dataset=dataset, chunk_size=4))
+    assert code == EXIT_INVALID_INPUT
+    assert sorted(entry.name for entry in output.iterdir()) == [
+        "chunk-00000000.jsonl",
+        "chunk-00000001.jsonl",
+        batch_inference.STATE_FILE,
+    ]
+    state = json.loads((output / batch_inference.STATE_FILE).read_bytes())
+    assert state["next_chunk"] == 2
 
 
 def _bad_metadata(case: str) -> bytes:

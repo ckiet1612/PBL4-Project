@@ -1,0 +1,10 @@
+{
+  "finding": "REM-R01",
+  "environment": "L: VPS1 (AWS EC2 c7i.2xlarge, Ubuntu 24.04)",
+  "node": "tests/workloads/test_runner.py::test_supervisor_disconnect_after_start_sets_fatal_without_false_stopped",
+  "runs": [
+    {"label": "REM-R01-flake-baseline", "tree": "HEAD (git archive)", "iterations": 100, "pass": 98, "fail": 2, "failed_iterations": [25, 100], "assertion": "reader.readline() == b\"START\\n\""},
+    {"label": "REM-R01-repeat", "tree": "remediation after REM-R01 fix", "iterations": 40, "pass": 40, "fail": 0},
+    {"label": "REM-R01-flake-repo", "tree": "remediation after REM-R01 fix", "iterations": 100, "pass": 100, "fail": 0}
+  ]
+}

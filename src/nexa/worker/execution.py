@@ -8,10 +8,14 @@ from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.workloads import adapter_launch
 
 from .adapter_dispatch import (
+    RECOGNIZED_DIRECTORY,
+    ChunkOutputUnavailable,
     adapter_checkpoint,
     adapter_downloads,
     adapter_execution_request,
     adapter_of,
+    adapter_recognized,
+    recognized_downloads,
     verify_adapter_restore_files,
     verify_adapter_restore_manifest,
 )
@@ -28,13 +32,14 @@ from .docker_client import DockerContainerNotFound
 from .errors import ExecutorError, ExecutorErrorCode
 from .models import Authority
 from .protocol import (
+    STOP_EXIT_CODES,
     FrameDecoder,
     SequenceState,
     canonical_envelope_effect,
     encode_frame,
     validate_ack,
 )
-from .result_flow import ResultFlow
+from .result_flow import ChunkOutputConflict, ResultFlow
 from .runner_control import RunnerControl, RunnerControlError
 
 _CHECKPOINT_FRAMES = {"CHECKPOINT_FILES_READY", "CHECKPOINT_READY"}
@@ -49,15 +54,24 @@ _FORWARDED_FAILURES = {
     # B16 adapter runners classify a rejected dataset or a non-finite training state.
     ("INVALID_INPUT", "INVALID_INPUT"),
     ("INTERNAL", "INVALID_RESULT"),
+    # B16-R21: the workload wrote output for a recognized chunk, or a mounted
+    # recognized chunk file is not the claimed artifact.
+    ("INTERNAL", "CHUNK_OUTPUT_CONFLICT"),
+    ("INTERNAL", "CHUNK_OUTPUT_UNAVAILABLE"),
+    # B14-K5: no space or an I/O error while the runner copied checkpoint bytes.
+    ("INTERNAL", "CHECKPOINT_STORAGE_FAILED"),
     # The runner saw its container cgroup ``oom_kill`` rise while the workload ran (B16-R26).
     ("OOM", "CONTAINER_OOM"),
 }
 # A runner that stops on its own deadline names the cause; any other stop is internal.
 _STOP_FAILURES = {
     "RUNTIME_LIMIT": ("TIMEOUT", "RUNTIME_LIMIT_REACHED"),
+    # The runner never started its workload within the startup limit (B15-R10).
+    "STARTUP_LIMIT": ("TIMEOUT", "STARTUP_TIMEOUT"),
     # Renewals stopped reaching the API: lost authority is retryable infrastructure.
     "LEASE_DEADLINE": ("INFRASTRUCTURE", "RUNNER_UNAVAILABLE"),
 }
+_EXIT_STOP_REASONS = {code: reason for reason, code in STOP_EXIT_CODES.items()}
 
 
 def _matches_descriptor(path, descriptor):
@@ -66,10 +80,35 @@ def _matches_descriptor(path, descriptor):
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() == descriptor["checksum"]
 
 
-def container_exit_failure(exited):
+def runner_stop_failure(stop_reason, state):
+    """Classify a runner stop the same way from its STOPPED frame or its exit status."""
+    if stop_reason == "FAILURE" and state.get("checkpoint_rejected"):
+        # The runner rejected this worker's checkpoint control itself.
+        return "INTERNAL", "CHECKPOINT_PROTOCOL_ERROR"
+    return _STOP_FAILURES.get(stop_reason, ("INTERNAL", "WORKLOAD_EXIT_NONZERO"))
+
+
+def terminal_frame_failure(envelope, state):
+    """Classify a runner FAILED or STOPPED frame; unknown runner text stays internal."""
+    if envelope["type"] == "STOPPED":
+        return runner_stop_failure(envelope["payload"].get("reason"), state)
+    payload = envelope["payload"]
+    reason = (payload.get("failure_class"), payload.get("reason_code"))
+    if reason not in _FORWARDED_FAILURES or (reason[0] == "OOM") != (
+        payload.get("oom_killed") is True
+    ):
+        return "INTERNAL", "WORKLOAD_EXIT_NONZERO"
+    return reason
+
+
+def container_exit_failure(exited, state=None):
     """Classify a workload container that stopped without a runner terminal frame."""
     if exited["oom_killed"]:
         return "OOM", "CONTAINER_OOM"
+    stop_reason = _EXIT_STOP_REASONS.get(exited["exit_code"])
+    if stop_reason is not None:
+        # No worker kept the STOPPED frame; the exit status names its reason (B15-R14).
+        return runner_stop_failure(stop_reason, state or {})
     if exited["exit_code"] == 0:
         # The runner exits 0 only after a terminal frame this worker never saw.
         return "INTERNAL", "RUNNER_PROTOCOL_ERROR"
@@ -118,6 +157,15 @@ class WorkerExecutionMixin:
             raise ValueError("dispatch offer authority mismatch")
         if attempt_id in self._adopted:
             return
+        if (
+            self.journal is not None
+            and self.journal.exists(attempt_id)
+            and (self.journal.load(attempt_id).runner_state or {}).get("cleanup_verified")
+            is not None
+        ):
+            # Released for good: its claims were discarded with the verified cleanup
+            # and a new one could only be rejected (REM-R06).
+            return
         if self.executor is None:
             raise RuntimeError("dispatch requires configured executor")
         callback, pending = self._pending_callback(
@@ -159,6 +207,11 @@ class WorkerExecutionMixin:
         identity = None
         try:
             if self.monotonic_ns() >= first_claim_send + 30_000_000_000:
+                # The budget does not name a runner that Docker shows already exited.
+                exited = self._observe_container_exit(attempt_id)
+                if exited is not None:
+                    self._fail_exited_startup(attempt_id, request, exited)
+                    return
                 raise TimeoutError("claim startup budget elapsed")
             try:
                 if (
@@ -177,6 +230,17 @@ class WorkerExecutionMixin:
                     launch = self._adapter_checkpoint_launch(
                         authority, context, adapter, directory, architecture
                     )
+            except ChunkOutputUnavailable:
+                # A recognized chunk the claim cannot hand over must not be
+                # recomputed under this Attempt's source (B16-R21).
+                if self._execution_failed(
+                    attempt_id,
+                    request=request,
+                    failure_class="INTERNAL",
+                    reason_code="CHUNK_OUTPUT_UNAVAILABLE",
+                ):
+                    self._retire_fenced_startup(attempt_id)
+                return
             except RestoreUnavailable:
                 # Never fall back to a from-zero run: the claim froze a restore.
                 if self._execution_failed(
@@ -197,7 +261,7 @@ class WorkerExecutionMixin:
                     restore_source=directory / "restore-state.json",
                 )
             else:
-                checkpoint, restore, restore_files = launch
+                checkpoint, restore, restore_files, recognized = launch
                 request = adapter_execution_request(
                     context,
                     directory,
@@ -205,6 +269,7 @@ class WorkerExecutionMixin:
                     checkpoint=checkpoint,
                     restore=restore,
                     restore_files=restore_files,
+                    recognized=recognized,
                 )
             for artifact, target in downloads:
                 if target.exists() and not _matches_descriptor(target, artifact):
@@ -246,7 +311,14 @@ class WorkerExecutionMixin:
                 if not self._apply_deadline(
                     attempt_id, identity, start_callback, first_send, acknowledgment, sequence
                 ):
-                    raise RunnerControlError("start authority deadline was not accepted")
+                    # Only a Docker-proven exit of the bound container ends the
+                    # startup early; a runner still starting keeps the replay until
+                    # the startup budget ends as STARTUP_TIMEOUT (B15-R11).
+                    exited = self._observe_container_exit(attempt_id)
+                    if exited is None:
+                        raise RunnerControlError("start authority deadline was not accepted")
+                    self._fail_exited_startup(attempt_id, request, exited)
+                    return
                 # A CHECKPOINT_FOR_PAUSE Attempt exists only to checkpoint and stop.
                 paused = (
                     {"control_desired": "PAUSED", "checkpoint_for_pause": True}
@@ -326,7 +398,10 @@ class WorkerExecutionMixin:
         return replace(launch, restore=cursor), restore_file
 
     def _adapter_checkpoint_launch(self, authority, context, adapter, directory, architecture):
-        """Return (checkpoint, restore, ordered restore files) checked before Docker work."""
+        """Return (checkpoint, restore, ordered restore files, recognized chunks).
+
+        All are checked before any Docker work.
+        """
         image_capable = context["template_snapshot"].get(
             "checkpointable"
         ) is True and self.executor.checkpoint_supported(
@@ -336,8 +411,11 @@ class WorkerExecutionMixin:
             context, adapter, image_capable=image_capable, architecture=architecture
         )
         if context["restore_checkpoint"] is None:
-            return checkpoint, None, ()
+            recognized = adapter_recognized(context, adapter, None)
+            self._download_recognized(authority, context, directory, recognized, None)
+            return checkpoint, None, (), recognized
         restore, ordered = verify_adapter_restore_manifest(context, adapter, checkpoint[0])
+        recognized = adapter_recognized(context, adapter, restore)
         target_dir = directory / "restore"
         target_dir.mkdir(exist_ok=True, mode=0o700)
         if target_dir.is_symlink():
@@ -356,7 +434,56 @@ class WorkerExecutionMixin:
             raise RestoreUnavailable("restore state bytes are unavailable") from exc
         threads = adapter_launch.threads_for(context["allocation"]["resources"]["cpu_millis"])
         verify_adapter_restore_files(contents, context=context, restore=restore, threads=threads)
-        return checkpoint, restore, ordered
+        self._download_recognized(authority, context, directory, recognized, restore)
+        return checkpoint, restore, ordered, recognized
+
+    def _download_recognized(self, authority, context, directory, recognized, restore):
+        """Download the recognized chunk files the workload carries forward (B16-R21).
+
+        Bytes that differ from the claimed artifact fail the Attempt before any container:
+        the workload may neither recompute the chunk nor carry a different one.
+        """
+        if not recognized:
+            return
+        target_dir = directory / RECOGNIZED_DIRECTORY
+        target_dir.mkdir(exist_ok=True, mode=0o700)
+        if target_dir.is_symlink():
+            raise ChunkOutputUnavailable("recognized staging directory is a symlink")
+        try:
+            for view, target in recognized_downloads(context, directory, recognized, restore):
+                if target.exists() and not _matches_descriptor(target, view):
+                    # A worker killed mid-download leaves a partial private file.
+                    target.unlink()
+                if not target.exists():
+                    self.client.download_execution(authority, view, target)
+                if not _matches_descriptor(target, view):
+                    raise ValueError("recognized chunk bytes mismatch")
+        except ValueError as exc:
+            raise ChunkOutputUnavailable("recognized chunk bytes are unavailable") from exc
+
+    def _fail_exited_startup(self, attempt_id, request, exited):
+        """Report a runner whose container exited before it accepted its deadline.
+
+        A terminal frame the runner handed the deadline connection names the cause;
+        otherwise the exit status does (B15-R14). An unresolved report is replayed.
+        """
+        state = self.journal.load(attempt_id).runner_state or {}
+        failure = container_exit_failure(exited, state)
+        for key in ("pending_execution_message", "pending_terminal_message"):
+            envelope = state.get(key)
+            if envelope is not None and envelope["type"] in {"FAILED", "STOPPED"}:
+                failure = terminal_frame_failure(envelope, state)
+                break
+        failure_class, reason_code = failure
+        if not self._execution_failed(
+            attempt_id,
+            request=request,
+            failure_class=failure_class,
+            reason_code=reason_code,
+            exited=exited,
+        ):
+            raise RunnerControlError("exited runner failure is not yet resolved")
+        self._retire_fenced_startup(attempt_id)
 
     def _retire_fenced_startup(self, attempt_id):
         # Called only after the server has revoked the attempt and accepted
@@ -550,6 +677,12 @@ class WorkerExecutionMixin:
                 self._adopted.pop(attempt_id, None)
                 self._containers.pop(record.container.container_id, None)
             return
+        if state.get("cleanup_verified") is not None:
+            # A stale snapshot of the adopted set: the attempt was released (REM-R06).
+            self._adopted.pop(attempt_id, None)
+            self._pause_deadline.pop(attempt_id, None)
+            self._pause_retry.pop(attempt_id, None)
+            return
         envelope = state.get("pending_execution_message")
         exited = state.get("container_exit")
         kept = state.get("pending_terminal_message")
@@ -600,7 +733,7 @@ class WorkerExecutionMixin:
             and (envelope is None or envelope["type"] not in {"FAILED", "STOPPED"})
         ):
             # No runner is left to answer; a sent completion is replayed instead.
-            failure_class, reason_code = container_exit_failure(exited)
+            failure_class, reason_code = container_exit_failure(exited, state)
             self._execution_failed(
                 attempt_id, failure_class=failure_class, reason_code=reason_code, exited=exited
             )
@@ -625,18 +758,7 @@ class WorkerExecutionMixin:
             if stop_reason == "PAUSE" and state.get("pause_stop") is not None:
                 self._paused(attempt_id, record)
                 return
-            payload = envelope["payload"] if envelope["type"] == "FAILED" else {}
-            reason = (payload.get("failure_class"), payload.get("reason_code"))
-            if stop_reason == "FAILURE" and state.get("checkpoint_rejected"):
-                # The runner rejected this worker's checkpoint control itself.
-                reason = ("INTERNAL", "CHECKPOINT_PROTOCOL_ERROR")
-            elif stop_reason in _STOP_FAILURES:
-                reason = _STOP_FAILURES[stop_reason]
-            elif reason not in _FORWARDED_FAILURES or (reason[0] == "OOM") != (
-                payload.get("oom_killed") is True
-            ):
-                reason = ("INTERNAL", "WORKLOAD_EXIT_NONZERO")
-            failure_class, reason_code = reason
+            failure_class, reason_code = terminal_frame_failure(envelope, state)
             self._execution_failed(attempt_id, failure_class=failure_class, reason_code=reason_code)
             return
         if envelope["type"] in _CHECKPOINT_FRAMES or (
@@ -679,6 +801,13 @@ class WorkerExecutionMixin:
     def _process_result(self, attempt_id, flow, envelope):
         try:
             flow.process(attempt_id, envelope)
+        except ChunkOutputConflict:
+            # The server keeps a different recognized chunk (B16-R21): a replay
+            # repeats the same rejection, so the Attempt fails at once.
+            self._execution_failed(
+                attempt_id, failure_class="INTERNAL", reason_code="CHUNK_OUTPUT_CONFLICT"
+            )
+            return False
         except ValueError:
             # Invalid result bytes/protocol must not leave a live allocation
             # waiting forever for a message that can never be acknowledged.
@@ -738,6 +867,12 @@ class WorkerExecutionMixin:
                 attempt_id, failure_class="INTERNAL", reason_code="CHECKPOINT_PROTOCOL_ERROR"
             )
             return False
+        except ChunkOutputConflict:
+            # B16-R21: nothing committed and a replay repeats the rejection.
+            self._execution_failed(
+                attempt_id, failure_class="INTERNAL", reason_code="CHUNK_OUTPUT_CONFLICT"
+            )
+            return False
         return True
 
     def _execution_failed(
@@ -749,7 +884,22 @@ class WorkerExecutionMixin:
         reason_code="STARTUP_FAILED",
         exited=None,
     ):
-        """Failure linearization precedes identity-only proof-based cleanup."""
+        """Failure linearization precedes identity-only proof-based cleanup.
+
+        The reconciliation replay may send this attempt's pending failure or
+        cleanup concurrently; the whole read/decide/send runs under the attempt
+        journal lock (B15-R39).
+        """
+        with self.journal.lock(attempt_id):
+            return self._execution_failed_locked(
+                attempt_id,
+                request=request,
+                failure_class=failure_class,
+                reason_code=reason_code,
+                exited=exited,
+            )
+
+    def _execution_failed_locked(self, attempt_id, *, request, failure_class, reason_code, exited):
         record = self.journal.load(attempt_id) if self.journal.exists(attempt_id) else None
         if record is not None and (record.runner_state or {}).get("result_flow", {}).get(
             "completed"
@@ -758,6 +908,11 @@ class WorkerExecutionMixin:
             if stopped:
                 self._adopted.pop(attempt_id, None)
             return stopped
+        if record is not None and (record.runner_state or {}).get("cleanup_verified") is not None:
+            # The verified cleanup released the lease: the server accepts no failure
+            # for it, and a pending one would hold the worker out of READY (REM-R06).
+            self._adopted.pop(attempt_id, None)
+            return True
         identity = record.container if record else None
         failure = (record.runner_state or {}).get("failure_resolution") if record else None
         if failure is None:

@@ -24,6 +24,9 @@ from nexa.workloads import chunk_manifest
 
 MANIFEST_PURPOSE = "CHUNK_OUTPUT_MANIFEST"
 CHUNK_PURPOSE = "CHUNK_OUTPUT"
+# The safe ErrorResponse reason of a current-source chunk that differs from its
+# recognized output; the worker fails the Attempt instead of replaying (B16-R21).
+CONFLICT_REASON = "CHUNK_OUTPUT_CONFLICT"
 _RECOGNIZED_FIELDS = (
     "session_id",
     "range_start",
@@ -262,6 +265,7 @@ def recognize(
                     code="state_conflict",
                     status=409,
                     message="Chunk output differs from its recognized output",
+                    reason=CONFLICT_REASON,
                 )
         edges.append((expected["artifact_id"], CHUNK_PURPOSE, entry["file"]["logical_name"]))
     return edges

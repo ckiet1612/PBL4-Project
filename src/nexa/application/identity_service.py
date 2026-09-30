@@ -417,7 +417,7 @@ class IdentityService:
             ).scalar_one()
             user_query = select(users).where(users.c.username == username)
             if mode == "WRITE_FROZEN":
-                user_query = user_query.with_for_update()
+                user_query = user_query.with_for_update(key_share=True)
             observed_user = session.execute(user_query).mappings().one_or_none()
             if mode == "WRITE_FROZEN":
                 if observed_user is None or not observed_user["enabled"]:
@@ -562,7 +562,7 @@ class IdentityService:
                 session.execute(
                     select(users)
                     .where(users.c.user_id == observed_user["user_id"])
-                    .with_for_update()
+                    .with_for_update(key_share=True)
                 )
                 .mappings()
                 .one()
@@ -653,7 +653,7 @@ class IdentityService:
                     select(browser_sessions, users.c.enabled)
                     .join(users, users.c.user_id == browser_sessions.c.user_id)
                     .where(browser_sessions.c.browser_session_id == parsed.identifier)
-                    .with_for_update()
+                    .with_for_update(key_share=True)
                 )
                 .mappings()
                 .one_or_none()
@@ -726,7 +726,7 @@ class IdentityService:
                     select(browser_sessions, users.c.enabled)
                     .join(users, users.c.user_id == browser_sessions.c.user_id)
                     .where(browser_sessions.c.browser_session_id == parsed.identifier)
-                    .with_for_update()
+                    .with_for_update(key_share=True)
                 )
                 .mappings()
                 .one_or_none()
@@ -774,6 +774,9 @@ class IdentityService:
         run_transaction(self.session_factory, operation)
 
     def _revalidate_principal(self, session: Session, principal: Principal) -> Principal:
+        # Credential and users rows are locked FOR NO KEY UPDATE, never FOR UPDATE: that
+        # still excludes other requests and user updates, but not the KEY SHARE of a
+        # foreign-key check the coordinator takes while holding job locks (B15-R32).
         try:
             credential_id = UUID(principal.credential_id)
         except ValueError:
@@ -784,7 +787,7 @@ class IdentityService:
                     select(browser_sessions, users.c.enabled)
                     .join(users, users.c.user_id == browser_sessions.c.user_id)
                     .where(browser_sessions.c.browser_session_id == credential_id)
-                    .with_for_update()
+                    .with_for_update(key_share=True)
                 )
                 .mappings()
                 .one_or_none()
@@ -812,7 +815,7 @@ class IdentityService:
                     select(cli_tokens, users.c.enabled)
                     .join(users, users.c.user_id == cli_tokens.c.user_id)
                     .where(cli_tokens.c.token_id == credential_id)
-                    .with_for_update()
+                    .with_for_update(key_share=True)
                 )
                 .mappings()
                 .one_or_none()
@@ -1061,7 +1064,7 @@ class IdentityService:
                     select(cli_tokens, users.c.enabled)
                     .join(users, users.c.user_id == cli_tokens.c.user_id)
                     .where(cli_tokens.c.token_id == parsed.identifier)
-                    .with_for_update()
+                    .with_for_update(key_share=True)
                 )
                 .mappings()
                 .one_or_none()

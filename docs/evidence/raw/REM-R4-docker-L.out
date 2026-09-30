@@ -1,0 +1,271 @@
+....F...................                                                 [100%]
+=================================== FAILURES ===================================
+_________ test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption _________
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-18/test_b14_cpu_checkpoint_crash_0')
+
+    def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
+        migrated_postgres_engine, tmp_path
+    ):
+        if os.environ.get("NEXA_RUN_DOCKER") != "1":
+            pytest.skip("opt-in B14 Docker checkpoint evidence")
+        image = os.environ["NEXA_B09_IMAGE_REF"]
+        worker_image = os.environ["NEXA_B11_WORKER_IMAGE"]
+        assert "@sha256:" in image
+        labels = json.loads(
+            subprocess.check_output(
+                ["docker", "image", "inspect", "--format", "{{json .Config.Labels}}", image],
+                text=True,
+                timeout=10,
+            )
+        )
+        assert labels.get("io.nexa.runner.checkpoint") == "cpu-state-v1"
+        architecture = subprocess.check_output(
+            ["docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", image],
+            text=True,
+            timeout=10,
+        ).strip()
+        engine = migrated_postgres_engine
+        _template(engine, image, architecture)
+        evidence = {
+            "image": image,
+            "architecture": architecture,
+            "worker_image": worker_image,
+            "iterations": ITERATIONS,
+            "checkpoint_interval_seconds": INTERVAL_SECONDS,
+        }
+        with _client(engine, tmp_path) as client:
+            harness = _Harness(engine, tmp_path, client, image, worker_image)
+            try:
+                harness.bootstrap()
+                harness.start_api()
+                harness.start_worker()
+                try:
+                    _wait(lambda: _worker_ready(engine), "worker READY", timeout=40)
+                except AssertionError as exc:
+                    raise AssertionError(f"{exc}; worker_log={harness.worker_logs()}") from exc
+                harness.coordinator.start()
+                scores = []
+    
+                # 1. Baseline R0: uninterrupted run with periodic checkpoints.
+                started = time.monotonic()
+                baseline = harness.submit("b14-docker-baseline")
+                harness.wait_succeeded(baseline)
+                r0 = harness.result(baseline)
+                timeline = harness.reconcile(baseline, 1)
+                assert len(timeline["checkpoints"]) >= 3, (
+                    "raise NEXA_B14_ITERATIONS: fewer than 3 checkpoints in the baseline"
+                )
+                assert list(timeline["restores"].values()) == [None]
+                evidence["baseline"] = {
+                    "seconds": round(time.monotonic() - started, 1),
+                    "checksum": r0["checksum"],
+                    "timeline": timeline,
+                }
+                scores.append(harness.fairness())
+    
+                # 2. Crash-resume: SIGKILL the workload after its 2nd checkpoint.
+                job = harness.submit("b14-docker-crash-resume")
+                first, container = harness.running_attempt(job, 1)
+                committed = harness.wait_committed(job, first["attempt_id"], 2)
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                harness.wait_succeeded(job)
+                r1 = harness.result(job)
+                timeline = harness.reconcile(job, 2)
+                newest = max(harness.checkpoints(job, first["attempt_id"]), key=lambda row: row[1])
+                assert newest[1] >= committed[-1][1]
+                attempts = timeline["attempts"]
+                assert (attempts[0]["failure_class"], attempts[0]["failure_reason"]) == (
+                    "INFRASTRUCTURE",
+                    "RUNNER_UNAVAILABLE",
+                )
+                assert timeline["job"]["retry_count"] == 1
+                assert timeline["restores"][attempts[1]["attempt_id"]] == {
+                    "checkpoint_id": str(newest[0]),
+                    "sequence": newest[1],
+                }
+                assert _ordered(
+                    _event_pairs(timeline),
+                    [
+                        ("CHECKPOINT_COMMITTED", "CHECKPOINT_COMMITTED"),
+                        ("CHECKPOINT_COMMITTED", "CHECKPOINT_COMMITTED"),
+                        ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                        ("ALLOCATION_RELEASED", "VERIFIED_CLEANUP"),
+                        ("RETRY_READY", "BACKOFF_ELAPSED"),
+                        ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"),
+                    ],
+                ), _event_pairs(timeline)
+                assert r1["bytes"] == r0["bytes"] and r1["checksum"] == r0["checksum"]
+                evidence["crash_resume"] = {"checksum": r1["checksum"], "timeline": timeline}
+                scores.append(harness.fairness())
+    
+                # 3. Corrupt newest: coordinator paused so the blob changes before any claim.
+                job = harness.submit("b14-docker-corrupt-newest")
+                first, container = harness.running_attempt(job, 1)
+                harness.wait_committed(job, first["attempt_id"], 2)
+                harness.coordinator.pause()
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                committed = harness.checkpoints(job)
+                newest, previous = committed[-1], committed[-2]
+                harness.corrupt_state_blob(newest[0])
+                harness.coordinator.start()
+                harness.wait_succeeded(job)
+                r2 = harness.result(job)
+                timeline = harness.reconcile(job, 2)
+                second = timeline["attempts"][1]["attempt_id"]
+                assert timeline["restores"][second] == {
+                    "checkpoint_id": str(previous[0]),
+                    "sequence": previous[1],
+                }
+                corrupt = {row["checkpoint_id"]: row["corrupt"] for row in timeline["checkpoints"]}
+                assert corrupt[str(newest[0])] == "CHECKPOINT_CHECKSUM_MISMATCH"
+                assert [value for value in corrupt.values() if value] == [
+                    "CHECKPOINT_CHECKSUM_MISMATCH"
+                ]
+                assert _ordered(
+                    _event_pairs(timeline),
+                    [
+                        ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                        ("CHECKPOINT_CORRUPT", "CHECKPOINT_CHECKSUM_MISMATCH"),
+                        ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"),
+                    ],
+                ), _event_pairs(timeline)
+                assert r2["bytes"] == r0["bytes"] and r2["checksum"] == r0["checksum"]
+                evidence["corrupt_newest"] = {"checksum": r2["checksum"], "timeline": timeline}
+                scores.append(harness.fairness())
+    
+                # 4. No valid checkpoint left (restart_safe): fall back to the input.
+                job = harness.submit("b14-docker-fallback-input")
+                first, container = harness.running_attempt(job, 1)
+                harness.wait_committed(job, first["attempt_id"], 2)
+                harness.coordinator.pause()
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                committed = harness.checkpoints(job)
+                for checkpoint_id, _sequence in committed:
+                    harness.corrupt_state_blob(checkpoint_id)
+                harness.coordinator.start()
+                harness.wait_succeeded(job)
+                r3 = harness.result(job)
+                timeline = harness.reconcile(job, 2)
+                second = timeline["attempts"][1]["attempt_id"]
+                assert timeline["restores"][second] is None
+                corrupt = [row["corrupt"] for row in timeline["checkpoints"][: len(committed)]]
+                assert corrupt == ["CHECKPOINT_CHECKSUM_MISMATCH"] * len(committed)
+                pairs = _event_pairs(timeline)
+                assert _ordered(
+                    pairs,
+                    [("CHECKPOINT_CORRUPT", "CHECKPOINT_CHECKSUM_MISMATCH")] * len(committed)
+                    + [("CHECKPOINT_FALLBACK_TO_INPUT", "CHECKPOINT_FALLBACK_TO_INPUT")],
+                ), pairs
+                assert ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED") not in pairs
+                assert r3["bytes"] == r0["bytes"] and r3["checksum"] == r0["checksum"]
+                evidence["fallback_input"] = {"checksum": r3["checksum"], "timeline": timeline}
+                scores.append(harness.fairness())
+    
+                # 5a. Two kills in one job (the whole 2-retry budget): before the first
+                # checkpoint, then between two checkpoints of the restarted attempt.
+                job = harness.submit("b14-docker-multi-kill")
+                first, container = harness.running_attempt(job, 1)
+                time.sleep(1.0)
+                assert harness.checkpoints(job, first["attempt_id"]) == []
+                assert harness.reserved(first["attempt_id"]) is None
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                assert harness.checkpoints(job, first["attempt_id"]) == []
+                second, container = harness.running_attempt(job, 2)
+                harness.wait_committed(job, second["attempt_id"], 1)
+                # Mid-interval: the next cycle is ~INTERVAL_SECONDS away.
+                time.sleep(INTERVAL_SECONDS / 2)
+                between = harness.checkpoints(job, second["attempt_id"])
+                assert harness.reserved(second["attempt_id"]) is None
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 2)
+                harness.wait_succeeded(job)
+                r4 = harness.result(job)
+                timeline = harness.reconcile(job, 3)
+                attempts = timeline["attempts"]
+                newest = max(harness.checkpoints(job, second["attempt_id"]), key=lambda row: row[1])
+                assert newest[1] == between[-1][1]
+                assert timeline["restores"][attempts[1]["attempt_id"]] is None
+                assert timeline["restores"][attempts[2]["attempt_id"]] == {
+                    "checkpoint_id": str(newest[0]),
+                    "sequence": newest[1],
+                }, (_event_pairs(timeline), timeline["checkpoints"], timeline["reservations"])
+                assert timeline["job"]["retry_count"] == 2 == timeline["job"]["max_retries"]
+                assert [row["failure_reason"] for row in attempts[:2]] == ["RUNNER_UNAVAILABLE"] * 2
+                pairs = _event_pairs(timeline)
+                assert _ordered(
+                    pairs,
+                    [
+                        ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                        ("CHECKPOINT_FALLBACK_TO_INPUT", "CHECKPOINT_FALLBACK_TO_INPUT"),
+                        ("CHECKPOINT_COMMITTED", "CHECKPOINT_COMMITTED"),
+                        ("ATTEMPT_FAILED", "RUNNER_UNAVAILABLE"),
+                        ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"),
+                    ],
+                ), pairs
+                assert r4["bytes"] == r0["bytes"] and r4["checksum"] == r0["checksum"]
+                evidence["kill_before_first_and_between"] = {
+                    "checksum": r4["checksum"],
+                    "timeline": timeline,
+                }
+                scores.append(harness.fairness())
+    
+                # 5b. Kill immediately after a checkpoint publish commits.
+                job = harness.submit("b14-docker-kill-after-publish")
+                first, container = harness.running_attempt(job, 1)
+                published = harness.wait_committed(job, first["attempt_id"], 1, pause=0.01)
+                harness.kill_workload(container)
+                harness.wait_retry_released(job, 1)
+                harness.wait_succeeded(job)
+                r5 = harness.result(job)
+                timeline = harness.reconcile(job, 2)
+                newest = max(harness.checkpoints(job, first["attempt_id"]), key=lambda row: row[1])
+                assert newest[1] == published[-1][1]
+>               assert timeline["restores"][timeline["attempts"][1]["attempt_id"]] == {
+                    "checkpoint_id": str(newest[0]),
+                    "sequence": newest[1],
+                }
+E               AssertionError: assert None == {'checkpoint_id': '01a0efd5-0ff0-7221-9d41-a8df1810c8ab', 'sequence': 1}
+
+tests/docker/test_b14_checkpoint_restore.py:1161: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+=============================== warnings summary ===============================
+../venv-repo/lib/python3.12/site-packages/fastapi/testclient.py:1
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../venv-repo/lib/python3.12/site-packages/starlette/testclient.py:53
+  ~/nexa-rem/venv-repo/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 23 passed, 2 warnings in 2359.07s (0:39:19)
+EXIT=1

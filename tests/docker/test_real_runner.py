@@ -17,7 +17,7 @@ from nexa.worker.docker_client import DockerControlChannel, SubprocessDockerBack
 from nexa.worker.executor import DockerExecutor
 from nexa.worker.journal import ExecutionJournal
 from nexa.worker.models import ContainerIdentity, CpuWorkloadSpec, InputMount, ResourceVector
-from nexa.worker.protocol import FrameDecoder, encode_frame
+from nexa.worker.protocol import STOP_EXIT_CODES, FrameDecoder, encode_frame
 from tests.worker.test_docker_config import start
 
 CALLBACK = "018f0d60-7b6a-7a31-9d82-1aa39c4f30b7"
@@ -106,6 +106,21 @@ class SupervisorExecBarrierBackend:
         return self.backend.run(argv, timeout_seconds)
 
 
+def _processes_by_uid(top_output: str) -> list[tuple[int, str]]:
+    """Rows of ``docker top -eo pid,uid,args`` as (numeric UID, args).
+
+    ``docker top`` runs ``ps`` on the Docker host, so a ``user`` column names whatever host
+    account owns that UID (a Linux host has its own UID 1000/1001 accounts). Only the numeric
+    column identifies the runner and workload UIDs on every host (B16-R29).
+    """
+    rows = []
+    for line in top_output.splitlines()[1:]:
+        fields = line.split(None, 2)
+        if len(fields) >= 2:
+            rows.append((int(fields[1]), fields[2] if len(fields) == 3 else ""))
+    return rows
+
+
 def _wait_for_isolated_processes(container_id: str, *, timeout: float = 30) -> str:
     deadline = time.monotonic() + timeout
     next_readiness_probe = 0.0
@@ -113,20 +128,15 @@ def _wait_for_isolated_processes(container_id: str, *, timeout: float = 30) -> s
     last_ready: subprocess.CompletedProcess[str] | None = None
     while time.monotonic() < deadline:
         last_result = subprocess.run(
-            ["docker", "top", container_id, "-eo", "pid,user,args"],
+            ["docker", "top", container_id, "-eo", "pid,uid,args"],
             capture_output=True,
             text=True,
         )
         if last_result.returncode == 0:
             output = last_result.stdout
-            process_lines = output.lower().splitlines()[1:]
+            uids = {uid for uid, _ in _processes_by_uid(output)}
             now = time.monotonic()
-            if (
-                ("nexa-runner" in output or "1000" in output)
-                and ("nexa-workload" in output or "1001" in output)
-                and all(" root " not in f" {line} " for line in process_lines)
-                and now >= next_readiness_probe
-            ):
+            if {1000, 1001} <= uids and 0 not in uids and now >= next_readiness_probe:
                 last_ready = subprocess.run(
                     [
                         "docker",
@@ -577,7 +587,8 @@ def test_supervisor_registration_after_startup_deadline_never_launches_cpu(
             assert cpu_process_count == 0
             stopped = peer.receive_type("STOPPED", timeout=35)
             stopped_after_ready = time.monotonic() - ready_at
-            assert stopped["payload"]["reason"] == "RUNTIME_LIMIT"
+            # A startup-limit stop is not a runtime-limit stop (B15-R10).
+            assert stopped["payload"]["reason"] == "STARTUP_LIMIT"
             assert all(frame.get("type") != "STARTED" for frame in peer.pending)
             # Like the worker, keep the stop frame: an unacknowledged STOPPED keeps
             # the runner serving for up to its linger bound (B15-R16).
@@ -613,7 +624,7 @@ def test_supervisor_registration_after_startup_deadline_never_launches_cpu(
             bound_seconds=35,
             started_message_count=0,
             cpu_process_count=cpu_process_count,
-            stop_reason="RUNTIME_LIMIT",
+            stop_reason="STARTUP_LIMIT",
             stopped_after_runner_ready_seconds=round(stopped_after_ready, 6),
         )
     finally:
@@ -674,10 +685,14 @@ def test_production_executor_runner_cpu_result_handshake(tmp_path: Path) -> None
     )
     identity = executor.start(executor.prepare(request))
     try:
-        top = _wait_for_isolated_processes(identity.container_id)
-        assert "nexa-runner" in top or "1000" in top
-        assert "nexa-workload" in top or "1001" in top
-        assert " root " not in f" {top.lower()} "
+        processes = _processes_by_uid(_wait_for_isolated_processes(identity.container_id))
+
+        def uids_of(module: str) -> set[int]:
+            return {uid for uid, args in processes if f"nexa.workloads.{module}" in args}
+
+        assert 0 not in {uid for uid, _ in processes}, processes
+        assert uids_of("trusted_runner") == {1000}, processes
+        assert uids_of("workload_supervisor") == {1001}, processes
 
         isolation = subprocess.run(
             [
@@ -1074,11 +1089,23 @@ def test_watchdog_stops_cpu_after_controller_disconnect_at_runtime_limit(tmp_pat
         connection.close()
         stop_observation = _wait_for_container_stop(identity.container_id)
         assert stop_observation <= 7
+        exit_code = int(
+            subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.ExitCode}}", identity.container_id],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+        )
+        # B15-R14: no worker acknowledged the STOPPED frame, so the runner exits with the
+        # status of its stop reason instead of 0.
+        assert exit_code == STOP_EXIT_CODES["RUNTIME_LIMIT"]
         _evidence(
             "controller-disconnect-runtime-watchdog",
             runtime_limit_seconds=1,
             container_stop_observation_seconds=round(stop_observation, 6),
             container_stop_observation_bound_seconds=7,
+            container_exit_code=exit_code,
         )
 
 

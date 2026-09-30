@@ -43,11 +43,28 @@ def _guard_url(raw: str):
     return url
 
 
+def _source_tree_sha256(source_paths):
+    """Hash every source file path and content, so a tree copy without .git is identified."""
+    digest = hashlib.sha256()
+    files = sorted(
+        path
+        for root in source_paths
+        for path in Path(root).rglob("*.py")
+        if "__pycache__" not in path.parts
+    )
+    for path in files:
+        digest.update(f"{path}\0{hashlib.sha256(path.read_bytes()).hexdigest()}\n".encode())
+    return digest.hexdigest()
+
+
 def _provenance():
     def git(*args):
         return subprocess.check_output(["git", *args], text=True).strip()
 
     source_paths = ("src/", "migrations/", "tests/", "benchmarks/b13/")
+    tree = _source_tree_sha256(source_paths)
+    if not Path(".git").exists():
+        return {"head": None, "git": "unavailable: tree copy", "source_tree_sha256": tree}
     diff = subprocess.check_output(
         ["git", "diff", "--binary", "--", *source_paths, "pyproject.toml", "uv.lock"]
     )
@@ -61,6 +78,7 @@ def _provenance():
         "head": git("rev-parse", "HEAD"),
         "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
         "untracked_sha256": hashes,
+        "source_tree_sha256": tree,
     }
 
 
@@ -285,11 +303,26 @@ def _reset_queued_age(engine):
         connection.execute(text("ANALYZE jobs"))
 
 
+def _drain_eligibility(engine, service):
+    """Replay every pending eligibility page outside the measurement; return the pages."""
+    from nexa.coordinator.eligibility import pending_eligibility_tenants, process_eligibility_batch
+
+    pages = 0
+    while True:
+        with Session(engine) as session, session.begin():
+            service._locks(session)
+            if not pending_eligibility_tenants(session):
+                return pages
+            process_eligibility_batch(
+                session, session.execute(select(func.clock_timestamp())).scalar_one()
+            )
+        pages += 1
+
+
 def _prepare_default_quota(engine):
     """Give every tenant the default 50% quota of a 2-core pool, so each 1-core
     dispatch exhausts its tenant's CPU headroom and each release restores it."""
     from benchmarks.b13.runtime_fairness import complete_fixture_allocation
-    from nexa.coordinator.eligibility import pending_eligibility_tenants, process_eligibility_batch
 
     service = CoordinatorService(create_session_factory(engine))
     with engine.connect() as connection:
@@ -325,16 +358,7 @@ def _prepare_default_quota(engine):
             .values(invalidated_at=now, invalidation_reason="benchmark_fixture_reset")
         )
     # Admin-rate capacity events from the fixture change are drained before measuring.
-    pages = 0
-    while True:
-        with Session(engine) as session, session.begin():
-            service._locks(session)
-            if not pending_eligibility_tenants(session):
-                break
-            process_eligibility_batch(
-                session, session.execute(select(func.clock_timestamp())).scalar_one()
-            )
-        pages += 1
+    pages = _drain_eligibility(engine, service)
     with engine.begin() as connection:
         connection.execute(update(s.workers).values(last_heartbeat_at=func.clock_timestamp()))
     _reset_queued_age(engine)
@@ -609,6 +633,171 @@ def _release_dispatch(engine, service, job_id):
     }
 
 
+# The production loop starts a tick at most every 250 ms (coordinator/runtime.py).
+_TICK_FLOOR_MS = 250.0
+STALL_MUTATIONS = ("capability", "tenant-toggle")
+
+
+def _pending_events(engine, tenant_id=None):
+    query = (
+        select(func.count())
+        .select_from(s.queue_eligibility_events)
+        .where(s.queue_eligibility_events.c.completed_at.is_(None))
+    )
+    if tenant_id is not None:
+        query = query.where(s.queue_eligibility_events.c.tenant_id == tenant_id)
+    with engine.connect() as connection:
+        return connection.execute(query).scalar_one()
+
+
+def _stall_mutation(engine, mutation):
+    """Apply one admin-rate change; its PostgreSQL trigger appends the eligibility events.
+
+    ``capability``: the worker inventory advertises one more adapter, so every tenant
+    with queued Jobs is replayed although every Job stays possible. ``tenant-toggle``:
+    an admin disables and re-enables one tenant (two events for that tenant only).
+    """
+    tenant_id = None
+    with engine.begin() as connection:
+        if mutation == "capability":
+            inventory = connection.execute(select(s.worker_inventories)).mappings().one()
+            capabilities = dict(inventory["workload_capabilities"])
+            capabilities["adapters"] = [
+                *capabilities["adapters"],
+                {"adapter_id": "batch.inference", "adapter_version": "1.0.0"},
+            ]
+            connection.execute(
+                update(s.worker_inventories)
+                .where(s.worker_inventories.c.worker_id == inventory["worker_id"])
+                .values(workload_capabilities=capabilities)
+            )
+        else:
+            tenant_id = connection.execute(
+                select(s.jobs.c.tenant_id)
+                .where(s.jobs.c.state == "QUEUED")
+                .order_by(s.jobs.c.tenant_id)
+                .limit(1)
+            ).scalar_one()
+            connection.execute(
+                update(s.tenants).where(s.tenants.c.tenant_id == tenant_id).values(enabled=False)
+            )
+    if mutation == "tenant-toggle":
+        with engine.begin() as connection:
+            connection.execute(
+                update(s.tenants).where(s.tenants.c.tenant_id == tenant_id).values(enabled=True)
+            )
+    return tenant_id
+
+
+def _job_tenant(engine, job_id):
+    with engine.connect() as connection:
+        return connection.execute(
+            select(s.jobs.c.tenant_id).where(s.jobs.c.job_id == job_id)
+        ).scalar_one()
+
+
+def _measure_eligibility_stall(engine, mutation, max_ticks):
+    """Ticks and time from one admin-rate mutation until dispatch resumes (B13-OBS-01).
+
+    Ticks run back to back with the fixture heartbeat, accounting and release of each
+    Dispatch, as in ``_measure``. The production loop starts ticks at most every 250 ms,
+    so the production estimate charges each tick ``max(250 ms, measured tick)``.
+    """
+    service = CoordinatorService(create_session_factory(engine))
+    epoch = service.acquire()
+    drained_before = _drain_eligibility(engine, service)
+
+    def tick():
+        if not service.renew(epoch):
+            raise RuntimeError("Benchmark coordinator lost leadership during the stall")
+        with engine.begin() as connection:
+            connection.execute(update(s.workers).values(last_heartbeat_at=func.clock_timestamp()))
+        started = time.perf_counter()
+        decision = service.tick(epoch)
+        duration_ms = (time.perf_counter() - started) * 1000
+        service.account(epoch)
+        tenant = None
+        if isinstance(decision, Dispatch):
+            tenant = _job_tenant(engine, decision.job_id)
+            _release_dispatch(engine, service, decision.job_id)
+        return decision, duration_ms, tenant
+
+    # Control: the drained fixture dispatches before the mutation.
+    control = []
+    for _ in range(max_ticks):
+        decision, duration_ms, _tenant = tick()
+        control.append(type(decision).__name__)
+        if isinstance(decision, Dispatch):
+            break
+    else:
+        raise RuntimeError("The drained fixture never dispatched before the mutation")
+
+    with engine.connect() as connection:
+        mutated_at = connection.execute(select(func.clock_timestamp())).scalar_one()
+    wall_started = time.perf_counter()
+    tenant_id = _stall_mutation(engine, mutation)
+    events_created = _pending_events(engine)
+    affected_events = _pending_events(engine, tenant_id) if tenant_id else events_created
+    ticks = []
+    first_dispatch = first_affected_dispatch = replay_done = None
+    dispatches_before_replay_done = 0
+    decisions = {}
+    for index in range(1, max_ticks + 1):
+        decision, duration_ms, tenant = tick()
+        name = type(decision).__name__
+        label = f"{name}:{decision.reason}" if hasattr(decision, "reason") else name
+        decisions[label] = decisions.get(label, 0) + 1
+        pending = _pending_events(engine, tenant_id)
+        ticks.append(duration_ms)
+        if isinstance(decision, Dispatch):
+            first_dispatch = first_dispatch or index
+            if replay_done is None:
+                dispatches_before_replay_done += 1
+            if first_affected_dispatch is None and (tenant_id is None or tenant == tenant_id):
+                first_affected_dispatch = index
+        if replay_done is None and pending == 0:
+            replay_done = index
+        if replay_done is not None and first_affected_dispatch is not None:
+            break
+        if index % 100 == 0:
+            print(f"tick {index}: pending affected events {pending}", flush=True)
+    wall_ms = (time.perf_counter() - wall_started) * 1000
+
+    def estimate(count):
+        return sum(max(_TICK_FLOOR_MS, value) for value in ticks[:count]) if count else None
+
+    ordered = sorted(ticks)
+    return {
+        "mutation": mutation,
+        "mutated_at_db": mutated_at.isoformat(),
+        "eligibility_pages_drained_before": drained_before,
+        "control_decisions_before_mutation": control,
+        "events_created": events_created,
+        "affected_tenant": str(tenant_id) if tenant_id else "all tenants with queued jobs",
+        "affected_events": affected_events,
+        "max_ticks": max_ticks,
+        "ticks_measured": len(ticks),
+        "ticks_until_first_dispatch": first_dispatch,
+        "ticks_until_affected_dispatch": first_affected_dispatch,
+        "ticks_until_affected_replay_done": replay_done,
+        "dispatches_before_replay_done": dispatches_before_replay_done,
+        "decisions": decisions,
+        "tick_ms": {
+            "median": statistics.median(ordered) if ordered else None,
+            "p95": ordered[int(0.95 * (len(ordered) - 1))] if ordered else None,
+            "max": ordered[-1] if ordered else None,
+            "sum": sum(ordered),
+        },
+        "harness_wall_ms": wall_ms,
+        "production_stall_estimate_ms": estimate(first_affected_dispatch),
+        "production_replay_estimate_ms": estimate(replay_done),
+        "estimate_basis": (
+            "sum over the ticks up to the named tick of max(250 ms, measured tick): the "
+            "production loop starts a tick at most every 250 ms"
+        ),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tenants", type=int, default=100)
@@ -621,6 +810,9 @@ def main():
     parser.add_argument("--prepare-eligibility-event", action="store_true")
     parser.add_argument("--prepare-default-quota", action="store_true")
     parser.add_argument("--api-prefill-result", type=Path)
+    parser.add_argument("--measure-eligibility-stall", choices=STALL_MUTATIONS)
+    parser.add_argument("--stall-max-ticks", type=int, default=4000)
+    parser.add_argument("--evidence-layer", choices=("P", "L"), default="P")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if min(args.tenants, args.jobs_per_tenant, args.repetitions) < 1:
@@ -667,11 +859,16 @@ def main():
             raise RuntimeError("API prefill result does not match this queue fixture")
     if args.prepare_api_worker:
         _prepare_api_worker(engine)
-    measurement = _measure(
-        engine, args.repetitions, release_after_dispatch=args.prepare_default_quota
-    )
+    if args.measure_eligibility_stall:
+        measurement = _measure_eligibility_stall(
+            engine, args.measure_eligibility_stall, args.stall_max_ticks
+        )
+    else:
+        measurement = _measure(
+            engine, args.repetitions, release_after_dispatch=args.prepare_default_quota
+        )
     result = {
-        "evidence_layer": "P direct-DB microbenchmark; not API acceptance",
+        "evidence_layer": f"{args.evidence_layer} direct-DB microbenchmark; not API acceptance",
         "timestamp_utc": datetime.now(UTC).isoformat(),
         "environment": {
             "os": platform.platform(),
@@ -722,8 +919,20 @@ def main():
             {
                 "count": count,
                 "heads": heads,
-                "median_ms": result["measurement"]["median_ms"],
-                "errors": [row["error"] for row in result["measurement"]["runs"] if row["error"]],
+                "median_ms": measurement.get("median_ms"),
+                "errors": [row["error"] for row in measurement.get("runs", []) if row["error"]],
+                "stall": {
+                    key: measurement[key]
+                    for key in (
+                        "ticks_until_first_dispatch",
+                        "ticks_until_affected_dispatch",
+                        "ticks_until_affected_replay_done",
+                        "harness_wall_ms",
+                        "production_stall_estimate_ms",
+                        "production_replay_estimate_ms",
+                    )
+                    if key in measurement
+                },
             }
         )
     )

@@ -441,8 +441,8 @@ def test_admin_allocations_and_recovery_events_are_bounded_signed_pages(
         # The cursor is bound to its filter.
         crossed = _admin(control, "get", "/allocations", state="HELD", cursor=cursor)
         assert crossed.status_code == 400 and crossed.json()["code"] == "invalid_cursor"
-        assert _admin(control, "get", "/allocations", state="GONE").status_code in (400, 422)
-        assert _admin(control, "get", "/allocations", page_size=101).status_code in (400, 422)
+        assert _admin(control, "get", "/allocations", state="GONE").status_code == 400
+        assert _admin(control, "get", "/allocations", page_size=101).status_code == 400
 
         assert _admin(control, "post", f"/workers/{WORKER_ID}/disable").status_code == 202
         start, end = _window()
@@ -471,7 +471,7 @@ def test_admin_allocations_and_recovery_events_are_bounded_signed_pages(
         assert empty.json()["items"] == []
         inverted = _admin(control, "get", "/recovery-events", **{"from": end, "to": start})
         assert inverted.status_code == 400
-        assert _admin(control, "get", "/recovery-events").status_code in (400, 422)
+        assert _admin(control, "get", "/recovery-events").status_code == 400
         forged = _admin(
             control, "get", "/recovery-events", cursor="x" * 32, **{"from": start, "to": end}
         )

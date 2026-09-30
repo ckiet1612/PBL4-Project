@@ -1,8 +1,10 @@
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from typing import Any
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -26,6 +28,7 @@ from nexa.application.execution_service import ExecutionService
 from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
 from nexa.application.policy_service import PolicyService
+from nexa.application.storage_identity import bind_artifact_store
 from nexa.application.sweep_service import SweepService
 from nexa.application.template_registry import TemplateCatalog
 from nexa.config import Settings
@@ -46,6 +49,29 @@ def _request_id(request: Request) -> str:
     return str(value if value is not None else new_uuid7())
 
 
+def _log_rejected_callback(request: Request, exc: ApplicationError) -> None:
+    """Log a stale worker callback rejection as one bounded JSON line (B15-R33).
+
+    The rejection commits nothing, so it is not a recovery event. The line carries the
+    route template, the fixed message and the path identities only: never the credential,
+    the callback body or the authority it presented.
+    """
+    route = request.scope.get("route")
+    record: dict[str, Any] = {
+        "event": "worker_callback_rejected",
+        "method": request.method,
+        "route": getattr(route, "path", None),
+        "status": exc.status,
+        "code": exc.code,
+        "message": exc.message,
+        "request_id": _request_id(request),
+    }
+    for name in ("worker_id", "attempt_id"):
+        with suppress(TypeError, ValueError):
+            record[name] = str(UUID(request.path_params.get(name)))
+    _LOG.warning(json.dumps(record, separators=(",", ":")))
+
+
 def _error_response(
     request: Request,
     *,
@@ -53,11 +79,15 @@ def _error_response(
     code: str,
     message: str,
     headers: dict[str, str] | None = None,
+    reason: str | None = None,
 ) -> JSONResponse:
     request_id = _request_id(request)
     response_headers = {"X-Request-Id": request_id, **(headers or {})}
+    body = {"code": code, "message": message, "request_id": request_id}
+    if reason is not None:
+        body["reason"] = reason
     return JSONResponse(
-        {"code": code, "message": message, "request_id": request_id},
+        body,
         status_code=status,
         headers=response_headers,
     )
@@ -77,6 +107,7 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                 settings.artifact_root,
                 max_file_bytes=settings.artifact_max_file_bytes,
             )
+            bind_artifact_store(session_factory, artifact_store)
             job_service = JobService(session_factory, settings, identity, artifact_store)
             app.state.services = ApiServices(
                 settings=settings,
@@ -167,6 +198,8 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
 
     @app.exception_handler(ApplicationError)
     async def application_error_handler(request: Request, exc: ApplicationError) -> JSONResponse:
+        if exc.code == "stale_authority":
+            _log_rejected_callback(request, exc)
         headers: dict[str, str] = {}
         if exc.retry_after is not None:
             headers["Retry-After"] = str(exc.retry_after)
@@ -178,15 +211,21 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
             code=exc.code,
             message=exc.message,
             headers=headers,
+            reason=exc.reason,
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
+        # A path or query parameter of the wrong type, pattern or format is malformed wire
+        # input: 400, as the contract status table and every OpenAPI operation declare
+        # (B16-R08). JSON bodies are parsed by `parse_json_request`, which applies the same
+        # split; header errors keep 422 like the application's own header checks.
+        wire = any(error["loc"][:1] in (("path",), ("query",)) for error in exc.errors())
         return _error_response(
             request,
-            status=422,
+            status=400 if wire else 422,
             code="validation_failed",
             message="Request parameters do not match the approved schema",
         )

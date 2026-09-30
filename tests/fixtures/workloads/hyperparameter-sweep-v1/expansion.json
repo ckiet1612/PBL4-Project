@@ -1,6 +1,6 @@
 {
   "sweep_id": "01923456-789a-7bcd-8ef0-0000000000aa",
-  "note": "Golden expansion of request.json: learning_rate 0.01 and 1e-2 are one RFC 8785 value, so 3 x 2 = 6 children.",
+  "note": "Golden expansion of request.json: 3 learning_rate x 2 seed values = 6 children. Repeated values are 422 (B16-R10).",
   "children": [
     {
       "child_index": 0,

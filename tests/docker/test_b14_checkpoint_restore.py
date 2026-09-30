@@ -10,10 +10,13 @@ Evidence rows contain identifiers, states, sequences and checksums only; no
 credential, input, cursor, accumulator or manifest content is recorded.
 """
 
+import contextlib
 import hashlib
 import json
 import os
 import socket
+import stat
+import struct
 import subprocess
 import threading
 import time
@@ -143,6 +146,83 @@ class _Coordinator:
         self.thread = None
 
 
+class _LoopbackRelay:
+    """A 127.0.0.1 TCP relay between the host-network worker and the API.
+
+    In loopback mode the worker shares the host network, so there is no container
+    network to disconnect. ``sever`` resets every open connection and every new one
+    until ``restore``: the worker loses the control plane, as with a disconnected
+    bridge, while nothing listens beyond loopback.
+    """
+
+    def __init__(self, target_port):
+        self.target_port = target_port
+        self.severed = threading.Event()
+        self.closed = threading.Event()
+        self.lock = threading.Lock()
+        self.connections = set()
+        self.listener = socket.socket()
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen(64)
+        self.port = self.listener.getsockname()[1]
+        threading.Thread(target=self._accept, daemon=True).start()
+
+    @staticmethod
+    def _reset(connection):
+        # SO_LINGER 0: close() sends RST instead of an orderly FIN.
+        with contextlib.suppress(OSError):
+            connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        connection.close()
+
+    def _accept(self):
+        while not self.closed.is_set():
+            try:
+                client, _address = self.listener.accept()
+            except OSError:
+                return
+            if self.severed.is_set():
+                self._reset(client)
+                continue
+            try:
+                upstream = socket.create_connection(("127.0.0.1", self.target_port), timeout=5)
+            except OSError:
+                self._reset(client)
+                continue
+            upstream.settimeout(None)
+            with self.lock:
+                self.connections.update((client, upstream))
+            for source, sink in ((client, upstream), (upstream, client)):
+                threading.Thread(target=self._pump, args=(source, sink), daemon=True).start()
+
+    def _pump(self, source, sink):
+        try:
+            while data := source.recv(65536):
+                sink.sendall(data)
+        except OSError:
+            pass
+        finally:
+            with self.lock:
+                self.connections.discard(source)
+                self.connections.discard(sink)
+            for end in (source, sink):
+                self._reset(end)
+
+    def sever(self):
+        self.severed.set()
+        with self.lock:
+            live, self.connections = self.connections, set()
+        for connection in live:
+            self._reset(connection)
+
+    def restore(self):
+        self.severed.clear()
+
+    def close(self):
+        self.closed.set()
+        self.sever()
+        self.listener.close()
+
+
 class _Harness:
     def __init__(self, engine, tmp_path, client, image, worker_image):
         self.engine = engine
@@ -154,6 +234,7 @@ class _Harness:
         self.worker = None
         self.server = None
         self.thread = None
+        self.relay = None
         self.coordinator = _Coordinator(engine)
         self.tenant_id = None
         self.write = None
@@ -255,10 +336,14 @@ class _Harness:
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
+        # Opt-in loopback mode, as in the B16 harness: nothing of the test listens beyond
+        # 127.0.0.1 and the worker shares the host network, for a Linux host whose firewall
+        # drops container-to-host traffic. Docker Desktop keeps the bridge default.
+        loopback = os.environ.get("NEXA_DOCKER_WORKER_NETWORK") == "host"
         self.server = uvicorn.Server(
             uvicorn.Config(
                 create_app(self.client.app.state.services.settings, engine=self.engine),
-                host="0.0.0.0",
+                host="127.0.0.1" if loopback else "0.0.0.0",
                 port=port,
                 log_level="warning",
             )
@@ -266,20 +351,30 @@ class _Harness:
         self.thread = threading.Thread(target=self.server.run, daemon=True)
         self.thread.start()
         _wait(lambda: self.server.started, "API readiness", timeout=10)
+        network = (
+            ["--network", "host"]
+            if loopback
+            else ["--network", "bridge", "--add-host", "host.docker.internal:host-gateway"]
+        )
+        api_host = "127.0.0.1" if loopback else "host.docker.internal"
+        if loopback:
+            # The worker reaches the API through the relay, which B15 C9 severs; an API
+            # restart (B15 C10) retargets the same relay.
+            if self.relay is None:
+                self.relay = _LoopbackRelay(port)
+            self.relay.target_port = port
+            port = self.relay.port
         self.worker_command = [
             "docker",
             "run",
             "--detach",
-            "--network",
-            "bridge",
-            "--add-host",
-            "host.docker.internal:host-gateway",
+            *network,
             "--mount",
             "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock",
             "--mount",
             f"type=bind,src={self.root},dst={self.root}",
             "--env",
-            f"NEXA_WORKER_API_URL=http://host.docker.internal:{port}",
+            f"NEXA_WORKER_API_URL=http://{api_host}:{port}",
             "--env",
             f"NEXA_WORKER_STATE_ROOT={self.root}",
             "--env",
@@ -298,6 +393,29 @@ class _Harness:
 
     def start_worker(self):
         self.worker = subprocess.check_output(self.worker_command, text=True).strip()
+
+    def cut_worker_network(self):
+        """Take the worker off the control plane (bridge: disconnect; loopback: relay)."""
+        if self.relay is not None:
+            self.relay.sever()
+            return
+        subprocess.run(
+            ["docker", "network", "disconnect", "bridge", self.worker],
+            check=True,
+            capture_output=True,
+            timeout=15,
+        )
+
+    def restore_worker_network(self):
+        if self.relay is not None:
+            self.relay.restore()
+            return
+        subprocess.run(
+            ["docker", "network", "connect", "bridge", self.worker],
+            check=True,
+            capture_output=True,
+            timeout=15,
+        )
 
     def worker_logs(self):
         if self.worker is None:
@@ -331,6 +449,8 @@ class _Harness:
                     capture_output=True,
                     timeout=15,
                 )
+        if self.relay is not None:
+            self.relay.close()
         if self.server is not None:
             self.server.should_exit = True
             self.thread.join(timeout=8)
@@ -502,8 +622,8 @@ class _Harness:
         assert "sha256:" + hashlib.sha256(data).hexdigest() == checksum
         return {"result_id": result["result_id"], "bytes": data, "checksum": checksum}
 
-    def corrupt_state_blob(self, checkpoint_id):
-        """Fault injection on the test storage root only: rewrite a committed state blob."""
+    def _state_blob(self, checkpoint_id):
+        """The committed state blob of a checkpoint and the checksum its artifact records."""
         with self.engine.connect() as connection:
             artifact_id = connection.execute(
                 select(s.artifact_references.c.artifact_id).where(
@@ -512,13 +632,42 @@ class _Harness:
                     s.artifact_references.c.purpose == "CHECKPOINT_FILE",
                 )
             ).scalar_one()
-            key = connection.execute(
-                select(s.artifacts.c.blob_key).where(s.artifacts.c.artifact_id == artifact_id)
-            ).scalar_one()
-        path = self.client.app.state.services.artifact.store._path_for_key(key)
+            key, checksum = connection.execute(
+                select(s.artifacts.c.blob_key, s.artifacts.c.checksum).where(
+                    s.artifacts.c.artifact_id == artifact_id
+                )
+            ).one()
+        return self.client.app.state.services.artifact.store._path_for_key(key), checksum
+
+    def corrupt_state_blob(self, checkpoint_id):
+        """Fault injection on the test storage root only: rewrite a committed state blob.
+
+        Committed artifacts are deduplicated per tenant by content, and the CPU workload
+        snapshots its state at stride boundaries, so a later Job's checkpoint can be this
+        same blob. Returns what :meth:`repair_state_blob` needs to undo the fault once the
+        scenario's assertions are done.
+        """
+        path, _checksum = self._state_blob(checkpoint_id)
         original = path.read_bytes()
+        saved = (path, original, stat.S_IMODE(path.stat().st_mode))
         os.chmod(path, 0o600)
         path.write_bytes(bytes([original[0] ^ 0x01]) + original[1:])
+        return saved
+
+    @staticmethod
+    def repair_state_blob(saved):
+        path, original, mode = saved
+        descriptor = os.open(path, os.O_WRONLY | os.O_TRUNC)
+        try:
+            os.write(descriptor, original)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        os.chmod(path, mode)
+
+    def state_blob_intact(self, checkpoint_id):
+        path, checksum = self._state_blob(checkpoint_id)
+        return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() == checksum
 
     def restores(self, job_id):
         """attempt_id -> (checkpoint_id, sequence) the committed claim froze, or None."""
@@ -923,7 +1072,8 @@ def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
             harness.wait_retry_released(job, 1)
             committed = harness.checkpoints(job)
             newest, previous = committed[-1], committed[-2]
-            harness.corrupt_state_blob(newest[0])
+            assert harness.state_blob_intact(newest[0]) and harness.state_blob_intact(previous[0])
+            injected = harness.corrupt_state_blob(newest[0])
             harness.coordinator.start()
             harness.wait_succeeded(job)
             r2 = harness.result(job)
@@ -947,6 +1097,9 @@ def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
                 ],
             ), _event_pairs(timeline)
             assert r2["bytes"] == r0["bytes"] and r2["checksum"] == r0["checksum"]
+            # The corruption mark is one-way in the database; the shared blob is not.
+            harness.repair_state_blob(injected)
+            assert harness.state_blob_intact(newest[0])
             evidence["corrupt_newest"] = {"checksum": r2["checksum"], "timeline": timeline}
             scores.append(harness.fairness())
 
@@ -958,8 +1111,8 @@ def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
             harness.kill_workload(container)
             harness.wait_retry_released(job, 1)
             committed = harness.checkpoints(job)
-            for checkpoint_id, _sequence in committed:
-                harness.corrupt_state_blob(checkpoint_id)
+            assert all(harness.state_blob_intact(checkpoint_id) for checkpoint_id, _ in committed)
+            injected = [harness.corrupt_state_blob(checkpoint_id) for checkpoint_id, _ in committed]
             harness.coordinator.start()
             harness.wait_succeeded(job)
             r3 = harness.result(job)
@@ -976,6 +1129,9 @@ def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
             ), pairs
             assert ("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED") not in pairs
             assert r3["bytes"] == r0["bytes"] and r3["checksum"] == r0["checksum"]
+            for saved in injected:
+                harness.repair_state_blob(saved)
+            assert all(harness.state_blob_intact(checkpoint_id) for checkpoint_id, _ in committed)
             evidence["fallback_input"] = {"checksum": r3["checksum"], "timeline": timeline}
             scores.append(harness.fairness())
 
@@ -1003,11 +1159,12 @@ def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
             attempts = timeline["attempts"]
             newest = max(harness.checkpoints(job, second["attempt_id"]), key=lambda row: row[1])
             assert newest[1] == between[-1][1]
+            assert harness.state_blob_intact(newest[0])
             assert timeline["restores"][attempts[1]["attempt_id"]] is None
             assert timeline["restores"][attempts[2]["attempt_id"]] == {
                 "checkpoint_id": str(newest[0]),
                 "sequence": newest[1],
-            }
+            }, (_event_pairs(timeline), timeline["checkpoints"], timeline["reservations"])
             assert timeline["job"]["retry_count"] == 2 == timeline["job"]["max_retries"]
             assert [row["failure_reason"] for row in attempts[:2]] == ["RUNNER_UNAVAILABLE"] * 2
             pairs = _event_pairs(timeline)
@@ -1039,6 +1196,7 @@ def test_b14_cpu_checkpoint_crash_resume_corruption_and_adoption(
             timeline = harness.reconcile(job, 2)
             newest = max(harness.checkpoints(job, first["attempt_id"]), key=lambda row: row[1])
             assert newest[1] == published[-1][1]
+            assert harness.state_blob_intact(newest[0])
             assert timeline["restores"][timeline["attempts"][1]["attempt_id"]] == {
                 "checkpoint_id": str(newest[0]),
                 "sequence": newest[1],

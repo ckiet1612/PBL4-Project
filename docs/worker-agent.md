@@ -74,6 +74,22 @@ reconciliation, heartbeat and renewal together. It inspects and adopts live expe
 arrive, allowing renewal during the remaining pages and full orphan scan.
 Cleanup requiring a full inventory is deferred until that scan completes.
 Adoption/pending replay and renewal serialize under the attempt lock. A
+pending failure or cleanup callback is sent and acknowledged under that lock
+too, re-read after the lock is taken, so the reconciliation replay and the
+result thread never POST it twice and a callback finished by the other sender
+counts as resolved; the journal records the acknowledged failure and the
+verified cleanup before the operation is dropped (B15-R39). A renewal that
+waited on that lock re-reads the journal and skips an attempt whose cleanup is
+already verified: its lease ended, so a new renewal could only be rejected and
+would block READY (REM-R05). The same holds for every other path that could act
+on such an attempt again: a reconciliation scan that waited on the lock does not
+re-adopt it, the IPC and result loops drop it, a failure is not sent for it and
+a replayed offer is not claimed (REM-R06). Journal reads take
+the same lock as writes, so a reader never observes a record hidden by an
+in-flight replace, for example on a Docker Desktop bind mount. An unreadable
+record is logged with its cause, byte length and 16-hex-digit SHA-256 prefix
+only (B15-OBS-01). Lock order is the attempt's journal lock, then the operation
+store's internal lock; no thread holds two attempts' locks at once. A
 timed-out operation is allowed to converge before that loop starts another
 one. SIGTERM/SIGINT stops the loops. A failed dependency clears
 local reconciliation readiness; the entrypoint returns code 75 only when the
@@ -92,8 +108,20 @@ receipt. The worker compares callback, reserved Result and manifest Artifact
 binding with its journal before durably restoring a lost acknowledgment and
 discarding any pending renewal. The subsequent cleanup still needs the exact
 stopped-container proof and original grant lineage. An old-incarnation claim
-without a known container remains unresolved; missing Docker identity alone
-never proves safe release.
+without a known container remains unresolved while its Authority is live;
+missing Docker identity alone never proves safe release. Once reconciliation
+reports that claim `REVOKED`/`CLAIMED` with no committed container identity,
+for example after the reaper expired the lease of a process that died between
+the claim commit and its journal (B11-H01), the executor proves the release
+under the attempt lock. It checks any local record against the Authority,
+startup nonce and resources; stops and removes a bound exact container through
+cleanup; removes an unbound one only if Docker reports it created and never
+started; tombstones the record, or initializes a `CLAIMED` reconciliation
+tombstone when none exists; and repeats the exact-label scan before emitting
+`NoContainerProof`. Any identity mismatch, started unbound container or Docker
+uncertainty keeps the attempt unresolved. A verified cleanup also ends that
+attempt's pending claim, renewal and failure callbacks, and a later container
+from the dead process's delayed create is removed unstarted by the orphan scan.
 If the server rejects `/start` after the exact Docker container was created,
 the worker reports its identity in the failure callback, then stops it and
 submits a stopped-container proof. A pending `202` cleanup retains its callback;
@@ -160,8 +188,22 @@ container identity; a relay error on a running container is not treated as
 an exit. The observed exit is journaled (`runner_state.container_exit`) and the
 attempt fails with a Docker-proven observation: `OOMKilled` becomes
 `OOM/CONTAINER_OOM`, and exit code 0 becomes `INTERNAL/RUNNER_PROTOCOL_ERROR`
-(the runner exits 0 only after a terminal frame that was lost). Any other exit
-becomes `INFRASTRUCTURE/RUNNER_UNAVAILABLE`, which can be retried. Cleanup then
+(the runner exits 0 only after a terminal frame that was lost). A runner stop
+exit status (90–96, [trusted runner](trusted-runner.md#protocol-and-durable-state))
+maps like the `STOPPED` frame with that reason. Any other exit
+becomes `INFRASTRUCTURE/RUNNER_UNAVAILABLE`, which can be retried.
+
+The same Docker observation applies at startup (B15-R11). When the runner does
+not accept its start authority deadline, the worker inspects the bound container
+before it replays. A container that has exited is classified at once: a
+`FAILED` or `STOPPED` frame read on the deadline connection names the cause,
+otherwise the exit status does. A killed runner therefore becomes a retryable
+`RUNNER_UNAVAILABLE` rather than waiting out the 30-second budget as
+`STARTUP_TIMEOUT`. A runner that is still running, or cannot be inspected, keeps
+the replay. `STARTUP_TIMEOUT` stays for a runner that never accepts within the
+budget, and for the runner's own `STARTUP_LIMIT` stop. Elapsed time never
+proves an exit. A failed send of the deadline control is a control failure like
+a failed read, and no longer escapes as a relay error. Cleanup then
 removes the exact stopped container and sends its stopped-container proof;
 nothing is stopped twice. An acknowledged renewal whose runner deadline could not
 be delivered to the dead container is discarded only after the failure is
@@ -202,6 +244,22 @@ manifest. Each file is checked against the manifest and mounted read-only under
 `/input/restore/`. The worker refuses an inherited restore for a chunked
 adapter (B16-R20).
 
+**Recognized chunks (B16-R21).** A claim for a chunked adapter carries
+`ExecutionContext.recognized_chunks`: the chunks the server recognized beyond
+the restore cursor, or from chunk 0 after a fallback to input, each with its
+original source attempt and fence. Before creating any container the worker
+checks that the list is closed, contiguous and starts at the restore cursor. A
+`null` value (a recognized chunk the server cannot read) or an invalid list
+fails the attempt `INTERNAL/CHUNK_OUTPUT_UNAVAILABLE`, without retry and
+without a container. A non-empty list becomes the launch spec key
+`recognized_chunks`. The worker then downloads each listed file through the
+execution graph into `recognized/` of its private staging directory, checks its
+size and checksum, and mounts it read-only under `/input/recognized/`; a file
+that cannot be fetched or does not match fails the attempt the same way, before
+any container. The workload takes these chunks over from the files and never
+recomputes them (RV03). A claim without the key comes from a server before this
+change. The attempt then recomputes and a real conflict ends as below.
+
 **Training checkpoint cycle.** It uses the B14 flow, with the four files taken
 in adapter-rule order (B16-R16).
 
@@ -215,18 +273,25 @@ in adapter-rule order (B16-R16).
 2. The worker binds the state (or summary) file only when every chunk before
    the document's cursor is bound.
 3. It binds the chunk-output manifest only when that manifest lists the
-   restored prefix and then exactly this attempt's journaled chunks.
+   restored prefix, then the recognized chunks carried forward unchanged, then
+   exactly this attempt's journaled chunks.
+
+The runner never uploads a carried chunk. Chunk indexes of this attempt start
+after the restored and carried chunks (B16-R21).
 
 Upload keys are derived from attempt, callback, message sequence and
 descriptor, so a crash that repeats an upload gets the same artifact back.
 Chunk bytes are never logged.
 
-**Chunk conflicts.** If a later attempt recomputes a chunk the server has
-already recognized, for example after a fallback to an older checkpoint, it
-gets `409 state_conflict`. The worker cannot tell this apart from a transient
-conflict. Observed on VPS1: the attempt stops within its runtime limit,
-classified `INTERNAL/RUNNER_PROTOCOL_ERROR`, and no row is re-recognized
-(B16-R21, open).
+**Chunk conflicts.** A publish or complete that names a recognized chunk
+range with other bytes gets `409 state_conflict` with the safe
+`reason: CHUNK_OUTPUT_CONFLICT`. `WorkerApiError` keeps that code and reason,
+never the message, so the worker classifies it deterministically: it fails the
+attempt `INTERNAL/CHUNK_OUTPUT_CONFLICT` without retry, and no row is
+re-recognized. A `409` without a reason is still replayed as before. The runner
+reports the same failure itself when the workload writes output for a carried
+chunk (B16-R21; before the remediation the attempt ended
+`INTERNAL/RUNNER_PROTOCOL_ERROR` after its runtime limit).
 
 ## Pause, cancel and runner stop reasons (B15)
 
@@ -274,6 +339,23 @@ worker stops and removes the exact container before its cleanup proof. The
 cleanup callback then commits `CANCELLED`, at most one reconciliation interval
 (≤5 s) after the agent learns of the cancel.
 
+Rejected stale callbacks and reconcile outcomes commit nothing, so they are not
+recovery events: `RECOVERY_EVENT_TYPES` stays closed (B15-R33). They show up in
+the API response and in one bounded JSON log line each.
+- The API logs every `409 stale_authority` at WARNING as
+  `{"event":"worker_callback_rejected", …}`. The line has the method, route
+  template, status, code, fixed message and request ID, plus the path `worker_id`
+  or `attempt_id`.
+- The worker logs a reconcile outcome at INFO as
+  `{"event":"worker_reconcile","complete":…,"items_seen":…,"adopted":…,"unresolved":…}`.
+  It logs an incomplete scan, a scan that adopted an attempt, and the first
+  complete scan after start or after an incomplete one. A steady healthy scan is
+  silent.
+
+Neither line carries a credential, callback body, authority, lease, allocation or
+workload content. There is no metrics stack yet, so counters for these outcomes
+belong to B19.
+
 A worker can be `READY` while it holds live authority under desired `PAUSED`,
 that is, a `PAUSING` attempt or a `CHECKPOINT_FOR_PAUSE` offer, so that offer
 stays pollable (B15-R13). The reaper, a cancel or a disable can fence an offer
@@ -286,7 +368,11 @@ A runner `FAILED` frame is forwarded unchanged only for these classes:
 - `INCOMPATIBLE/CHECKPOINT_RESTORE_UNAVAILABLE`;
 - `INVALID_INPUT/INVALID_INPUT`;
 - `INTERNAL/INVALID_RESULT`;
-- `OOM/CONTAINER_OOM` (B16-R26).
+- `OOM/CONTAINER_OOM` (B16-R26);
+- `INTERNAL/CHUNK_OUTPUT_CONFLICT` (B16-R21);
+- `INTERNAL/CHECKPOINT_STORAGE_FAILED` (B14-K5): the runner could not copy
+  checkpoint bytes into its bounded `/output` (no space or an I/O error). Like
+  every `INTERNAL` class, it is not retried.
 
 An OOM frame is forwarded only with `oom_killed: true`, and `oom_killed: true`
 is accepted only on an OOM frame. Any other frame becomes
@@ -300,14 +386,18 @@ A runner that stops itself names the reason, and the agent maps it:
 | Runner stop reason | Attempt failure |
 |---|---|
 | `RUNTIME_LIMIT` | `TIMEOUT/RUNTIME_LIMIT_REACHED` |
+| `STARTUP_LIMIT` | `TIMEOUT/STARTUP_TIMEOUT` |
 | `LEASE_DEADLINE` | `INFRASTRUCTURE/RUNNER_UNAVAILABLE` (retryable) |
 | `FAILURE` after a rejected checkpoint control | `INTERNAL/CHECKPOINT_PROTOCOL_ERROR` |
 | any other stop | `INTERNAL/WORKLOAD_EXIT_NONZERO` |
 
 A `LEASE_DEADLINE` stop happens when renewals stopped reaching the API. The
-runner enforces it without the agent (B15-R10). The worker cannot tell a
-startup-limit stop from a runtime-limit stop, so both report
-`RUNTIME_LIMIT_REACHED`. A control the runner rejects is journaled as
+runner enforces it without the agent (B15-R10). A runner whose workload did
+not start within its 30-second startup limit stops for `STARTUP_LIMIT`, so the
+failure is `STARTUP_TIMEOUT` with `runtime_limit_reached` false. Before the
+B1–B16 remediation it reported `RUNTIME_LIMIT`, and the worker reported both as
+`RUNTIME_LIMIT_REACHED`. The same mapping applies to the exit status of a
+runner whose `STOPPED` frame no worker kept (B15-R14). A control the runner rejects is journaled as
 `rejected`, together with `checkpoint_rejected`. Its `STOPPED` frame, still
 unread, then names the cause (B14-R10). A checkpoint frame whose control was
 rejected is committed without further processing, because the stopping runner
@@ -343,6 +433,11 @@ runner. Keep the directory private and durable. An older B10 `worker_state`
 named volume is not removed or migrated automatically: preserve its credential,
 journal and pending callbacks before switching paths. Database and artifacts
 remain separate persistent volumes. No service uses privileged or host networking.
+Caddy runs under Docker's init (`init: true`) with `pids_limit: 512`. Its
+BusyBox `wget` health check hands the `ssl_client` helper to PID 1 on every
+run, and Caddy as PID 1 never reaped it, so each 5-second check leaked one
+zombie PID. This leak was the ~31,000-PID `nexa_b10_smoke3` Caddy (ENV-01).
+Zombies count in `pids.current` but not in `docker top`/`cgroup.procs`.
 
 With real secret files and environment values, the intended sequence is:
 

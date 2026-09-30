@@ -955,12 +955,16 @@ Review, và tài liệu đó không bị sửa.
 | B16-R02 | Diễn giải: metadata dataset trong schema metadata Arrow | ghi nhận |
 | B16-R03 | Diễn giải: 2 image PyTorch dùng chung 1 Dockerfile | ghi nhận |
 | B16-R04 | Diễn giải: phân loại lỗi sweep (request-level 422, lỗi từng child) | ghi nhận |
+| ↳ B16-R04 | Remediation B01–B16: xem mục `B16-R04` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). | xem mục remediation (chờ Task Review) |
 | B16-R05 | Diễn giải: retention của `submitSweep` | ghi nhận, cần xác nhận ở review |
+| ↳ B16-R05 | Remediation B01–B16: xem mục `B16-R05` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). | xem mục remediation (chờ Task Review) |
 | B16-R06 | Diễn giải: nguồn N và pinning `inference_extents` | ghi nhận |
 | B16-R07 | Diễn giải: server kiểm lại chunk lúc chọn restore | ghi nhận |
 | B16-R08 | 422 cho path/query sai định dạng (handler toàn app) | ghi nhận, không sửa |
+| ↳ B16-R08 | Remediation B01–B16: xem mục `B16-R08` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). | xem mục remediation (chờ Task Review) |
 | B16-R09 | `template show` là alias của `get` | ghi nhận |
 | B16-R10 | Dedup RFC 8785 khác `uniqueItems` | ghi nhận |
+| ↳ B16-R10 | Remediation B01–B16: xem mục `B16-R10` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). Fixture `hyperparameter-sweep-v1/request.json` đổi sha256 (`2aa967a8…` → `6e196e7d…`), khác bảng đóng băng ở trên. | xem mục remediation (chờ Task Review) |
 | B16-R11 | Regression M1: adapter binding B11 cho template ngoài họ adapter | đã sửa, có test |
 | B16-R12 | — | không dùng |
 | B16-R13 | Flow control cửa sổ chunk | ghi nhận |
@@ -972,6 +976,7 @@ Review, và tài liệu đó không bị sửa.
 | B16-R19 | Media của upload chunk | đã sửa, có test |
 | B16-R20 | Restore inference theo job | ghi nhận |
 | B16-R21 | Chunk conflict sau khi tính lại | **mở**, cần quyết định user/contract |
+| ↳ B16-R21 | Remediation B01–B16: xem mục `B16-R21` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). | xem mục remediation (chờ Task Review) |
 | B16-R22 | Oracle hardening và runc exec init | diễn giải, oracle đã sửa |
 | B16-R23 | Erratum cho `source` của fixture `cpu-iterative-v1` | ghi nhận, fixture không sửa sau đóng băng |
 | B16-R24 | Chunk plan vượt `MAX_CHUNKS`/`MAX_CHUNK_FILE_BYTES` → exit 65 INVALID_INPUT trước chunk đầu | đã sửa (vòng 2), có test |
@@ -980,6 +985,8 @@ Review, và tài liệu đó không bị sửa.
 | B16-R27 | Tài liệu idempotency key của `sweep submit` | đã sửa (vòng 2) |
 | B16-R28 | Mode của request sweep đọc `FOR SHARE` | đã sửa (vòng 2) |
 | B16-R29 | Oracle UID `_wait_for_isolated_processes` (test B09) dùng tên user host | **mở**, không sửa (ngoài phạm vi) |
+| ↳ B16-R29 | Remediation B01–B16: xem mục `B16-R29` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). | xem mục remediation (chờ Task Review) |
+| B16-DOC-01 (audit B1–B16, không có hàng gốc) | Remediation B01–B16: xem mục `B16-DOC-01` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). | xem mục remediation (chờ Task Review) |
 
 - **B16-R29 (vòng 2, mở).** `tests/docker/test_real_runner.py::_wait_for_isolated_processes`
   (test B09, không đổi trong B16) đọc `docker top -eo pid,user,args` và chờ chuỗi `nexa-runner`

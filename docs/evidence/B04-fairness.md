@@ -1,7 +1,7 @@
 # B04 fairness, aging, and reservation evidence
 
 - **Task:** B04 — pure weighted dominant resource-time policy, eligible aging, and one local reservation
-- **Status:** `implemented — review findings remediated, awaiting independent Task Review re-review`
+- **Status:** `approved` — the Task Review approval is recorded in [ROADMAP](../../ROADMAP.md); the review and remediation history below (`Không duyệt`, then `B04-R01`/`B04-R02` remediated) is kept as written at the time
 - **Base revision:** `c14fcc822e86ac6aaa3c83c2008a9fc777708b47`
 - **Working tree:** B04 was implemented directly on `main` under the approved no-branch/no-commit exception. The base tree was clean and all B04 files were initially untracked, so `git diff` alone does not describe the work.
 - **Initial tracked-tree manifest:** `dd64edd736af4a4b0050eb2bf4ee0afb9be20460113aec33899f88c17ad8181a`
@@ -123,7 +123,7 @@ The earlier read-only internal review was distinct from independent Task Review.
 
 The remediated 180-run suite retained the six-profile definition, five fixed seeds, all six policies and the `19/20` fairness threshold. The reservation fixture was deliberately replaced to close `B04-R02`; fairness fixtures and thresholds were not tuned. All 30 Nexa profile rows pass, and a second full replay reproduces JSON/CSV/SVG byte-for-byte.
 
-The latest independent Task Review decision was `Không duyệt` before these changes. No post-remediation Task Review has been performed; this evidence records closure work for re-review and does not claim approval.
+The latest independent Task Review decision was `Không duyệt` before these changes. No post-remediation Task Review has been performed; this evidence records closure work for re-review and does not claim approval. (Written before the re-review; the approval that followed is recorded in [ROADMAP](../../ROADMAP.md), see Status.)
 
 A focused read-only internal rereview after the final validator hardening found no remaining Critical, Important or Minor finding in the `B04-R01`/`B04-R02` remediation scope. It confirmed fabricated or mismatched candidate evidence, future arrivals and unrelated post-create releases fail profile validation. This is D-layer engineering review only, not Task Review approval.
 
@@ -172,7 +172,7 @@ Final command results come from the fresh verification run after `B04-R01` and `
 | Selected compare/report, parsing, render and three `cmp` checks | `pass`; 180 runs, all 30 Nexa profile rows pass, hashes above reproduced byte-for-byte |
 | `git diff --check` and Git visibility/ignore audit | `pass`; all B04 untracked files visible and `.env` remains ignored by the dedicated rule |
 | Focused internal remediation rereview | `pass` for `B04-R01`/`B04-R02`; no remaining Critical/Important/Minor finding, distinct from Task Review |
-| Independent Task Review | latest decision was `Không duyệt`; `B04-R01`/`B04-R02` are remediated locally and await re-review |
+| Independent Task Review | approved, as recorded in [ROADMAP](../../ROADMAP.md); the `Không duyệt` decision preceded the `B04-R01`/`B04-R02` remediation above |
 
 ## Acceptance mapping
 

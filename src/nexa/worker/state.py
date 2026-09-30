@@ -242,18 +242,19 @@ class PendingOperationStore:
     def discard_released_authority(
         self, callback_id: str, *, attempt_id: str, cleanup_verified: bool
     ) -> None:
-        """Discard a renewal or failure only after the server verified its attempt's cleanup.
+        """Discard a claim, renewal or failure only after the server verified its cleanup.
 
         A verified cleanup ends the lease the callback depends on, whether the
         server revoked it for a failure, a cancel, a disable or an expiry, so
-        the callback can never be accepted again (B15-R09, B15-R17).
+        the callback can never be accepted again (B15-R09, B15-R17), and a
+        claim replay can never grant the released attempt again (B11-H01).
         """
         if not cleanup_verified:
             raise ValueError("verified cleanup is required")
         with self._lock:
             current = self._operations[callback_id]
             if (
-                current["operation"] not in {"renew", "failure"}
+                current["operation"] not in {"claim", "renew", "failure"}
                 or current["payload"].get("attempt_id") != attempt_id
             ):
                 raise ValueError("released authority callback identity mismatch")

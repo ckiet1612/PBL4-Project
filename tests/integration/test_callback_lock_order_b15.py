@@ -85,7 +85,7 @@ def test_two_callbacks_of_one_worker_serialise_without_a_deadlock(migrated_postg
 
 
 def _hold_submitter(engine, job_id):
-    """A request transaction holds the submitter row as _revalidate_principal does."""
+    """Hold the submitter row FOR UPDATE, stronger than a request's FOR NO KEY UPDATE (B15-R32)."""
     holder = engine.connect()
     transaction = holder.begin()
     holder.execute(
@@ -141,8 +141,8 @@ def test_retry_promotion_and_block_update_the_job_once(migrated_postgres_engine)
 
     with engine.begin() as connection:
         connection.execute(update(s.tenant_policies).values(cpu_limit_millis=limit))
-    # Promotion to QUEUED still takes a users KEY SHARE through the B13
-    # queue_submitters trigger (B15-R32); the job row itself is updated once.
+    # Promotion to QUEUED takes a users KEY SHARE through the B13 queue_submitters
+    # trigger, which requests no longer block (B15-R32); the job row is updated once.
     updated = text("select pg_stat_get_xact_tuples_updated('jobs'::regclass)")
     with Session(engine) as session, session.begin():
         before = session.execute(updated).scalar_one()

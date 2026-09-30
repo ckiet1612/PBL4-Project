@@ -32,13 +32,13 @@ from nexa.application.checkpoint_validation import (
     validate_training_state_files,
 )
 from nexa.application.execution_cleanup import _event
-from nexa.application.job_recovery import restorable_scope, restore_order
+from nexa.application.job_recovery import restorable_scope, restore_order, retry_lineage
 from nexa.domain import workload_adapters
 from nexa.infrastructure.artifacts.store import ArtifactError
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.transactions import run_transaction
-from nexa.workloads import chunk_manifest
+from nexa.workloads import chunk_manifest, inference_state
 
 # Reasons that describe the destination rather than the stored bytes; they never
 # mark a checkpoint corrupt because another worker or version could restore it.
@@ -60,8 +60,9 @@ def _read_blob(store, row, limit):
         finally:
             reader.close()
     except ArtifactError as exc:
-        # Only a missing file under a present storage root is evidence about this
-        # blob. Any other storage error may be transient and must not be one-way.
+        # Only a blob proven absent from the verified store (identity bound and
+        # intact, B14-OBS-01) is evidence about this blob. Any other storage error
+        # may be transient or a wrong volume and must not be one-way.
         if exc.code == "not_found":
             return None, "CHECKPOINT_BLOB_MISSING"
         raise _storage_unavailable() from exc
@@ -111,14 +112,161 @@ def _chunk_scope(session, tenant_id, spec, job_ids):
     return scope
 
 
+def _recognized_scope(session, job):
+    """B16-R21: the job's recognized chunks in chunk order, its extent and their artifacts."""
+    rows = [
+        dict(row)
+        for row in session.execute(
+            select(s.recognized_chunks)
+            .where(
+                s.recognized_chunks.c.tenant_id == job["tenant_id"],
+                s.recognized_chunks.c.job_id == job["job_id"],
+            )
+            .order_by(s.recognized_chunks.c.chunk_id)
+        ).mappings()
+    ]
+    extent = session.execute(
+        select(s.inference_extents.c.item_count, s.inference_extents.c.chunk_size).where(
+            s.inference_extents.c.tenant_id == job["tenant_id"],
+            s.inference_extents.c.job_id == job["job_id"],
+        )
+    ).first()
+    artifacts = {
+        row["artifact_id"]: dict(row)
+        for row in session.execute(
+            select(s.artifacts).where(
+                s.artifacts.c.tenant_id == job["tenant_id"],
+                s.artifacts.c.artifact_id.in_([row["artifact_id"] for row in rows]),
+            )
+        ).mappings()
+    }
+    return {"rows": rows, "extent": tuple(extent) if extent else None, "artifacts": artifacts}
+
+
+def _scan_recognized(store, scope, cursor):
+    """Claim items for the recognized chunks at and beyond ``cursor``; None if one is unusable.
+
+    Recognition commits with a checkpoint or the result, so the recognized set is the
+    contiguous prefix up to the newest committed cursor. The chunks before the restored
+    cursor were verified with the restored checkpoint; each later one must still be a
+    committed, readable chunk file, because the new Attempt carries it forward instead
+    of recomputing it (workloads-checkpoints :130).
+    """
+    rows = scope["rows"]
+    if [row["chunk_id"] for row in rows] != [inference_state.chunk_id(i) for i in range(len(rows))]:
+        return None
+    if len(rows) <= cursor:
+        return []
+    if scope["extent"] is None:
+        return None
+    if store is None:
+        raise _storage_unavailable()
+    item_count, chunk_size = scope["extent"]
+    items = []
+    for index in range(cursor, len(rows)):
+        row = rows[index]
+        artifact = scope["artifacts"].get(row["artifact_id"])
+        if (
+            (row["range_start"], row["range_end"])
+            != inference_state.chunk_extent(index, item_count, chunk_size)
+            or artifact is None
+            or artifact["state"] != "COMMITTED"
+            or artifact["kind"] != "RESULT_FILE"
+            or artifact["checksum"] != row["checksum"]
+            or not 0 < artifact["size_bytes"] <= chunk_manifest.MAX_CHUNK_FILE_BYTES
+        ):
+            return None
+        _, reason = _read_blob(store, artifact, chunk_manifest.MAX_CHUNK_FILE_BYTES)
+        if reason is not None:
+            return None
+        items.append(
+            {
+                "chunk_id": row["chunk_id"],
+                "start_index": row["range_start"],
+                "end_index_exclusive": row["range_end"],
+                "artifact_id": str(row["artifact_id"]),
+                "size_bytes": artifact["size_bytes"],
+                "checksum": row["checksum"],
+                "source_attempt_id": str(row["source_attempt_id"]),
+                "source_job_fence": row["source_job_fence"],
+            }
+        )
+    return items
+
+
+def _proven_inherited(session, job, spec, template, rows):
+    """Inherited checkpoints whose source the server proves for `job` (B15-R05).
+
+    The worker cannot re-derive another Job's session, so the server proves the source
+    of a checkpoint `job` does not own: a same-tenant ``MANUAL_RETRY`` reference, an
+    owner that is an ancestor on the ``retry_of_job_id`` chain, and the owner's exact
+    spec, input, template, adapter and image. An unproven checkpoint is never read here.
+    """
+    inherited = [row for row in rows if row["job_id"] != job["job_id"]]
+    if not inherited:
+        return set()
+    referenced = set(
+        session.execute(
+            select(s.checkpoint_references.c.source_checkpoint_id).where(
+                s.checkpoint_references.c.tenant_id == job["tenant_id"],
+                s.checkpoint_references.c.target_job_id == job["job_id"],
+                s.checkpoint_references.c.reason == "MANUAL_RETRY",
+            )
+        ).scalars()
+    )
+    ancestors = retry_lineage(session, job["tenant_id"], job["job_id"]) - {job["job_id"]}
+    owners = session.execute(
+        select(
+            s.job_specs.c.job_id,
+            s.job_specs.c.spec_checksum,
+            s.job_specs.c.input_artifact_id,
+            s.job_specs.c.model_artifact_id,
+            s.template_versions.c.template_id,
+            s.template_versions.c.version,
+            s.template_versions.c.adapter_id,
+            s.template_versions.c.adapter_version,
+            s.template_versions.c.image_digest,
+        )
+        .join(
+            s.template_versions,
+            (s.template_versions.c.template_id == s.job_specs.c.template_id)
+            & (s.template_versions.c.version == s.job_specs.c.template_version),
+        )
+        .where(
+            s.job_specs.c.tenant_id == job["tenant_id"],
+            s.job_specs.c.job_id.in_(ancestors & {row["job_id"] for row in inherited}),
+        )
+    ).all()
+    expected = (
+        spec["spec_checksum"],
+        spec["input_artifact_id"],
+        spec["model_artifact_id"],
+        template["template_id"],
+        template["version"],
+        template["adapter_id"],
+        template["adapter_version"],
+        template["image_digest"],
+    )
+    same = {owner.job_id for owner in owners if tuple(owner)[1:] == expected}
+    return {
+        row["checkpoint_id"]
+        for row in inherited
+        if row["tenant_id"] == job["tenant_id"]
+        and row["checkpoint_id"] in referenced
+        and row["job_id"] in same
+    }
+
+
 def restore_candidates(session, job, spec, template, rows):
     """Metadata and expected provenance of each checkpoint row, in the given order.
 
     Provenance names the job/session that produced the checkpoint; spec, input,
-    template, adapter and image are the (identical, immutable) ones of `job`.
+    template, adapter and image are the (identical, immutable) ones of `job`. An
+    inherited checkpoint the server cannot prove is flagged ``unproven`` (B15-R05).
     """
     if not rows:
         return []
+    proven = _proven_inherited(session, job, spec, template, rows)
     ids = [row["checkpoint_id"] for row in rows]
     fences = dict(
         session.execute(
@@ -196,6 +344,7 @@ def restore_candidates(session, job, spec, template, rows):
                 attempt_id=row["attempt_id"],
                 fence=fences[row["attempt_id"]],
             ),
+            "unproven": row["job_id"] != job["job_id"] and row["checkpoint_id"] not in proven,
         }
         if chunked:
             chunk_edges = [e for e in edges if e.owner_id == row["checkpoint_id"]]
@@ -276,6 +425,10 @@ def _verify_chunks(store, manifest, state, chunks, provenance):
 def verify_candidate(store, plan, candidate, compatibility):
     """Return ("VALID", (manifest, files)) or (outcome, reason) for one candidate."""
     row, manifest_row = candidate["row"], candidate["manifest"]
+    if candidate["unproven"]:
+        # B15-R05: says nothing about the bytes of a checkpoint this Job does not own,
+        # so it is never read or marked; the destination falls back visibly.
+        return "INCOMPATIBLE", "CHECKPOINT_PROVENANCE_MISMATCH"
     if "chunks" in candidate and row["job_id"] != plan.get("job_id"):
         # B16-R20: chunk carry-forward is job-scoped, so another job's inference
         # checkpoint cannot be restored here; the destination falls back visibly.
@@ -395,7 +548,7 @@ class CheckpointRestoreMixin:
                     .order_by(*restore_order(job["job_id"]))
                 ).mappings()
             ]
-            return {
+            plan = {
                 "attempt_number": attempt["attempt_number"],
                 "restart_safe": bool(template["restart_safe"]),
                 # A manual retry that referenced a checkpoint must restore it or
@@ -408,6 +561,9 @@ class CheckpointRestoreMixin:
                 "parameters": spec["canonical_spec"].get("parameters") or {},
                 "candidates": restore_candidates(session, job, spec, template, rows),
             }
+            if chunked_template(template):
+                plan["recognized"] = _recognized_scope(session, job)
+            return plan
 
         return run_transaction(self.session_factory, operation)
 
@@ -517,7 +673,49 @@ class CheckpointRestoreMixin:
         scan["attempt_number"] = plan["attempt_number"]
         scan["restart_safe"] = plan["restart_safe"]
         scan["inherited"] = plan["inherited"]
+        if "recognized" in plan:
+            selected = scan["selected"]
+            cursor = selected[1]["cursor"]["step"] if selected is not None else 0
+            scan["recognized"] = {
+                "ids": [row["recognized_chunk_id"] for row in plan["recognized"]["rows"]],
+                "items": _scan_recognized(self.artifact_store, plan["recognized"], cursor),
+            }
         return scan
+
+    @staticmethod
+    def _recognized_decision(session, job, scan):
+        """Recheck the recognized snapshot inside claim; the claim's ``recognized_chunks``.
+
+        ``None`` tells the worker that a recognized chunk cannot be carried forward, so
+        it fails the Attempt before any container instead of recomputing that chunk.
+        """
+        current = list(
+            session.execute(
+                select(s.recognized_chunks.c.recognized_chunk_id)
+                .where(
+                    s.recognized_chunks.c.tenant_id == job["tenant_id"],
+                    s.recognized_chunks.c.job_id == job["job_id"],
+                )
+                .order_by(s.recognized_chunks.c.chunk_id)
+            ).scalars()
+        )
+        if current != scan["recognized"]["ids"]:
+            raise _storage_unavailable("Checkpoint restore selection must be retried")
+        items = scan["recognized"]["items"]
+        if items:
+            locked = session.execute(
+                select(s.artifacts.c.artifact_id)
+                .where(
+                    s.artifacts.c.tenant_id == job["tenant_id"],
+                    s.artifacts.c.artifact_id.in_([item["artifact_id"] for item in items]),
+                    s.artifacts.c.state == "COMMITTED",
+                )
+                .order_by(s.artifacts.c.artifact_id)
+                .with_for_update(read=True)
+            ).all()
+            if len(locked) != len(items):
+                raise _storage_unavailable("Checkpoint restore selection must be retried")
+        return items
 
     @staticmethod
     def _restore_decision(session, job, authority, scan, now):

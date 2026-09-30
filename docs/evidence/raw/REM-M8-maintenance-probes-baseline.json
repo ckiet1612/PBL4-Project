@@ -1,0 +1,294 @@
+{
+ "command": "bash ~/nexa-rem/tools/run_probes.sh baseline <db-suffix> REM-M8-probes-baseline  # python -m benchmarks.rem.maintenance_probes --tree baseline (defaults: 100 tenants x 1000 jobs, terminal every 100th, 16 blocked retries, 60 idle probes, holder 300 ms, 5 contention samples)",
+ "environment": {
+  "os": "Linux-7.0.0-1013-aws-x86_64-with-glibc2.39",
+  "postgres_version_num": "170011"
+ },
+ "evidence_layer": "L direct-DB microbenchmark; not acceptance",
+ "fixture": {
+  "blocked_due_retries": 16,
+  "expired_submit_records": 100000,
+  "jobs": 100000,
+  "terminal_jobs": 1000
+ },
+ "retention_sweep": {
+  "after": {
+   "due": 0,
+   "expired_walkable": 99000
+  },
+  "before": {
+   "due": 1000,
+   "expired_walkable": 100000
+  },
+  "drain": {
+   "deleted": 1000,
+   "explain_after_first_tick": [
+    {
+     "execution_ms": 56.075,
+     "plan": {
+      "loops": 1,
+      "node": "Limit",
+      "plans": [
+       {
+        "loops": 1,
+        "node": "LockRows",
+        "plans": [
+         {
+          "index": "ix_idempotency_records_b15_sweep",
+          "loops": 1,
+          "node": "Index Scan",
+          "plans": [
+           {
+            "index": "pk_jobs",
+            "loops": 19748,
+            "node": "Index Scan",
+            "relation": "jobs",
+            "rows": 1,
+            "shared_hit": 86784,
+            "shared_read": 0,
+            "total_ms": 0.002
+           }
+          ],
+          "relation": "idempotency_records",
+          "removed_by_filter": 19648,
+          "rows": 100,
+          "shared_hit": 106783,
+          "shared_read": 4,
+          "total_ms": 55.97
+         }
+        ],
+        "rows": 100,
+        "shared_hit": 106883,
+        "shared_read": 4,
+        "total_ms": 56.033
+       }
+      ],
+      "rows": 100,
+      "shared_hit": 106883,
+      "shared_read": 4,
+      "total_ms": 56.047
+     },
+     "planning_ms": 0.175,
+     "statement_head": "SELECT idempotency_records.idempotency_id FROM idempotency_records WHERE idempotency_records.state = %(state_1)s::VARCHAR AND idempotency_records.operation_id I"
+    }
+   ],
+   "tick": {
+    "count": 11,
+    "max_ms": 268.505,
+    "median_ms": 166.954,
+    "p95_ms": 262.027,
+    "total_ms": 1800.626
+   },
+   "ticks": 11,
+   "ticks_with_writes": 10
+  },
+  "steady": {
+   "explain": [
+    {
+     "execution_ms": 267.874,
+     "plan": {
+      "loops": 1,
+      "node": "Limit",
+      "plans": [
+       {
+        "loops": 1,
+        "node": "LockRows",
+        "plans": [
+         {
+          "index": "ix_idempotency_records_b15_sweep",
+          "loops": 1,
+          "node": "Index Scan",
+          "plans": [
+           {
+            "index": "pk_jobs",
+            "loops": 99000,
+            "node": "Index Scan",
+            "relation": "jobs",
+            "rows": 1,
+            "shared_hit": 433918,
+            "shared_read": 0,
+            "total_ms": 0.002
+           }
+          ],
+          "relation": "idempotency_records",
+          "removed_by_filter": 99000,
+          "rows": 0,
+          "shared_hit": 533503,
+          "shared_read": 0,
+          "total_ms": 267.849
+         }
+        ],
+        "rows": 0,
+        "shared_hit": 533503,
+        "shared_read": 0,
+        "total_ms": 267.85
+       }
+      ],
+      "rows": 0,
+      "shared_hit": 533503,
+      "shared_read": 0,
+      "total_ms": 267.852
+     },
+     "planning_ms": 0.208,
+     "statement_head": "SELECT idempotency_records.idempotency_id FROM idempotency_records WHERE idempotency_records.state = %(state_1)s::VARCHAR AND idempotency_records.operation_id I"
+    },
+    {
+     "execution_ms": 0.051,
+     "plan": {
+      "loops": 1,
+      "node": "Limit",
+      "plans": [
+       {
+        "loops": 1,
+        "node": "LockRows",
+        "plans": [
+         {
+          "loops": 1,
+          "node": "Nested Loop",
+          "plans": [
+           {
+            "loops": 1,
+            "node": "Nested Loop",
+            "plans": [
+             {
+              "index": "ix_idempotency_records_b16_sweep_parent",
+              "loops": 1,
+              "node": "Index Scan",
+              "relation": "idempotency_records",
+              "removed_by_filter": 0,
+              "rows": 0,
+              "shared_hit": 1,
+              "shared_read": 0,
+              "total_ms": 0.003
+             },
+             {
+              "loops": 0,
+              "node": "Nested Loop",
+              "plans": [
+               {
+                "index": "uq_sweep_children_sweep_id",
+                "loops": 0,
+                "node": "Index Scan",
+                "relation": "sweep_children",
+                "rows": 0,
+                "shared_hit": 0,
+                "shared_read": 0,
+                "total_ms": 0.0
+               },
+               {
+                "index": "ix_idempotency_records_resource",
+                "loops": 0,
+                "node": "Index Scan",
+                "relation": "idempotency_records",
+                "removed_by_filter": 0,
+                "rows": 0,
+                "shared_hit": 0,
+                "shared_read": 0,
+                "total_ms": 0.0
+               }
+              ],
+              "rows": 0,
+              "shared_hit": 0,
+              "shared_read": 0,
+              "total_ms": 0.0
+             }
+            ],
+            "rows": 0,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "total_ms": 0.003
+           },
+           {
+            "loops": 0,
+            "node": "Seq Scan",
+            "relation": "sweep_parents",
+            "removed_by_filter": 0,
+            "rows": 0,
+            "shared_hit": 0,
+            "shared_read": 0,
+            "total_ms": 0.0
+           }
+          ],
+          "rows": 0,
+          "shared_hit": 1,
+          "shared_read": 0,
+          "total_ms": 0.004
+         }
+        ],
+        "rows": 0,
+        "shared_hit": 1,
+        "shared_read": 0,
+        "total_ms": 0.004
+       }
+      ],
+      "rows": 0,
+      "shared_hit": 1,
+      "shared_read": 0,
+      "total_ms": 0.005
+     },
+     "planning_ms": 0.308,
+     "statement_head": "SELECT idempotency_records.idempotency_id FROM idempotency_records WHERE idempotency_records.state = %(state_1)s::VARCHAR AND idempotency_records.operation_id ="
+    }
+   ],
+   "tick": {
+    "count": 30,
+    "max_ms": 267.693,
+    "median_ms": 258.116,
+    "p95_ms": 265.934,
+    "total_ms": 7774.668
+   }
+  }
+ },
+ "retry_probe": {
+  "announcing_probe": {
+   "locking_statements": 86,
+   "ms": 284.38
+  },
+  "contention": [
+   {
+    "ms": 365.592,
+    "policy_lock_wait_ms": 306.637,
+    "result": 0
+   },
+   {
+    "ms": 406.58,
+    "policy_lock_wait_ms": 353.995,
+    "result": 0
+   },
+   {
+    "ms": 389.241,
+    "policy_lock_wait_ms": 337.157,
+    "result": 0
+   },
+   {
+    "ms": 371.119,
+    "policy_lock_wait_ms": 318.453,
+    "result": 0
+   },
+   {
+    "ms": 393.623,
+    "policy_lock_wait_ms": 340.875,
+    "result": 0
+   }
+  ],
+  "holder_ms": 300,
+  "idle_probe": {
+   "count": 60,
+   "max_ms": 119.067,
+   "median_ms": 75.325,
+   "p95_ms": 111.262,
+   "total_ms": 4808.488
+  },
+  "locking_statements_per_hour_at_1s": 136800,
+  "locking_statements_per_idle_probe": [
+   38
+  ],
+  "waiting_reasons_after_announcement": [
+   "waiting_for_quota"
+  ]
+ },
+ "source_tree": "HEAD a6c38bf",
+ "source_tree_sha256": "98ebbb3f9524f70879e5f9b63b145e1eb7e240e59a19bc288f688b7635dd19ad",
+ "timestamp_utc": "2026-09-29T02:28:56.219705+00:00",
+ "tree": "baseline"
+}

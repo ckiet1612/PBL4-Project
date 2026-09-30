@@ -19,7 +19,7 @@ from . import inference_flow
 from .client import WorkerApiError
 from .docker_client import ADAPTER_OUTPUT_MAX_BYTES
 from .models import CpuCheckpointLaunch
-from .result_flow import checksum, descriptor_key
+from .result_flow import checksum, descriptor_key, raise_chunk_conflict
 
 CHECKPOINT_DEADLINE_NS = 60 * 1_000_000_000
 # A pause reserve refused while the Attempt is not RUNNING is retried this soon.
@@ -262,6 +262,9 @@ class CheckpointFlow:
                 self._update_flow(attempt_id, lambda value: {**value, "cycle": None})
                 self.next_due[attempt_id] = self.monotonic_ns() + self._interval_ns(record)
                 return
+            except ValueError as exc:
+                # B14-R08: a 2xx answer that is not a JSON object ends this Attempt.
+                raise CheckpointProtocolError("checkpoint reservation answer is invalid") from exc
             sequence = reservation.get("sequence")
             if (
                 reservation.get("callback_id") != cycle["reserve_callback_id"]
@@ -633,7 +636,10 @@ class CheckpointFlow:
             cycle,
             sequence,
             inference_flow.binding_set_checksum(
-                self.journal.load(attempt_id), [state_binding], binding
+                self.journal.load(attempt_id),
+                cycle["reservation"]["checkpoint_id"],
+                [state_binding],
+                binding,
             ),
         )
 
@@ -792,11 +798,13 @@ class CheckpointFlow:
             )
         except WorkerApiError as exc:
             if exc.status != 422:
-                raise
+                raise_chunk_conflict(exc)
             # A deterministic manifest defect: the server ended this identity
             # and returned the attempt to RUNNING. Further cycles would repeat it.
             self._close(attempt_id, record, reservation, outcome="REJECTED", disable=True)
             return
+        except ValueError as exc:
+            raise CheckpointProtocolError("checkpoint publish answer is invalid") from exc
         if (
             published.get("checkpoint_id") != reservation["checkpoint_id"]
             or published.get("attempt_id") != attempt_id

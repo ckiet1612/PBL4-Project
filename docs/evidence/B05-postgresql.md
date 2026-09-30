@@ -1,7 +1,7 @@
 # B05 PostgreSQL schema, migration and constraint evidence
 
 - **Task:** B05 — PostgreSQL physical schema, Alembic migration, constraints, indexes and transaction helpers
-- **Implementation status:** the latest independent review closed B05-R02/R04 and kept only R06 open; adjusted-exponent validation is now remediated and locally verified, awaiting independent re-review
+- **Implementation status:** `approved` — the Task Review approval, confirmed by the user, is recorded in [ROADMAP](../../ROADMAP.md); the review history below (B05-R02/R04 closed, then R06 remediated by adjusted-exponent validation) is kept as written at the time
 - **Baseline revision:** `744e9077b3461c92b4358e7a1ebac96dc7bcb5d5`
 - **Working context:** existing `main` checkout, no branch/worktree/commit/push/reset
 - **Evidence date:** 2026-09-20, Asia/Ho_Chi_Minh
@@ -176,7 +176,8 @@ regression reproduced SQL accepting `0:12:999999999999999999` while Python raise
 decode error; the SQL validator and direct `fairness_state` insert both failed RED, then passed
 after adjusted-exponent validation. All boundary cases and preserved-domain cases were GREEN
 in the final suite. This remediation record is not independent Task Review approval; B05 still
-requires re-review.
+requires re-review. (Written before the re-review; the approval that followed is recorded in
+[ROADMAP](../../ROADMAP.md), see the header.)
 
 ## B06 handoff
 

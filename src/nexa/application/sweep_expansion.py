@@ -1,9 +1,10 @@
 """Pure hyperparameter-sweep expansion (workloads-checkpoints.md, `hyperparameter-sweep` v1).
 
 Children follow dimension request order, then value request order, so the last
-dimension varies fastest (`itertools.product`). Values inside one dimension are
-de-duplicated by their RFC 8785 form, keeping the first occurrence: `1` and `1.0`
-are one value, `1`, `true` and `"1"` are three (B16-R10).
+dimension varies fastest (`itertools.product`). Values inside one dimension must be
+unique by their RFC 8785 form (`uniqueItems`): `1` and `1.0` are one value and
+reject the request, `1`, `true` and `"1"` are three (B16-R10). The canonical
+de-duplication is kept as a defensive no-op on an accepted request.
 """
 
 import hashlib
@@ -54,6 +55,8 @@ def _check_shape(dimensions: Sequence[Dimension]) -> None:
     names = [name for name, _values in dimensions]
     if len(set(names)) != len(names):
         raise SweepExpansionError("Sweep dimension names must be unique")
+    if any(len(canonical_values(values)) != len(values) for _name, values in dimensions):
+        raise SweepExpansionError("Sweep dimension values must be unique (RFC 8785)")
 
 
 def expand(base_parameters: Mapping[str, Any], dimensions: Sequence[Dimension]) -> list[dict]:

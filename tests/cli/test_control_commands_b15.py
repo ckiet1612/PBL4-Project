@@ -162,6 +162,7 @@ def test_reason_of_256_characters_is_accepted(monkeypatch):
         (428, "precondition_required", 6),
         (429, "rate_limited", 7),
         (503, "dependency_unavailable", 8),
+        (400, "validation_failed", 9),
         (422, "validation_failed", 9),
     ],
 )

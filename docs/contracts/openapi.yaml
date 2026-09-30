@@ -1226,7 +1226,9 @@ paths:
         attempts of the same tenant/job/logical session only when source attempt,
         source fence and recognized `(job_id, chunk_id)` all match. In the publish
         transaction, current-Authority chunks atomically insert-or-verify immutable
-        recognized rows; prior-attempt chunks require an existing exact row.
+        recognized rows; prior-attempt chunks require an existing exact row. A
+        current-Authority chunk whose recognized row differs is `409
+        state_conflict` with `reason: CHUNK_OUTPUT_CONFLICT` and commits nothing.
       security: [ { workerBearer: [] } ]
       parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckpointPublishRequest' } } } }
@@ -1297,7 +1299,9 @@ paths:
         bind exact source attempt/fence plus recognized `(job_id, chunk_id)`.
         Current-Authority chunks atomically insert-or-verify recognized rows,
         prior-attempt chunks require existing exact rows, and the complete
-        cross-attempt reference graph is retained for GC.
+        cross-attempt reference graph is retained for GC. A current-Authority
+        chunk whose recognized row differs is `409 state_conflict` with
+        `reason: CHUNK_OUTPUT_CONFLICT` and commits nothing.
       security: [ { workerBearer: [] } ]
       parameters: [ { $ref: '#/components/parameters/AttemptId' }, { $ref: '#/components/parameters/CallbackId' } ]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompleteRequest' } } } }
@@ -1307,7 +1311,7 @@ paths:
       tags: [Worker]
       operationId: workerDownloadExecutionArtifact
       summary: Download an artifact from the exact claimed execution graph
-      description: This worker-only data route accepts full live Authority in headers and returns bytes only when the artifact is an immutable input, model, dataset, or committed restore-checkpoint file referenced by the ClaimResponse execution graph for this exact Attempt. It has no tenant-listing semantics, never accepts a filesystem path, and cannot read arbitrary same-tenant artifacts. Authority, graph membership, checksum and current credential/incarnation are rechecked on every request.
+      description: This worker-only data route accepts full live Authority in headers and returns bytes only when the artifact is an immutable input, model, dataset, committed restore-checkpoint file, or recognized chunk file (`recognized_chunks`) referenced by the ClaimResponse execution graph for this exact Attempt. It has no tenant-listing semantics, never accepts a filesystem path, and cannot read arbitrary same-tenant artifacts. Authority, graph membership, checksum and current credential/incarnation are rechecked on every request.
       security: [ { workerBearer: [] } ]
       parameters:
         - $ref: '#/components/parameters/AttemptId'
@@ -1398,7 +1402,7 @@ components:
     ToTimestamp: { name: to, in: query, required: true, schema: { $ref: '#/components/schemas/Timestamp' } }
     BucketSeconds: { name: bucket_seconds, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 86400 } }
   responses:
-    BadRequest: { description: 'Malformed body, duplicate JSON member, unknown field, filter, or cursor.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    BadRequest: { description: 'Malformed body, duplicate JSON member, unknown field, path or query parameter of the wrong type, pattern or format, filter, or cursor.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
     Unauthorized: { description: 'Missing, invalid, expired, or revoked credential.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
     Forbidden: { description: 'Authenticated principal lacks role/scope, tenant membership/context, or CSRF proof.', headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
     NotFound: { description: Resource absent or not visible in the authenticated tenant scope., headers: { X-Request-Id: { $ref: '#/components/headers/RequestId' } }, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
@@ -1426,6 +1430,7 @@ components:
         code: { $ref: '#/components/schemas/ErrorCode' }
         message: { type: string, minLength: 1, maxLength: 256 }
         request_id: { $ref: '#/components/schemas/UuidV7' }
+        reason: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,63}$', description: 'Optional fixed safe code that classifies the error deterministically; present only where an operation names it (currently `CHUNK_OUTPUT_CONFLICT` on checkpoint publish and completion). Never raw input, path, credential, SQL or checkpoint content.' }
     PageInfo:
       type: object
       additionalProperties: false
@@ -1747,7 +1752,7 @@ components:
       required: [result_id, job_id, attempt_id, manifest_artifact_id, manifest_checksum, created_at]
       properties: { result_id: { $ref: '#/components/schemas/UuidV7' }, job_id: { $ref: '#/components/schemas/UuidV7' }, attempt_id: { $ref: '#/components/schemas/UuidV7' }, manifest_artifact_id: { $ref: '#/components/schemas/UuidV7' }, manifest_checksum: { $ref: '#/components/schemas/Checksum' }, created_at: { $ref: '#/components/schemas/Timestamp' } }
     ControlRequest: { type: object, additionalProperties: false, required: [reason], properties: { reason: { type: string, minLength: 1, maxLength: 256 } } }
-    RetryRequest: { type: object, additionalProperties: false, required: [reason, checkpoint_id], properties: { reason: { type: string, minLength: 1, maxLength: 256 }, checkpoint_id: { oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] } } }
+    RetryRequest: { type: object, additionalProperties: false, required: [reason, checkpoint_id], properties: { reason: { type: string, minLength: 1, maxLength: 256 }, checkpoint_id: { description: 'Null restarts from input. Otherwise a committed, non-corrupt checkpoint owned by this Job or a Job on its retry_of_job_id chain in the same tenant, with the same spec, input, model, template version, adapter and image digest; the server re-proves this at every claim of the new Job (B15-R05). A checkpoint failing the proof is 422 infeasible_request.', oneOf: [ { $ref: '#/components/schemas/UuidV7' }, { type: 'null' } ] } } }
     SweepDimension:
       type: object
       additionalProperties: false
@@ -2028,6 +2033,39 @@ components:
         startup_nonce: { $ref: '#/components/schemas/UuidV7' }
         startup_limit_seconds: { type: integer, const: 30 }
         lease_duration_seconds: { type: integer, const: 45 }
+        recognized_chunks:
+          description: |
+            Present only for a chunked (`batch.inference`) template. The chunks this
+            Job recognized at and beyond the restored cursor (`restore_checkpoint`
+            manifest cursor step, or 0 without a restore), contiguous from that
+            cursor in chunk order, each with its original source Attempt and fence.
+            The Attempt carries them forward unchanged instead of recomputing them:
+            the worker downloads each file through the execution-artifact route,
+            verifies its size and checksum, and mounts it read-only under
+            `/input/recognized/`; the workload takes those chunks over from the files
+            and computes only later chunks. Output the workload writes for a
+            recognized chunk fails the Attempt `INTERNAL/CHUNK_OUTPUT_CONFLICT`; a
+            file that cannot be fetched or verified fails it
+            `INTERNAL/CHUNK_OUTPUT_UNAVAILABLE`.
+            `null` means a recognized chunk beyond the cursor is no longer a
+            committed readable chunk file; the worker then fails the Attempt
+            `INTERNAL/CHUNK_OUTPUT_UNAVAILABLE` before any container is created.
+          oneOf:
+            - { type: array, maxItems: 2048, items: { $ref: '#/components/schemas/RecognizedChunk' } }
+            - { type: 'null' }
+    RecognizedChunk:
+      type: object
+      additionalProperties: false
+      required: [chunk_id, start_index, end_index_exclusive, artifact_id, size_bytes, checksum, source_attempt_id, source_job_fence]
+      properties:
+        chunk_id: { type: string, pattern: '^chunk-[0-9]{8}$' }
+        start_index: { type: integer, minimum: 0 }
+        end_index_exclusive: { type: integer, minimum: 1 }
+        artifact_id: { $ref: '#/components/schemas/UuidV7' }
+        size_bytes: { type: integer, minimum: 1, maximum: 1032192 }
+        checksum: { $ref: '#/components/schemas/Checksum' }
+        source_attempt_id: { $ref: '#/components/schemas/UuidV7' }
+        source_job_fence: { type: integer, format: int64, minimum: 1, maximum: 9007199254740991 }
     DispatchOffer:
       type: object
       additionalProperties: false

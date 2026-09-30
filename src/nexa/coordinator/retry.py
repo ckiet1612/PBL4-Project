@@ -3,10 +3,11 @@
 Cleanup already fixed the retry budget, backoff and reason; promotion only
 closes the schedule and re-enters the queue with a new ready sequence. Locks
 follow the tick/cleanup order (policy -> GLOBAL counter -> job -> schedule), so
-promotion adds no new lock cycle. Outstanding counters do not change.
+promotion adds no new lock cycle. Outstanding counters do not change. An unlocked
+probe keeps the locks for ticks that have something to write.
 """
 
-from sqlalchemy import and_, exists, or_, select, update
+from sqlalchemy import and_, or_, select, update
 
 from nexa.application.job_service import JobService
 from nexa.coordinator.dispatch import _event
@@ -35,15 +36,39 @@ def _due(now):
     )
 
 
-def retry_due(session, now) -> bool:
-    """Unlocked, index-backed probe: a tick with no due retry takes no decision locks.
+def _candidates(now, limit):
+    return (
+        select(s.jobs)
+        .join(s.retry_schedules, s.retry_schedules.c.job_id == s.jobs.c.job_id)
+        .where(*_due(now))
+        # Retries already known to be blocked cannot starve newly due ones.
+        .order_by(
+            s.jobs.c.waiting_reason.in_(_BLOCKED),
+            s.retry_schedules.c.ready_at,
+            s.retry_schedules.c.job_id,
+        )
+        .limit(limit)
+    )
 
-    A due retry that stays blocked keeps this true, so each tick re-evaluates it
-    under locks; RETRY_BLOCKED is appended only when the reason changes.
+
+def retry_actionable(session, now, limit=BATCH_SIZE) -> bool:
+    """Unlocked probe: does the batch `promote_due_locked` would take have anything to write?
+
+    It reads the same candidates and block rules without locks, so a due retry whose
+    block reason is unchanged costs no decision lock each tick (B14-K1). This read
+    decides nothing: the locked path re-reads and re-checks every row, and a change
+    committed after it is seen by that path or by the next probe.
     """
-    return session.execute(
-        select(exists().where(s.jobs.c.job_id == s.retry_schedules.c.job_id, *_due(now)))
-    ).scalar_one()
+    candidates = session.execute(_candidates(now, limit)).mappings().all()
+    if not candidates:
+        return False
+    _worker_row, inventory = _worker(session)
+    for job in candidates:
+        blocked = _blocked_reason(session, job, inventory)
+        # Promotion, or a new reason to announce as RETRY_BLOCKED.
+        if blocked is None or blocked != job["waiting_reason"]:
+            return True
+    return False
 
 
 def _worker(session):
@@ -113,19 +138,8 @@ def _blocked_reason(session, job, inventory):
 
 def promote_due_locked(session, *, now, holder_id, limit=BATCH_SIZE) -> int:
     """Promote at most `limit` due retries; caller holds leadership and the policy lock."""
-    due = session.execute(
-        select(s.retry_schedules.c.job_id)
-        .join(s.jobs, s.jobs.c.job_id == s.retry_schedules.c.job_id)
-        .where(*_due(now))
-        # Retries already known to be blocked cannot starve newly due ones.
-        .order_by(
-            s.jobs.c.waiting_reason.in_(_BLOCKED),
-            s.retry_schedules.c.ready_at,
-            s.retry_schedules.c.job_id,
-        )
-        .limit(limit)
-    ).scalars()
-    job_ids = sorted(due)
+    due = session.execute(_candidates(now, limit)).mappings()
+    job_ids = sorted(row["job_id"] for row in due)
     if not job_ids:
         return 0
     counter = JobService._counter_lock(session, "GLOBAL", "global")

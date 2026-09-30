@@ -91,7 +91,7 @@ class DropFirstCallbackBody:
         return await self.app(scope, receive, intercept)
 
 
-def _template(engine, image):
+def _template(engine, image, architecture):
     digest = image.rsplit("@", 1)[1]
     with engine.begin() as connection:
         connection.execute(
@@ -127,7 +127,7 @@ def _template(engine, image):
                     "checkpoint_interval_seconds": 60,
                 },
                 capability_requirements={
-                    "architectures": ["linux/arm64"],
+                    "architectures": [architecture],
                     "adapter_id": "cpu.iterative",
                     "adapter_version": "1.0.0",
                     "image_digest": digest,
@@ -163,8 +163,14 @@ def test_two_tenant_api_to_docker_result_and_release(
         timeout=15,
     )
     assert probe.returncode == 0, probe.stderr
+    # The worker is capable only for its host architecture; so is the image under test.
+    architecture = subprocess.check_output(
+        ["docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", image],
+        text=True,
+        timeout=10,
+    ).strip()
     engine = migrated_postgres_engine
-    _template(engine, image)
+    _template(engine, image, architecture)
     root = (tmp_path / "worker-shared").resolve()
     root.mkdir(mode=0o700)
     with _client(engine, tmp_path) as client:
@@ -417,10 +423,13 @@ def test_two_tenant_api_to_docker_result_and_release(
             pause=completion_resume,
         )
         claim_fault = DropFirstCallbackBody(completion_fault, "/claim")
+        # Opt-in loopback mode (see the B14 harness): API on 127.0.0.1, worker on the host
+        # network. Docker Desktop keeps the bridge default.
+        loopback = os.environ.get("NEXA_DOCKER_WORKER_NETWORK") == "host"
         server = uvicorn.Server(
             uvicorn.Config(
                 claim_fault,
-                host="0.0.0.0",
+                host="127.0.0.1" if loopback else "0.0.0.0",
                 port=port,
                 log_level="warning",
             )
@@ -428,20 +437,23 @@ def test_two_tenant_api_to_docker_result_and_release(
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
         _wait_for(lambda: server.started, "API readiness", timeout=10)
+        network = (
+            ["--network", "host"]
+            if loopback
+            else ["--network", "bridge", "--add-host", "host.docker.internal:host-gateway"]
+        )
+        api_host = "127.0.0.1" if loopback else "host.docker.internal"
         worker_command = [
             "docker",
             "run",
             "--detach",
-            "--network",
-            "bridge",
-            "--add-host",
-            "host.docker.internal:host-gateway",
+            *network,
             "--mount",
             "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock",
             "--mount",
             f"type=bind,src={root},dst={root}",
             "--env",
-            f"NEXA_WORKER_API_URL=http://host.docker.internal:{port}",
+            f"NEXA_WORKER_API_URL=http://{api_host}:{port}",
             "--env",
             f"NEXA_WORKER_STATE_ROOT={root}",
             "--env",
@@ -600,11 +612,27 @@ def test_two_tenant_api_to_docker_result_and_release(
                         attempt_id = str(
                             connection.execute(select(s.attempts.c.attempt_id)).scalar_one()
                         )
-                    from nexa.worker.journal import ExecutionJournal
-
-                    flow = (ExecutionJournal(root / "journal").load(attempt_id).runner_state or {})[
-                        "result_flow"
-                    ]
+                    # Read as the worker: its journal and locks are private to its UID.
+                    flow = json.loads(
+                        subprocess.check_output(
+                            [
+                                "docker",
+                                "exec",
+                                worker,
+                                "python",
+                                "-c",
+                                "import json, pathlib, sys; "
+                                "from nexa.worker.journal import ExecutionJournal; "
+                                "record = ExecutionJournal(pathlib.Path(sys.argv[1]))"
+                                ".load(sys.argv[2]); "
+                                "print(json.dumps((record.runner_state or {})['result_flow']))",
+                                str(root / "journal"),
+                                attempt_id,
+                            ],
+                            text=True,
+                            timeout=15,
+                        )
+                    )
                     assert flow["completed"] is True
                     assert flow["completion_ack"]["callback_id"] == completion_fault.callback_id
                 with engine.connect() as connection:
@@ -953,30 +981,46 @@ def _check_output(client, tenant_id, artifact_id):
     return response.content
 
 
+def _read_worker_json(path):
+    """The worker's JSON file, None if absent, or why the test process cannot read it.
+
+    The worker container writes its state as its own UID; on a Linux host the test
+    process may not read it. Report that instead of hiding the failure under test.
+    """
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return None
+    except PermissionError as exc:
+        return {"unreadable": f"{type(exc).__name__}: errno {exc.errno}"}
+
+
 def _runner_diagnostics(engine, root):
     with engine.connect() as connection:
         attempt_ids = list(connection.execute(select(s.attempts.c.attempt_id)).scalars())
     details = {}
-    pending_path = root / "agent-state.json"
-    if pending_path.exists():
-        operations = json.loads(pending_path.read_text()).get("operations", {})
-        details["pending_operations"] = [
-            (
-                record["operation"],
-                record["payload"].get("attempt_id"),
-                record["acknowledgment"] is not None,
-            )
-            for record in operations.values()
-        ]
+    pending = _read_worker_json(root / "agent-state.json")
+    if pending is not None:
+        if "unreadable" in pending:
+            details["pending_operations"] = pending
+        else:
+            details["pending_operations"] = [
+                (
+                    record["operation"],
+                    record["payload"].get("attempt_id"),
+                    record["acknowledgment"] is not None,
+                )
+                for record in pending.get("operations", {}).values()
+            ]
     for attempt_id in attempt_ids:
         ids = subprocess.check_output(
             ["docker", "ps", "--all", "--quiet", "--filter", f"label=nexa.attempt_id={attempt_id}"],
             text=True,
             timeout=5,
         ).splitlines()
-        path = root / "journal" / "records" / f"{attempt_id}.json"
-        journal = json.loads(path.read_text()) if path.exists() else {}
+        journal = _read_worker_json(root / "journal" / "records" / f"{attempt_id}.json") or {}
         details[str(attempt_id)] = {
+            "journal_unreadable": journal.get("unreadable"),
             "journal_state": journal.get("state"),
             "runner_state_keys": list((journal.get("runner_state") or {}).keys()),
             "containers": [

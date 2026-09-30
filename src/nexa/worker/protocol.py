@@ -42,6 +42,25 @@ CONTROL_TYPES = frozenset(
         "REQUEST_STOP",
     }
 )
+# Stop reasons a worker may request with REQUEST_STOP.
+CONTROL_STOP_REASONS = frozenset(
+    {"PAUSE", "CANCEL", "LEASE_DEADLINE", "FAILURE", "RUNTIME_LIMIT", "SHUTDOWN"}
+)
+# A runner also stops itself at its startup limit, which is not a runtime-limit stop
+# (B15-R10). Frames from earlier runners never carry it and keep parsing.
+STOP_REASONS = CONTROL_STOP_REASONS | {"STARTUP_LIMIT"}
+# Runner PID 1 status when no worker acknowledged the STOPPED frame: the container exit
+# then still names the stop reason (B15-R14). 0 means a worker kept the frame; 78, 124
+# and signal statuses (128+n) keep their meaning.
+STOP_EXIT_CODES = {
+    "PAUSE": 90,
+    "CANCEL": 91,
+    "LEASE_DEADLINE": 92,
+    "FAILURE": 93,
+    "RUNTIME_LIMIT": 94,
+    "SHUTDOWN": 95,
+    "STARTUP_LIMIT": 96,
+}
 _UUID_V7 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 _CHECKSUM = re.compile(r"^sha256:[0-9a-f]{64}$")
 _STAGING_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
@@ -284,14 +303,7 @@ def _validate_runner_payload(message_type: object, body: object) -> None:
                 raise ProtocolError(f"{field} must be boolean")
     elif message_type == "STOPPED":
         payload = _closed(body, {"reason", "exit_code", "stopped_monotonic_ns"}, "stopped")
-        if payload["reason"] not in {
-            "PAUSE",
-            "CANCEL",
-            "LEASE_DEADLINE",
-            "FAILURE",
-            "RUNTIME_LIMIT",
-            "SHUTDOWN",
-        }:
+        if payload["reason"] not in STOP_REASONS:
             raise ProtocolError("invalid stop reason")
         exit_code = _int64(payload["exit_code"], "exit_code", minimum=-1)
         if exit_code > 255:
@@ -336,14 +348,7 @@ def validate_control_envelope(payload: object) -> dict[str, Any]:
         _int64(body["deadline_monotonic_ns"], "deadline_monotonic_ns")
     elif message_type == "REQUEST_STOP":
         body = _closed(body, {"reason", "grace_deadline_monotonic_ns"}, "stop")
-        if body["reason"] not in {
-            "PAUSE",
-            "CANCEL",
-            "LEASE_DEADLINE",
-            "FAILURE",
-            "RUNTIME_LIMIT",
-            "SHUTDOWN",
-        }:
+        if body["reason"] not in CONTROL_STOP_REASONS:
             raise ProtocolError("invalid stop reason")
         _int64(body["grace_deadline_monotonic_ns"], "grace_deadline_monotonic_ns")
     elif message_type == "PREPARE_RESULT":

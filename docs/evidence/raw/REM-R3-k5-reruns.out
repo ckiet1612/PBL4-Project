@@ -1,0 +1,18 @@
+# REM-R08: K5 reruns on L after r3 (image r2, same src tree; test file with _wait_for_first_snapshot diagnostics)
+# k5diag: tests/docker/test_rem_b14_k5_output_full.py -rs
+# k5diag2: tests/docker/test_rem_b11_h01_claim_window.py tests/docker/test_rem_b14_k5_output_full.py -rs (suite order)
+# k5loop1..5: tests/docker/test_rem_b14_k5_output_full.py -rs, 5 sequential runs
+== docker-k5diag-20260930T002301Z
+1 passed, 2 warnings in 73.79s (0:01:13)
+== docker-k5diag2-20260930T002423Z
+2 passed, 2 warnings in 237.73s (0:03:57)
+== docker-k5loop1-20260930T004044Z
+1 passed, 2 warnings in 76.66s (0:01:16)
+== docker-k5loop2-20260930T004202Z
+1 passed, 2 warnings in 73.67s (0:01:13)
+== docker-k5loop3-20260930T004317Z
+1 passed, 2 warnings in 73.37s (0:01:13)
+== docker-k5loop4-20260930T004431Z
+1 passed, 2 warnings in 73.60s (0:01:13)
+== docker-k5loop5-20260930T004546Z
+1 passed, 2 warnings in 73.88s (0:01:13)

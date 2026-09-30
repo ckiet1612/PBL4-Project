@@ -444,7 +444,8 @@ def _lock_and_expire(
 
     def pause_after_lock_request(_conn, _cursor, sql, _parameters, _context, _many):
         normalized = " ".join(sql.lower().split())
-        if "for update" in normalized and (
+        # Row locks are FOR UPDATE or, for credential and users rows, FOR NO KEY UPDATE.
+        if ("for update" in normalized or "for no key update" in normalized) and (
             "from browser_sessions" in normalized
             or "from cli_tokens" in normalized
             or "from auth_control" in normalized

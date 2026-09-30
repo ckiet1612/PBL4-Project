@@ -284,7 +284,7 @@ def test_disable_waits_for_inflight_token_creation_then_revokes_every_credential
         if (
             "from users" in normalized
             and "where users.user_id =" in normalized
-            and "for update" in normalized
+            and "for no key update" in normalized
         ):
             disable_lock_attempted.set()
 
@@ -379,7 +379,7 @@ def test_system_admin_revoke_linearizes_after_inflight_privileged_mutation(
         if (
             "from users" in normalized
             and "where users.user_id =" in normalized
-            and "for update" in normalized
+            and "for no key update" in normalized
         ):
             revoke_lock_attempted.set()
 

@@ -1,0 +1,290 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+_______ test_recognized_chunks_are_carried_forward_not_recomputed[JSONL] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_recognized_chunks_are_car0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6c0a9a8d10>
+output_format = 'JSONL'
+
+    @pytest.mark.parametrize("output_format", ["JSONL", "PARQUET"])
+    def test_recognized_chunks_are_carried_forward_not_recomputed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, output_format: str
+    ) -> None:
+        summary, states, drained = _uninterrupted(tmp_path, output_format)
+        total = summary["chunk_count"]
+        # Restored at cursor 2; chunks 2..4 were recognized by a newer, lost checkpoint.
+        recognized = _recognized_dir(tmp_path, drained, range(2, 5), output_format)
+        state_path = tmp_path / "restore.json"
+        state_path.write_bytes(states[2])
+        resumed = _inference(output_format)
+        resumed.restore(state_path)
+        computed = _computed(monkeypatch, resumed)
+        output = tmp_path / "second"
+        output.mkdir()
+>       carried = batch_inference.run_inference(
+            inference=resumed, output_dir=output, recognized_dir=recognized, recognized_count=3
+        )
+E       TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:305: TypeError
+______ test_recognized_chunks_are_carried_forward_not_recomputed[PARQUET] ______
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_recognized_chunks_are_car1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6bd1f19af0>
+output_format = 'PARQUET'
+
+    @pytest.mark.parametrize("output_format", ["JSONL", "PARQUET"])
+    def test_recognized_chunks_are_carried_forward_not_recomputed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, output_format: str
+    ) -> None:
+        summary, states, drained = _uninterrupted(tmp_path, output_format)
+        total = summary["chunk_count"]
+        # Restored at cursor 2; chunks 2..4 were recognized by a newer, lost checkpoint.
+        recognized = _recognized_dir(tmp_path, drained, range(2, 5), output_format)
+        state_path = tmp_path / "restore.json"
+        state_path.write_bytes(states[2])
+        resumed = _inference(output_format)
+        resumed.restore(state_path)
+        computed = _computed(monkeypatch, resumed)
+        output = tmp_path / "second"
+        output.mkdir()
+>       carried = batch_inference.run_inference(
+            inference=resumed, output_dir=output, recognized_dir=recognized, recognized_count=3
+        )
+E       TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:305: TypeError
+__________ test_fallback_to_input_carries_recognized_chunks_from_zero __________
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_fallback_to_input_carries0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6bd110f6b0>
+
+    def test_fallback_to_input_carries_recognized_chunks_from_zero(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+        recognized = _recognized_dir(tmp_path, drained, range(3), "JSONL")
+        fresh = _inference()
+        computed = _computed(monkeypatch, fresh)
+        output = tmp_path / "second"
+        output.mkdir()
+>       carried = batch_inference.run_inference(
+            inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=3
+        )
+E       TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:326: TypeError
+__ test_unusable_recognized_chunk_fails_internal_before_any_compute[missing] ___
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_unusable_recognized_chunk0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6b87bf0320>
+defect = 'missing'
+
+    @pytest.mark.parametrize("defect", ["missing", "other-chunk", "other-run", "truncated"])
+    def test_unusable_recognized_chunk_fails_internal_before_any_compute(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defect: str
+    ) -> None:
+        _summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+        recognized = _recognized_dir(tmp_path, drained, range(2), "JSONL")
+        first = recognized / inference_state.chunk_file_name(0, "JSONL")
+        if defect == "missing":
+            first.unlink()
+        elif defect == "other-chunk":
+            shutil.copyfile(recognized / inference_state.chunk_file_name(1, "JSONL"), first)
+        elif defect == "other-run":
+            header, records = first.read_bytes().split(b"\n", 1)
+            document = json.loads(header)
+            document[batch_inference.HEADER_KEY]["spec_checksum"] = "sha256:" + "0" * 64
+            first.write_bytes(canonical_json(document) + b"\n" + records)
+        else:
+            first.write_bytes(first.read_bytes()[:-10])
+        fresh = _inference()
+        computed = _computed(monkeypatch, fresh)
+        output = tmp_path / "second"
+        output.mkdir()
+        with pytest.raises(batch_inference.InternalWorkloadError):
+>           batch_inference.run_inference(
+                inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=2
+            )
+E           TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:358: TypeError
+_ test_unusable_recognized_chunk_fails_internal_before_any_compute[other-chunk] _
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_unusable_recognized_chunk1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6b87bf2cf0>
+defect = 'other-chunk'
+
+    @pytest.mark.parametrize("defect", ["missing", "other-chunk", "other-run", "truncated"])
+    def test_unusable_recognized_chunk_fails_internal_before_any_compute(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defect: str
+    ) -> None:
+        _summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+        recognized = _recognized_dir(tmp_path, drained, range(2), "JSONL")
+        first = recognized / inference_state.chunk_file_name(0, "JSONL")
+        if defect == "missing":
+            first.unlink()
+        elif defect == "other-chunk":
+            shutil.copyfile(recognized / inference_state.chunk_file_name(1, "JSONL"), first)
+        elif defect == "other-run":
+            header, records = first.read_bytes().split(b"\n", 1)
+            document = json.loads(header)
+            document[batch_inference.HEADER_KEY]["spec_checksum"] = "sha256:" + "0" * 64
+            first.write_bytes(canonical_json(document) + b"\n" + records)
+        else:
+            first.write_bytes(first.read_bytes()[:-10])
+        fresh = _inference()
+        computed = _computed(monkeypatch, fresh)
+        output = tmp_path / "second"
+        output.mkdir()
+        with pytest.raises(batch_inference.InternalWorkloadError):
+>           batch_inference.run_inference(
+                inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=2
+            )
+E           TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:358: TypeError
+_ test_unusable_recognized_chunk_fails_internal_before_any_compute[other-run] __
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_unusable_recognized_chunk2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6b87bf3950>
+defect = 'other-run'
+
+    @pytest.mark.parametrize("defect", ["missing", "other-chunk", "other-run", "truncated"])
+    def test_unusable_recognized_chunk_fails_internal_before_any_compute(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defect: str
+    ) -> None:
+        _summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+        recognized = _recognized_dir(tmp_path, drained, range(2), "JSONL")
+        first = recognized / inference_state.chunk_file_name(0, "JSONL")
+        if defect == "missing":
+            first.unlink()
+        elif defect == "other-chunk":
+            shutil.copyfile(recognized / inference_state.chunk_file_name(1, "JSONL"), first)
+        elif defect == "other-run":
+            header, records = first.read_bytes().split(b"\n", 1)
+            document = json.loads(header)
+            document[batch_inference.HEADER_KEY]["spec_checksum"] = "sha256:" + "0" * 64
+            first.write_bytes(canonical_json(document) + b"\n" + records)
+        else:
+            first.write_bytes(first.read_bytes()[:-10])
+        fresh = _inference()
+        computed = _computed(monkeypatch, fresh)
+        output = tmp_path / "second"
+        output.mkdir()
+        with pytest.raises(batch_inference.InternalWorkloadError):
+>           batch_inference.run_inference(
+                inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=2
+            )
+E           TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:358: TypeError
+_ test_unusable_recognized_chunk_fails_internal_before_any_compute[truncated] __
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_unusable_recognized_chunk3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c6bd107b110>
+defect = 'truncated'
+
+    @pytest.mark.parametrize("defect", ["missing", "other-chunk", "other-run", "truncated"])
+    def test_unusable_recognized_chunk_fails_internal_before_any_compute(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defect: str
+    ) -> None:
+        _summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+        recognized = _recognized_dir(tmp_path, drained, range(2), "JSONL")
+        first = recognized / inference_state.chunk_file_name(0, "JSONL")
+        if defect == "missing":
+            first.unlink()
+        elif defect == "other-chunk":
+            shutil.copyfile(recognized / inference_state.chunk_file_name(1, "JSONL"), first)
+        elif defect == "other-run":
+            header, records = first.read_bytes().split(b"\n", 1)
+            document = json.loads(header)
+            document[batch_inference.HEADER_KEY]["spec_checksum"] = "sha256:" + "0" * 64
+            first.write_bytes(canonical_json(document) + b"\n" + records)
+        else:
+            first.write_bytes(first.read_bytes()[:-10])
+        fresh = _inference()
+        computed = _computed(monkeypatch, fresh)
+        output = tmp_path / "second"
+        output.mkdir()
+        with pytest.raises(batch_inference.InternalWorkloadError):
+>           batch_inference.run_inference(
+                inference=fresh, output_dir=output, recognized_dir=recognized, recognized_count=2
+            )
+E           TypeError: run_inference() got an unexpected keyword argument 'recognized_dir'
+
+tests/workloads/test_pytorch_workloads_b16.py:358: TypeError
+________________ test_inference_main_carries_recognized_chunks _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-U-runner/pytest-0/test_inference_main_carries_re0')
+
+    def test_inference_main_carries_recognized_chunks(tmp_path: Path) -> None:
+        summary, _states, drained = _uninterrupted(tmp_path, "JSONL")
+        recognized = _recognized_dir(tmp_path, drained, range(4), "JSONL")
+        output = tmp_path / "main"
+        output.mkdir()
+        args = [
+            "--dataset",
+            str(INFER),
+            "--model",
+            str(MODEL),
+            "--output-dir",
+            str(output),
+            "--chunk-size",
+            "300",
+            "--batch-size",
+            "128",
+            "--output-format",
+            "JSONL",
+            "--threads",
+            "1",
+            "--spec-checksum",
+            SPEC,
+            "--recognized-dir",
+            str(recognized),
+            "--recognized-count",
+            "4",
+        ]
+>       assert batch_inference.main(args) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/workloads/test_pytorch_workloads_b16.py:392: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../nexa/nexa/workloads/batch_inference.py:269: in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/argparse.py:1908: in parse_args
+    self.error(msg)
+/usr/local/lib/python3.12/argparse.py:2650: in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ArgumentParser(prog='__main__.py', usage=None, description='Run the allowlisted chunked batch inference', formatter_class=<class 'argparse.HelpFormatter'>, conflict_handler='error', add_help=True)
+status = 2
+message = '__main__.py: error: unrecognized arguments: --recognized-dir /tmp/pytest-of-U-runner/pytest-0/test_inference_main_carries_re0/recognized-JSONL --recognized-count 4\n'
+
+    def exit(self, status=0, message=None):
+        if message:
+            self._print_message(message, _sys.stderr)
+>       _sys.exit(status)
+E       SystemExit: 2
+
+/usr/local/lib/python3.12/argparse.py:2637: SystemExit
+----------------------------- Captured stderr call -----------------------------
+usage: __main__.py [-h] --dataset DATASET --model MODEL --output-dir
+                   OUTPUT_DIR --chunk-size CHUNK_SIZE --batch-size BATCH_SIZE
+                   --output-format OUTPUT_FORMAT --threads THREADS
+                   --spec-checksum SPEC_CHECKSUM [--window WINDOW]
+                   [--resume-state RESUME_STATE]
+__main__.py: error: unrecognized arguments: --recognized-dir /tmp/pytest-of-U-runner/pytest-0/test_inference_main_carries_re0/recognized-JSONL --recognized-count 4
+=========================== short test summary info ============================
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_recognized_chunks_are_carried_forward_not_recomputed[JSONL]
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_recognized_chunks_are_carried_forward_not_recomputed[PARQUET]
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_fallback_to_input_carries_recognized_chunks_from_zero
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_unusable_recognized_chunk_fails_internal_before_any_compute[missing]
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_unusable_recognized_chunk_fails_internal_before_any_compute[other-chunk]
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_unusable_recognized_chunk_fails_internal_before_any_compute[other-run]
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_unusable_recognized_chunk_fails_internal_before_any_compute[truncated]
+FAILED tests/workloads/test_pytorch_workloads_b16.py::test_inference_main_carries_recognized_chunks
+8 failed, 19 deselected in 9.61s
+EXIT=1

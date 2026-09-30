@@ -6,6 +6,25 @@ import rfc8785
 
 from nexa.workloads import chunk_manifest, inference_state
 
+from .client import WorkerApiError
+
+# The safe ErrorResponse reason of a publish whose chunk differs from its recognized row.
+CHUNK_OUTPUT_CONFLICT = "CHUNK_OUTPUT_CONFLICT"
+
+
+class ChunkOutputConflict(RuntimeError):
+    """The server keeps a different recognized chunk; no replay can succeed (B16-R21)."""
+
+
+def raise_chunk_conflict(exc):
+    """Re-raise a publish rejection, as ChunkOutputConflict only for its safe reason.
+
+    Any other ``409`` stays a replayed rejection, never a guessed failure.
+    """
+    if exc.status == 409 and exc.reason == CHUNK_OUTPUT_CONFLICT:
+        raise ChunkOutputConflict("recognized chunk output conflicts") from None
+    raise exc
+
 
 def checksum(value):
     return "sha256:" + hashlib.sha256(rfc8785.dumps(value)).hexdigest()
@@ -300,7 +319,10 @@ class ResultFlow:
                 "reservation_callback_id": state["reservation_callback_id"],
                 "result_id": state["reservation"]["result_id"],
                 "binding_set_checksum": inference.binding_set_checksum(
-                    self.journal.load(attempt_id), [summary], binding
+                    self.journal.load(attempt_id),
+                    state["reservation"]["result_id"],
+                    [summary],
+                    binding,
                 ),
             },
         )
@@ -308,9 +330,12 @@ class ResultFlow:
     def _complete(self, attempt_id, authority, callback, request):
         from dataclasses import asdict
 
-        ack = self.client.complete(
-            attempt_id, callback, {"authority": asdict(authority), **request}
-        )
+        try:
+            ack = self.client.complete(
+                attempt_id, callback, {"authority": asdict(authority), **request}
+            )
+        except WorkerApiError as exc:
+            raise_chunk_conflict(exc)
         if ack.get("accepted") is not True:
             raise ValueError("completion was not accepted")
         self._save(attempt_id, completed=True, completion_ack=ack)

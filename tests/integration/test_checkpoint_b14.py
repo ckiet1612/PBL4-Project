@@ -844,7 +844,7 @@ def test_list_checkpoints_is_owned_paged_newest_first_and_marks_corrupt(
         assert invalid.status_code == 400, invalid.text
         assert invalid.json()["code"] == "invalid_cursor"
     for size in (0, 101):
-        assert client.get(url, headers=tenant, params={"page_size": size}).status_code == 422
+        assert client.get(url, headers=tenant, params={"page_size": size}).status_code == 400
 
     member_view = client.get(url, headers={"X-Nexa-Tenant-Id": str(member_tenant)})
     assert member_view.status_code == 404, member_view.text

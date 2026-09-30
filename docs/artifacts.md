@@ -17,6 +17,29 @@ as keys. Blob keys are opaque internal values. `O_NOFOLLOW`, regular-file checks
 root-local key validation and directory fsync fail closed on unsafe access. Staging
 keys are not accepted by `open` or `inspect` and are never returned by the API.
 
+### Store identity (B14-OBS-01)
+
+The root also holds `store-identity`, a mode `0600` regular file containing exactly
+`nexa-artifact-store v1 <uuid>` and a newline. It is created once through a temporary
+file and `link`, so an existing identity is never replaced. PostgreSQL records the same
+UUID in the insert-only singleton `artifact_store_identity` (migration
+`20260929_0022`). At startup the API binds its store only when the identity at the root
+equals the recorded one. On the first start, including the upgrade to 0022, the API
+records the identity that is already at the root, or creates a new one. It refuses
+when PostgreSQL references committed blobs while `committed/` is empty, because that
+is an empty or wrong volume.
+
+`open`/`inspect` report `not_found` only when all of these hold at that moment: the
+store is bound; the root identity still equals the bound identity; `committed/` is a
+real directory; and the blob is absent. Every other case is `storage_unavailable`
+(temporary, HTTP 503): a missing root, a missing `committed/`, a re-created tree
+without an identity, another store's identity, or a malformed or symlinked identity.
+So only `not_found` can make restore mark a checkpoint `CORRUPT` with
+`CHECKPOINT_BLOB_MISSING`. The worker READY readiness probe also requires the verified
+identity, so nothing dispatches while the store is unbound. Restoring the right volume
+takes an API restart. A deployment whose storage was really lost is outside the
+failure scope and has no automatic re-initialization.
+
 ## Upload contract
 
 Public uploads use `application/octet-stream` transport and require:
@@ -134,7 +157,7 @@ durable commit as above.
 with the exact checksum. A later attempt may only carry a chunk forward if its
 row matches exactly (same artifact, checksum, source attempt and fence).
 Restore selection re-reads every chunk blob the candidate checkpoint
-references; a missing or corrupt chunk marks the checkpoint `CORRUPT` and falls
-back (B16-R07). No B16 path deletes or overwrites a committed artifact. GC is
+references; a chunk missing from the verified store (see Store identity) or a corrupt
+chunk marks the checkpoint `CORRUPT` and falls back (B16-R07). No B16 path deletes or overwrites a committed artifact. GC is
 still B19. Chunk, tensor, dataset and model bytes are never written to logs,
 events or error bodies. See [B16 evidence](evidence/B16-pytorch-sweep-inference.md).

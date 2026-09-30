@@ -6,12 +6,17 @@ The runner uploads confirmed chunks and deletes them; with checkpoints enabled t
 keeps at most ``window`` chunk files in the bounded ``/output`` tmpfs and waits for the runner
 to drain them (B16-R13 flow control). Chunk bytes depend only on the inputs, parameters and
 thread count, so a restarted attempt reproduces identical chunk files.
+
+Chunks the job already recognized beyond the restored cursor are mounted read-only under
+``--recognized-dir``; the workload takes them over without recomputing them, adds their
+predictions from those files and continues at the next unrecognized chunk (B16-R21).
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import sys
 import time
 from collections.abc import Callable
@@ -183,6 +188,79 @@ class Inference:
                 raise InternalWorkloadError(f"restore state {field} does not match this run")
         self.state = restored
 
+    def recognized_predictions(self, index: int, raw: bytes) -> list[int]:
+        """Predictions of one recognized chunk file, which must be that chunk of this run."""
+        start, end = inference_state.chunk_extent(
+            index, self.state["item_count"], self.state["chunk_size"]
+        )
+        try:
+            if self.state["output_format"] == "JSONL":
+                header_line, records = raw.split(b"\n", 1)
+                header = json.loads(header_line)
+                rows = [json.loads(line) for line in records.splitlines()]
+                indexes = [row["index"] for row in rows]
+                predictions = [row["prediction"] for row in rows]
+            else:
+                table = pq.read_table(pa.BufferReader(raw))
+                header = json.loads(table.schema.metadata[HEADER_KEY.encode("ascii")])
+                indexes = table.column("index").to_pylist()
+                lines, predictions = record_lines(
+                    start,
+                    np.asarray(table.column("source_index").to_pylist()),
+                    np.asarray(table.column("logits").to_pylist(), dtype=np.float32),
+                )
+                records = b"".join(lines)
+        except (ValueError, KeyError, TypeError, AttributeError, pa.ArrowException):
+            raise InternalWorkloadError("recognized chunk is unreadable") from None
+        expected = chunk_header(
+            index=index,
+            start=start,
+            end=end,
+            input_checksum=self.input_checksum,
+            model_checksum=self.model_checksum,
+            spec_checksum=self.state["spec_checksum"],
+            records_checksum="sha256:" + hashlib.sha256(records).hexdigest(),
+        )
+        if (
+            header != expected
+            or indexes != list(range(start, end))
+            or any(
+                type(prediction) is not int or not 0 <= prediction < arch.NUM_CLASSES
+                for prediction in predictions
+            )
+        ):
+            raise InternalWorkloadError("recognized chunk does not belong to this run")
+        return predictions
+
+    def carry_recognized(self, directory: str | Path, count: int) -> None:
+        """Take over ``count`` recognized chunks at the cursor without recomputing them.
+
+        The runner verified each file against the claim's checksum; the prediction
+        counts come from those files, so the summary matches an uninterrupted run.
+        """
+        state = self.state
+        first = state["next_chunk"]
+        if not 0 <= count <= self.total_chunks - first:
+            raise InternalWorkloadError("recognized chunks exceed this run")
+        counts = list(state["prediction_counts"])
+        for index in range(first, first + count):
+            path = Path(directory) / inference_state.chunk_file_name(index, state["output_format"])
+            try:
+                with path.open("rb") as handle:
+                    raw = handle.read(chunk_manifest.MAX_CHUNK_FILE_BYTES + 1)
+            except OSError:
+                raise InternalWorkloadError("recognized chunk is unreadable") from None
+            if len(raw) > chunk_manifest.MAX_CHUNK_FILE_BYTES:
+                raise InternalWorkloadError("recognized chunk exceeds the upload bound")
+            for prediction in self.recognized_predictions(index, raw):
+                counts[prediction] += 1
+        try:
+            self.state = inference_state.validate_state(
+                {**state, "next_chunk": first + count, "prediction_counts": counts}
+            )
+        except inference_state.InferenceStateError:
+            raise InternalWorkloadError("recognized chunks do not continue this run") from None
+
     def _logits(self, start: int, end: int) -> np.ndarray:
         rows = []
         batch = self.state["batch_size"]
@@ -226,8 +304,16 @@ def run_inference(
     output_dir: str | Path,
     window: int = 0,
     sleep: Callable[[float], None] = time.sleep,
+    recognized_dir: str | Path | None = None,
+    recognized_count: int = 0,
 ) -> dict:
     output = Path(output_dir)
+    if recognized_count:
+        if recognized_dir is None:
+            raise InternalWorkloadError("recognized chunks have no directory")
+        inference.carry_recognized(recognized_dir, recognized_count)
+        # The cursor moves past the carried chunks before any new chunk is computed.
+        atomic_write(output / STATE_FILE, canonical_json(inference.state))
     state = inference.state
     while state["next_chunk"] < inference.total_chunks:
         # Flow control only: the runner removes chunk files once their upload is bound.
@@ -266,6 +352,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--spec-checksum", required=True)
     parser.add_argument("--window", type=int, default=0)
     parser.add_argument("--resume-state")
+    parser.add_argument("--recognized-dir")
+    parser.add_argument("--recognized-count", type=int, default=0)
     args = parser.parse_args(argv)
     try:
         inference = Inference(
@@ -279,7 +367,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.resume_state is not None:
             inference.restore(args.resume_state)
-        run_inference(inference=inference, output_dir=args.output_dir, window=args.window)
+        run_inference(
+            inference=inference,
+            output_dir=args.output_dir,
+            window=args.window,
+            recognized_dir=args.recognized_dir,
+            recognized_count=args.recognized_count,
+        )
     except WorkloadInputError as exc:
         print(f"invalid input: {exc}", file=sys.stderr)
         return EXIT_INVALID_INPUT

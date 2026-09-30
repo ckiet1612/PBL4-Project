@@ -1,0 +1,7 @@
+2026-09-28T18:29:29Z A start: both healthy
+2026-09-28T18:59:34Z B start: upstream api stopped in both (health failing)
+2026-09-28T19:29:59Z control removed: before project down
+2026-09-28T19:30:00Z C start: after healthy (api started)
+2026-09-28T23:00:14Z D start: after upstream stopped (health failing)
+2026-09-29T03:00:41Z soak end
+SOAK_DONE

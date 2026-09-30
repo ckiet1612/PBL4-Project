@@ -1,0 +1,5 @@
+{
+ "architecture": "linux/amd64",
+ "image": "nexa/rem-cpu-iterative@sha256:8ecfe240000348e492fbda2774acd78f214416a228bf7399632db686e179645e",
+ "worker_image": "nexa/rem-worker:r2-amd64"
+}

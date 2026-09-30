@@ -21,6 +21,8 @@ from .canonical_json import canonical_json
 SCHEMA_VERSION = 3
 OUTPUT_DIR = "/output"
 RESTORE_DIR = "/input/restore"
+# B16-R21: read-only recognized chunk files the workload carries forward.
+RECOGNIZED_DIR = "/input/recognized"
 TRAINING_STATE_PATH = "/output/state.safetensors"
 INFERENCE_STATE_PATH = "/output/inference-state.json"
 MAX_THREADS = training_state.MAX_THREADS
@@ -40,6 +42,8 @@ _FIELDS = {
     "checkpoint",
     "restore",
 }
+# B16-R21: optional, only for a chunked adapter with recognized chunks to carry forward.
+RECOGNIZED_KEY = "recognized_chunks"
 PROVENANCE_FIELDS = (
     "tenant_id",
     "job_id",
@@ -148,6 +152,19 @@ def input_paths(adapter: workload_adapters.AdapterDescriptor) -> dict[str, str]:
 
 def restore_path(logical_name: str) -> str:
     return f"{RESTORE_DIR}/{logical_name}"
+
+
+def recognized_paths(spec: dict) -> list[str]:
+    """Container paths of the spec's recognized chunk files, in chunk order."""
+    if not spec.get(RECOGNIZED_KEY):
+        return []
+    output_format = spec["parameters"]["output_format"]
+    # The validated run starts at the restored cursor, or chunk 0 after a fallback.
+    first = spec["restore"]["cursor"]["step"] if spec["restore"] is not None else 0
+    return [
+        f"{RECOGNIZED_DIR}/{inference_state.chunk_file_name(first + offset, output_format)}"
+        for offset in range(len(spec.get(RECOGNIZED_KEY) or []))
+    ]
 
 
 def threads_for(cpu_millis: int) -> int:
@@ -304,7 +321,7 @@ def _validate_restore(adapter, value: object, parameters: dict) -> None:
 
 def validate_launch_spec(value: object) -> dict:
     """Validate a v3 launch spec; raises ``LaunchSpecError``."""
-    if not isinstance(value, dict) or set(value) != _FIELDS:
+    if not isinstance(value, dict) or set(value) - {RECOGNIZED_KEY} != _FIELDS:
         raise _fail("launch spec fields are invalid")
     if type(value["schema_version"]) is not int or value["schema_version"] != SCHEMA_VERSION:
         raise _fail("launch spec schema version is invalid")
@@ -335,7 +352,24 @@ def validate_launch_spec(value: object) -> dict:
         if checkpoint is None:
             raise _fail("restore requires a checkpoint launch")
         _validate_restore(adapter, value["restore"], parameters)
+    if RECOGNIZED_KEY in value:
+        _validate_recognized(adapter, value, parameters)
     return value
+
+
+def _validate_recognized(adapter, value: dict, parameters: dict) -> None:
+    """The recognized chunks run contiguously from the restored cursor (or chunk 0)."""
+    recognized = value[RECOGNIZED_KEY]
+    if not adapter.chunked or not isinstance(recognized, list) or not recognized:
+        # Absence, never an empty list, means there is nothing to carry forward.
+        raise _fail("launch spec recognized chunks are invalid")
+    first = value["restore"]["cursor"]["step"] if value["restore"] is not None else 0
+    try:
+        chunk_manifest.validate_recognized(
+            recognized, first=first, chunk_size=parameters["chunk_size"]
+        )
+    except chunk_manifest.ChunkManifestError as exc:
+        raise _fail("launch spec recognized chunks are invalid") from exc
 
 
 def workload_command(spec: dict) -> tuple[str, ...]:
@@ -369,6 +403,13 @@ def workload_command(spec: dict) -> tuple[str, ...]:
             command += ("--window", str(INFERENCE_WINDOW))
         if spec["restore"] is not None:
             command += ("--resume-state", restore_path(adapter.checkpoint_files[0].logical_name))
+        if RECOGNIZED_KEY in spec:
+            command += (
+                "--recognized-dir",
+                RECOGNIZED_DIR,
+                "--recognized-count",
+                str(len(spec[RECOGNIZED_KEY])),
+            )
         return command
     command = (
         "python",
@@ -535,6 +576,8 @@ __all__ = [
     "INFERENCE_STATE_PATH",
     "OUTPUT_DIR",
     "PROVENANCE_FIELDS",
+    "RECOGNIZED_DIR",
+    "RECOGNIZED_KEY",
     "RESTORE_DIR",
     "SCHEMA_VERSION",
     "TRAINING_STATE_PATH",
@@ -546,6 +589,7 @@ __all__ = [
     "input_paths",
     "manifest_metrics",
     "parse_training_metrics",
+    "recognized_paths",
     "restore_path",
     "state_path",
     "threads_for",

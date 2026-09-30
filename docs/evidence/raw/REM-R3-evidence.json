@@ -1,0 +1,4049 @@
+{
+ "C0_baseline": {
+  "checksum": "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+  "seconds": 51.7,
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abda",
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 1,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "checkpoint_id": "01a0ef83-9e96-70cd-b6b5-251c574fa7cb",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "checkpoint_id": "01a0ef83-bacf-7ca3-97cd-ad41f2842430",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "checkpoint_id": "01a0ef83-d75f-77f9-90fa-92e9f096cbda",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "checkpoint_id": "01a0ef83-f4da-7090-8e7d-26fd8ff2bcb5",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "checkpoint_id": "01a0ef84-1b34-7f5b-8b21-0dfa10acd380",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "container_id": "0a8ba59b8da4",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:32:46.579+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:32:46.721+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:32:47.918+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:32:57.518+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:33:04.899+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:33:12.226+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:33:20.011+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:33:29.462+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:33:32.223+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:33:37.907+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 10
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 10,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 10
+   },
+   "job_id": "01a0ef83-7b72-7008-ac59-873b09754518",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "expires_at": "2026-09-29T23:34:15.470+00:00",
+     "issued_at": "2026-09-29T23:32:46.721+00:00",
+     "revoked_at": "2026-09-29T23:33:37.907+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abdb",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "7.99781250",
+    "count": 11
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef83-7c3a-7fac-b4d7-c068c085abd9": null
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef83-7c3a-7fac-b4d7-c068c085abd9",
+     "result_id": "01a0ef84-287d-7f81-9658-1d8d1b675bfd"
+    }
+   ],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c0-baseline",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C10_full_restart": {
+  "checksums": [
+   "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+   "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d"
+  ],
+  "epoch_after": 2,
+  "epoch_before": 1,
+  "retry_counts": [
+   0,
+   0
+  ],
+  "states_at_stop": [
+   "RUNNING",
+   "QUEUED"
+  ],
+  "timelines": [
+   {
+    "allocations": [
+     {
+      "allocation_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb9",
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     }
+    ],
+    "attempt_intents": [
+     {
+      "attempt_number": 1,
+      "execution_intent": "RUN"
+     }
+    ],
+    "attempts": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "attempt_number": 1,
+      "failure_class": null,
+      "failure_reason": null,
+      "job_fence": 1,
+      "state": "SUCCEEDED",
+      "worker_incarnation_id": "01a0ef8d-a62d-74c8-a3ee-fc4cac001d34"
+     }
+    ],
+    "checkpoints": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "checkpoint_id": "01a0ef8d-8637-7b7e-9926-b02250466135",
+      "corrupt": null,
+      "sequence": 1
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "checkpoint_id": "01a0ef8d-c8b2-74ea-9bc4-54bcebf683bc",
+      "corrupt": null,
+      "sequence": 2
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "checkpoint_id": "01a0ef8d-ed38-7293-8ca9-44835c268b4f",
+      "corrupt": null,
+      "sequence": 3
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "checkpoint_id": "01a0ef8e-0e99-75d4-acba-70813f81cee5",
+      "corrupt": null,
+      "sequence": 4
+     }
+    ],
+    "containers": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "container_id": "36586c4d004f",
+      "stopped": true,
+      "verified": true
+     }
+    ],
+    "coordinator_epoch": 2,
+    "counters": [
+     1,
+     1
+    ],
+    "events": [
+     {
+      "at": "2026-09-29T23:43:37.535+00:00",
+      "event_type": "JOB_ACCEPTED",
+      "reason": "Job accepted",
+      "sequence": 1
+     },
+     {
+      "at": "2026-09-29T23:43:37.805+00:00",
+      "event_type": "JOB_DISPATCHING",
+      "reason": null,
+      "sequence": 2
+     },
+     {
+      "at": "2026-09-29T23:43:38.658+00:00",
+      "event_type": "ATTEMPT_STARTED",
+      "reason": "attempt_started",
+      "sequence": 3
+     },
+     {
+      "at": "2026-09-29T23:43:46.643+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 4
+     },
+     {
+      "at": "2026-09-29T23:44:03.830+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 5
+     },
+     {
+      "at": "2026-09-29T23:44:13.384+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 6
+     },
+     {
+      "at": "2026-09-29T23:44:21.352+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 7
+     },
+     {
+      "at": "2026-09-29T23:44:23.595+00:00",
+      "event_type": "RESULT_RECOGNIZED",
+      "reason": "result_recognized",
+      "sequence": 8
+     },
+     {
+      "at": "2026-09-29T23:44:29.312+00:00",
+      "event_type": "ALLOCATION_RELEASED",
+      "reason": "VERIFIED_CLEANUP",
+      "sequence": 9
+     }
+    ],
+    "grants": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "ended": true,
+      "job_fence": 1,
+      "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "ended": true,
+      "job_fence": 1,
+      "worker_incarnation_id": "01a0ef8d-a62d-74c8-a3ee-fc4cac001d34"
+     }
+    ],
+    "job": {
+     "checkpoint_sequence": 4,
+     "desired_state": "RUNNING",
+     "event_sequence": 9,
+     "job_fence": 1,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": null,
+     "state": "SUCCEEDED",
+     "terminal": true,
+     "version": 9
+    },
+    "job_id": "01a0ef8d-6a3f-738b-b871-96bb127aac2b",
+    "lease_times": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "expires_at": "2026-09-29T23:45:07.656+00:00",
+      "issued_at": "2026-09-29T23:43:37.805+00:00",
+      "revoked_at": "2026-09-29T23:44:29.312+00:00"
+     }
+    ],
+    "leases": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "current_worker_incarnation_id": "01a0ef8d-a62d-74c8-a3ee-fc4cac001d34",
+      "job_fence": 1,
+      "lease_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eba",
+      "revoke_reason": null,
+      "revoked": true
+     }
+    ],
+    "ledger_segments": {
+     "charged": "8.04796875",
+     "count": 11
+    },
+    "reservations": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "sequence": 1,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "sequence": 2,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "sequence": 3,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "sequence": 4,
+      "state": "COMMITTED"
+     }
+    ],
+    "restores": {
+     "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8": null
+    },
+    "results": [
+     {
+      "attempt_id": "01a0ef8d-6b82-7b02-a2ca-3d6ce89f4eb8",
+      "result_id": "01a0ef8e-16a8-7d64-b024-3f6bfc3fd222"
+     }
+    ],
+    "retries": [],
+    "submit_idempotency_key": "b15-docker-c10-first",
+    "submit_idempotency_records": 1
+   },
+   {
+    "allocations": [
+     {
+      "allocation_id": "01a0ef8e-3583-7e40-8b30-239052f0164e",
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "quarantined": false,
+      "release_reason": "VERIFIED_CLEANUP",
+      "state": "RELEASED"
+     }
+    ],
+    "attempt_intents": [
+     {
+      "attempt_number": 1,
+      "execution_intent": "RUN"
+     }
+    ],
+    "attempts": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "attempt_number": 1,
+      "failure_class": null,
+      "failure_reason": null,
+      "job_fence": 1,
+      "state": "SUCCEEDED",
+      "worker_incarnation_id": "01a0ef8d-a62d-74c8-a3ee-fc4cac001d34"
+     }
+    ],
+    "checkpoints": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "checkpoint_id": "01a0ef8e-56cf-7ea1-88a8-1f44c5d6d7e1",
+      "corrupt": null,
+      "sequence": 1
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "checkpoint_id": "01a0ef8e-7520-7697-83a7-f5379c811a07",
+      "corrupt": null,
+      "sequence": 2
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "checkpoint_id": "01a0ef8e-9d81-7eef-94a9-3baff4a4226a",
+      "corrupt": null,
+      "sequence": 3
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "checkpoint_id": "01a0ef8e-c164-7de3-aa7b-f2e901b0be76",
+      "corrupt": null,
+      "sequence": 4
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "checkpoint_id": "01a0ef8e-e1e5-7f33-bd14-5797a4c56142",
+      "corrupt": null,
+      "sequence": 5
+     }
+    ],
+    "containers": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "container_id": "d0fbacd85fe2",
+      "stopped": true,
+      "verified": true
+     }
+    ],
+    "coordinator_epoch": 2,
+    "counters": [
+     0,
+     0
+    ],
+    "events": [
+     {
+      "at": "2026-09-29T23:43:37.569+00:00",
+      "event_type": "JOB_ACCEPTED",
+      "reason": "Job accepted",
+      "sequence": 1
+     },
+     {
+      "at": "2026-09-29T23:44:29.520+00:00",
+      "event_type": "JOB_DISPATCHING",
+      "reason": null,
+      "sequence": 2
+     },
+     {
+      "at": "2026-09-29T23:44:30.423+00:00",
+      "event_type": "ATTEMPT_STARTED",
+      "reason": "attempt_started",
+      "sequence": 3
+     },
+     {
+      "at": "2026-09-29T23:44:40.069+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 4
+     },
+     {
+      "at": "2026-09-29T23:44:48.153+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 5
+     },
+     {
+      "at": "2026-09-29T23:44:58.166+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 6
+     },
+     {
+      "at": "2026-09-29T23:45:07.651+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 7
+     },
+     {
+      "at": "2026-09-29T23:45:15.540+00:00",
+      "event_type": "CHECKPOINT_COMMITTED",
+      "reason": "CHECKPOINT_COMMITTED",
+      "sequence": 8
+     },
+     {
+      "at": "2026-09-29T23:45:17.400+00:00",
+      "event_type": "RESULT_RECOGNIZED",
+      "reason": "result_recognized",
+      "sequence": 9
+     },
+     {
+      "at": "2026-09-29T23:45:23.085+00:00",
+      "event_type": "ALLOCATION_RELEASED",
+      "reason": "VERIFIED_CLEANUP",
+      "sequence": 10
+     }
+    ],
+    "grants": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "ended": true,
+      "job_fence": 1,
+      "worker_incarnation_id": "01a0ef8d-a62d-74c8-a3ee-fc4cac001d34"
+     }
+    ],
+    "job": {
+     "checkpoint_sequence": 5,
+     "desired_state": "RUNNING",
+     "event_sequence": 10,
+     "job_fence": 1,
+     "max_retries": 2,
+     "recovery_intent": null,
+     "retry_count": 0,
+     "retry_of_job_id": null,
+     "state": "SUCCEEDED",
+     "terminal": true,
+     "version": 10
+    },
+    "job_id": "01a0ef8d-6a60-76e8-8c5d-f05b30cbfce9",
+    "lease_times": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "expires_at": "2026-09-29T23:45:57.534+00:00",
+      "issued_at": "2026-09-29T23:44:29.520+00:00",
+      "revoked_at": "2026-09-29T23:45:23.085+00:00"
+     }
+    ],
+    "leases": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "current_worker_incarnation_id": "01a0ef8d-a62d-74c8-a3ee-fc4cac001d34",
+      "job_fence": 1,
+      "lease_id": "01a0ef8e-3583-7e40-8b30-239052f0164f",
+      "revoke_reason": null,
+      "revoked": true
+     }
+    ],
+    "ledger_segments": {
+     "charged": "8.36953125",
+     "count": 11
+    },
+    "reservations": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "sequence": 1,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "sequence": 2,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "sequence": 3,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "sequence": 4,
+      "state": "COMMITTED"
+     },
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "sequence": 5,
+      "state": "COMMITTED"
+     }
+    ],
+    "restores": {
+     "01a0ef8e-3583-7e40-8b30-239052f0164d": null
+    },
+    "results": [
+     {
+      "attempt_id": "01a0ef8e-3583-7e40-8b30-239052f0164d",
+      "result_id": "01a0ef8e-eadf-7a12-8b51-e6481b461a57"
+     }
+    ],
+    "retries": [],
+    "submit_idempotency_key": "b15-docker-c10-second",
+    "submit_idempotency_records": 1
+   }
+  ]
+ },
+ "C1_pause_resume": {
+  "checksum": "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+  "paused": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25c",
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": "PAUSE",
+     "job_fence": 1,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "checkpoint_id": "01a0ef84-6843-77fc-b981-12ee0b2becb8",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "checkpoint_id": "01a0ef84-7db1-7cc5-8a84-b16d64d03f06",
+     "corrupt": null,
+     "sequence": 2
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "container_id": "68bb68a0a09c",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "events": [
+    {
+     "at": "2026-09-29T23:33:38.199+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:33:38.436+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:33:39.459+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:33:49.196+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:33:49.263+00:00",
+     "event_type": "PAUSE_REQUESTED",
+     "reason": "USER_PAUSE",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:33:54.668+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:33:56.315+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 7
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "PAUSED",
+    "event_sequence": 7,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "PAUSED",
+    "terminal": false,
+    "version": 7
+   },
+   "job_id": "01a0ef84-4517-74a9-9d53-970899f8a4ee",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "expires_at": "2026-09-29T23:34:40.791+00:00",
+     "issued_at": "2026-09-29T23:33:38.436+00:00",
+     "revoked_at": "2026-09-29T23:33:56.315+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25d",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "reservations": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "sequence": 2,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef84-4633-7f7a-af70-fd1556bcd25b": null
+   },
+   "results": [],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c1-pause-resume",
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25c",
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef84-8da7-76e3-85f3-181456ecdec4",
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": "PAUSE",
+     "job_fence": 1,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 2,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "checkpoint_id": "01a0ef84-6843-77fc-b981-12ee0b2becb8",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "checkpoint_id": "01a0ef84-7db1-7cc5-8a84-b16d64d03f06",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "checkpoint_id": "01a0ef84-c091-7c81-a243-28945925cc60",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "checkpoint_id": "01a0ef84-de0f-70ec-b387-bf71602da125",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "checkpoint_id": "01a0ef85-0675-7cb3-8c1b-6f2f7c2e599c",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "container_id": "68bb68a0a09c",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "container_id": "572b22288752",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:33:38.199+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:33:38.436+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:33:39.459+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:33:49.196+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:33:49.263+00:00",
+     "event_type": "PAUSE_REQUESTED",
+     "reason": "USER_PAUSE",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:33:54.668+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:33:56.315+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:33:56.456+00:00",
+     "event_type": "JOB_RESUMED",
+     "reason": "USER_RESUME",
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:33:56.718+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:34:03.264+00:00",
+     "event_type": "CHECKPOINT_RESTORE_SELECTED",
+     "reason": "CHECKPOINT_RESTORED",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:34:03.819+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:34:12.000+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 12
+    },
+    {
+     "at": "2026-09-29T23:34:19.813+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 13
+    },
+    {
+     "at": "2026-09-29T23:34:29.834+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 14
+    },
+    {
+     "at": "2026-09-29T23:34:36.495+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 15
+    },
+    {
+     "at": "2026-09-29T23:34:42.042+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 16
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "ended": true,
+     "job_fence": 2,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0ef84-4517-74a9-9d53-970899f8a4ee",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "expires_at": "2026-09-29T23:34:40.791+00:00",
+     "issued_at": "2026-09-29T23:33:38.436+00:00",
+     "revoked_at": "2026-09-29T23:33:56.315+00:00"
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "expires_at": "2026-09-29T23:35:20.971+00:00",
+     "issued_at": "2026-09-29T23:33:56.718+00:00",
+     "revoked_at": "2026-09-29T23:34:42.042+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25d",
+     "revoke_reason": null,
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 2,
+     "lease_id": "01a0ef84-8da7-76e3-85f3-181456ecdec5",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "9.87546875",
+    "count": 14
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef84-4633-7f7a-af70-fd1556bcd25b",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef84-4633-7f7a-af70-fd1556bcd25b": null,
+    "01a0ef84-8da7-76e3-85f3-181456ecdec3": {
+     "checkpoint_id": "01a0ef84-7db1-7cc5-8a84-b16d64d03f06",
+     "sequence": 2
+    }
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef84-8da7-76e3-85f3-181456ecdec3",
+     "result_id": "01a0ef85-2239-7328-81d3-6dec04856db8"
+    }
+   ],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c1-pause-resume",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C2_cancel_running": {
+  "replayed": true,
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef85-4056-73c6-9803-5602da9a1cb5",
+     "attempt_id": "01a0ef85-4056-73c6-9803-5602da9a1cb4",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef85-4056-73c6-9803-5602da9a1cb4",
+     "attempt_number": 1,
+     "failure_class": "USER_CANCEL",
+     "failure_reason": "USER_CANCEL",
+     "job_fence": 1,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [],
+   "containers": [
+    {
+     "attempt_id": "01a0ef85-4056-73c6-9803-5602da9a1cb4",
+     "container_id": "f182b9a6d51b",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:34:42.310+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:34:42.460+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:34:43.895+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:34:43.989+00:00",
+     "event_type": "CANCEL_REQUESTED",
+     "reason": "USER_CANCEL",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:34:54.424+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 5
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef85-4056-73c6-9803-5602da9a1cb4",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 0,
+    "desired_state": "CANCELLED",
+    "event_sequence": 5,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "CANCELLED",
+    "terminal": true,
+    "version": 5
+   },
+   "job_id": "01a0ef85-3f85-7e38-9ed1-668f794a8377",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef85-4056-73c6-9803-5602da9a1cb4",
+     "expires_at": "2026-09-29T23:35:28.907+00:00",
+     "issued_at": "2026-09-29T23:34:42.460+00:00",
+     "revoked_at": "2026-09-29T23:34:43.989+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef85-4056-73c6-9803-5602da9a1cb4",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef85-4056-73c6-9803-5602da9a1cb6",
+     "revoke_reason": "USER_CANCEL",
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "1.86937500",
+    "count": 4
+   },
+   "reservations": [],
+   "restores": {
+    "01a0ef85-4056-73c6-9803-5602da9a1cb4": null
+   },
+   "results": [],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c2-cancel",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C3_worker_dead_past_lease": {
+  "checksum": "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+  "lease_expires_at": "2026-09-29T23:38:25.888+00:00",
+  "quarantined_charge": {
+   "after_3s": "9.82125000",
+   "before": "9.35281250"
+  },
+  "reaped": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b6",
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "quarantined": true,
+     "release_reason": null,
+     "state": "QUARANTINED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "LEASE_EXPIRED",
+     "job_fence": 1,
+     "state": "LOST",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "checkpoint_id": "01a0ef87-f634-7451-860f-5981d3325690",
+     "corrupt": null,
+     "sequence": 1
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "container_id": "1a90b7b31571",
+     "stopped": false,
+     "verified": false
+    }
+   ],
+   "coordinator_epoch": 1,
+   "events": [
+    {
+     "at": "2026-09-29T23:37:25.728+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:37:25.968+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:37:32.252+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:37:42.574+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:38:25.924+00:00",
+     "event_type": "ATTEMPT_LOST",
+     "reason": "LEASE_EXPIRED",
+     "sequence": 5
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "RUNNING",
+    "event_sequence": 5,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "RECOVERING",
+    "terminal": false,
+    "version": 5
+   },
+   "job_id": "01a0ef87-bddf-7efa-871e-2a94bfb16aed",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "expires_at": "2026-09-29T23:38:25.888+00:00",
+     "issued_at": "2026-09-29T23:37:25.968+00:00",
+     "revoked_at": "2026-09-29T23:38:25.924+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b7",
+     "revoke_reason": "LEASE_EXPIRED",
+     "revoked": true
+    }
+   ],
+   "reservations": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "sequence": 1,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef87-bf08-73f5-bcc0-853b936a08b5": null
+   },
+   "results": [],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c3-worker-dead",
+   "submit_idempotency_records": 1
+  },
+  "runner_finished_at": "2026-09-29T23:38:23.908+00:00",
+  "runner_finished_source": "container FinishedAt",
+  "runner_stop_margin_seconds": 1.98,
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b6",
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6598",
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "LEASE_EXPIRED",
+     "job_fence": 1,
+     "state": "LOST",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 3,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "checkpoint_id": "01a0ef87-f634-7451-860f-5981d3325690",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "checkpoint_id": "01a0ef89-037f-7b15-ac9a-0db55664d1ad",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "checkpoint_id": "01a0ef89-1f66-7063-a19e-46e7810b5b52",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "checkpoint_id": "01a0ef89-4398-7e97-9193-bb56be28617f",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "checkpoint_id": "01a0ef89-6907-7649-bd6a-b8e921c1d74a",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "container_id": "1a90b7b31571",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "container_id": "27b38e5ec4b0",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:37:25.728+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:37:25.968+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:37:32.252+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:37:42.574+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:38:25.924+00:00",
+     "event_type": "ATTEMPT_LOST",
+     "reason": "LEASE_EXPIRED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:38:29.991+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:38:31.932+00:00",
+     "event_type": "RETRY_READY",
+     "reason": "BACKOFF_ELAPSED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:38:40.235+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:38:40.917+00:00",
+     "event_type": "CHECKPOINT_RESTORE_SELECTED",
+     "reason": "CHECKPOINT_RESTORED",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:38:41.451+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:38:51.044+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:38:58.346+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 12
+    },
+    {
+     "at": "2026-09-29T23:39:07.811+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 13
+    },
+    {
+     "at": "2026-09-29T23:39:16.964+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 14
+    },
+    {
+     "at": "2026-09-29T23:39:19.135+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 15
+    },
+    {
+     "at": "2026-09-29T23:39:24.695+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 16
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "ended": true,
+     "job_fence": 3,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0ef87-bddf-7efa-871e-2a94bfb16aed",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "expires_at": "2026-09-29T23:38:25.888+00:00",
+     "issued_at": "2026-09-29T23:37:25.968+00:00",
+     "revoked_at": "2026-09-29T23:38:25.924+00:00"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "expires_at": "2026-09-29T23:40:03.038+00:00",
+     "issued_at": "2026-09-29T23:38:40.235+00:00",
+     "revoked_at": "2026-09-29T23:39:24.695+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b7",
+     "revoke_reason": "LEASE_EXPIRED",
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 3,
+     "lease_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6599",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "16.95046875",
+    "count": 15
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef87-bf08-73f5-bcc0-853b936a08b5",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef87-bf08-73f5-bcc0-853b936a08b5": null,
+    "01a0ef88-e118-756c-a3b4-dcbe81bd6597": {
+     "checkpoint_id": "01a0ef87-f634-7451-860f-5981d3325690",
+     "sequence": 1
+    }
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef88-e118-756c-a3b4-dcbe81bd6597",
+     "result_id": "01a0ef89-719e-7879-b98c-49f2871f656e"
+    }
+   ],
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_key": "b15-docker-c3-worker-dead",
+   "submit_idempotency_records": 1
+  },
+  "worker_dead_seconds_until_reaped": 102.1
+ },
+ "C4_pause_crash_after_checkpoint": {
+  "checksum": "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+  "crash_path": "workload SIGKILL after pause publish commit, worker frozen",
+  "paused": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef85-9464-793b-adad-81be13a9cf53",
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": "PAUSE",
+     "job_fence": 1,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "checkpoint_id": "01a0ef85-b616-7708-8243-cea0886431db",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "checkpoint_id": "01a0ef85-db98-7efa-8fb3-4c12e518a799",
+     "corrupt": null,
+     "sequence": 2
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "container_id": "845a5299323c",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "events": [
+    {
+     "at": "2026-09-29T23:34:54.644+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:35:03.980+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:35:04.951+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:35:15.016+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:35:15.080+00:00",
+     "event_type": "PAUSE_REQUESTED",
+     "reason": "USER_PAUSE",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:35:24.245+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:35:24.823+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 7
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "PAUSED",
+    "event_sequence": 7,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "PAUSED",
+    "terminal": false,
+    "version": 7
+   },
+   "job_id": "01a0ef85-6fb3-744e-882d-c5a944e987c9",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "expires_at": "2026-09-29T23:36:04.902+00:00",
+     "issued_at": "2026-09-29T23:35:03.980+00:00",
+     "revoked_at": "2026-09-29T23:35:24.823+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef85-9464-793b-adad-81be13a9cf54",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "reservations": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "sequence": 2,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef85-9464-793b-adad-81be13a9cf52": null
+   },
+   "results": [],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c4-pause-crash-after",
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef85-9464-793b-adad-81be13a9cf53",
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b4",
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": "PAUSE",
+     "job_fence": 1,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 2,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "checkpoint_id": "01a0ef85-b616-7708-8243-cea0886431db",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "checkpoint_id": "01a0ef85-db98-7efa-8fb3-4c12e518a799",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "checkpoint_id": "01a0ef86-03eb-78e5-b066-8b7852e275c8",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "checkpoint_id": "01a0ef86-2149-708c-b234-30ef46b53b82",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "checkpoint_id": "01a0ef86-4703-7061-acb7-45f918a679d0",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "container_id": "845a5299323c",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "container_id": "297a74182ff9",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:34:54.644+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:35:03.980+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:35:04.951+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:35:15.016+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:35:15.080+00:00",
+     "event_type": "PAUSE_REQUESTED",
+     "reason": "USER_PAUSE",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:35:24.245+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:35:24.823+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:35:24.993+00:00",
+     "event_type": "JOB_RESUMED",
+     "reason": "USER_RESUME",
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:35:25.238+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:35:25.819+00:00",
+     "event_type": "CHECKPOINT_RESTORE_SELECTED",
+     "reason": "CHECKPOINT_RESTORED",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:35:26.452+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:35:34.681+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 12
+    },
+    {
+     "at": "2026-09-29T23:35:42.489+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 13
+    },
+    {
+     "at": "2026-09-29T23:35:51.882+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 14
+    },
+    {
+     "at": "2026-09-29T23:35:54.464+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 15
+    },
+    {
+     "at": "2026-09-29T23:36:00.060+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 16
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "ended": true,
+     "job_fence": 2,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0ef85-6fb3-744e-882d-c5a944e987c9",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "expires_at": "2026-09-29T23:36:04.902+00:00",
+     "issued_at": "2026-09-29T23:35:03.980+00:00",
+     "revoked_at": "2026-09-29T23:35:24.823+00:00"
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "expires_at": "2026-09-29T23:36:37.890+00:00",
+     "issued_at": "2026-09-29T23:35:25.238+00:00",
+     "revoked_at": "2026-09-29T23:36:00.060+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef85-9464-793b-adad-81be13a9cf54",
+     "revoke_reason": null,
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 2,
+     "lease_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b5",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "8.69765625",
+    "count": 13
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef85-9464-793b-adad-81be13a9cf52",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef85-9464-793b-adad-81be13a9cf52": null,
+    "01a0ef85-e855-7b6f-9e23-a269bd6d50b3": {
+     "checkpoint_id": "01a0ef85-db98-7efa-8fb3-4c12e518a799",
+     "sequence": 2
+    }
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef85-e855-7b6f-9e23-a269bd6d50b3",
+     "result_id": "01a0ef86-5406-7d49-849f-d87a6674e8cd"
+    }
+   ],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c4-pause-crash-after",
+   "submit_idempotency_records": 1
+  },
+  "workload_exit_code": 137,
+  "workload_finished_at": "2026-09-29 23:35:24.325013+00:00"
+ },
+ "C5a_pause_crash_before_checkpoint_restart_safe": {
+  "paused": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d13",
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef86-8294-7889-a1de-b7f7abb56c69",
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "CHECKPOINT_FOR_PAUSE"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "RUNNER_UNAVAILABLE",
+     "job_fence": 1,
+     "state": "FAILED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": "PAUSE",
+     "job_fence": 3,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "checkpoint_id": "01a0ef86-9e6f-7ec4-b005-0dfddf95bdaa",
+     "corrupt": null,
+     "sequence": 1
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "container_id": "10e0cbc9f738",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "container_id": "a8cd7c79d62b",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "events": [
+    {
+     "at": "2026-09-29T23:36:00.268+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:36:00.416+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:36:01.235+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:36:01.681+00:00",
+     "event_type": "PAUSE_REQUESTED",
+     "reason": "USER_PAUSE",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:36:01.892+00:00",
+     "event_type": "ATTEMPT_FAILED",
+     "reason": "RUNNER_UNAVAILABLE",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:36:02.072+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:36:04.843+00:00",
+     "event_type": "RETRY_READY",
+     "reason": "BACKOFF_ELAPSED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:36:04.960+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:36:10.800+00:00",
+     "event_type": "CHECKPOINT_FALLBACK_TO_INPUT",
+     "reason": "CHECKPOINT_FALLBACK_TO_INPUT",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:36:11.271+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:36:14.489+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:36:18.628+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 12
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "ended": true,
+     "job_fence": 3,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "PAUSED",
+    "event_sequence": 12,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "PAUSED",
+    "terminal": false,
+    "version": 11
+   },
+   "job_id": "01a0ef86-700c-70c7-a828-1f73a640b19d",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "expires_at": "2026-09-29T23:36:46.249+00:00",
+     "issued_at": "2026-09-29T23:36:00.416+00:00",
+     "revoked_at": "2026-09-29T23:36:01.892+00:00"
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "expires_at": "2026-09-29T23:36:58.213+00:00",
+     "issued_at": "2026-09-29T23:36:04.960+00:00",
+     "revoked_at": "2026-09-29T23:36:18.628+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d14",
+     "revoke_reason": null,
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 3,
+     "lease_id": "01a0ef86-8294-7889-a1de-b7f7abb56c6a",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "reservations": [
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "sequence": 1,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef86-70d8-783b-8e19-4934ef1b3d12": null,
+    "01a0ef86-8294-7889-a1de-b7f7abb56c68": null
+   },
+   "results": [],
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_key": "b15-docker-c5a-pause-crash-before",
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d13",
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef86-8294-7889-a1de-b7f7abb56c69",
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "CHECKPOINT_FOR_PAUSE"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "RUNNER_UNAVAILABLE",
+     "job_fence": 1,
+     "state": "FAILED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": "PAUSE",
+     "job_fence": 3,
+     "state": "CANCELLED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "checkpoint_id": "01a0ef86-9e6f-7ec4-b005-0dfddf95bdaa",
+     "corrupt": null,
+     "sequence": 1
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "container_id": "10e0cbc9f738",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "container_id": "a8cd7c79d62b",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:36:00.268+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:36:00.416+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:36:01.235+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:36:01.681+00:00",
+     "event_type": "PAUSE_REQUESTED",
+     "reason": "USER_PAUSE",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:36:01.892+00:00",
+     "event_type": "ATTEMPT_FAILED",
+     "reason": "RUNNER_UNAVAILABLE",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:36:02.072+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:36:04.843+00:00",
+     "event_type": "RETRY_READY",
+     "reason": "BACKOFF_ELAPSED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:36:04.960+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:36:10.800+00:00",
+     "event_type": "CHECKPOINT_FALLBACK_TO_INPUT",
+     "reason": "CHECKPOINT_FALLBACK_TO_INPUT",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:36:11.271+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:36:14.489+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:36:18.628+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 12
+    },
+    {
+     "at": "2026-09-29T23:36:18.828+00:00",
+     "event_type": "JOB_CANCELLED",
+     "reason": "USER_CANCEL",
+     "sequence": 13
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "ended": true,
+     "job_fence": 3,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "CANCELLED",
+    "event_sequence": 13,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "CANCELLED",
+    "terminal": true,
+    "version": 12
+   },
+   "job_id": "01a0ef86-700c-70c7-a828-1f73a640b19d",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "expires_at": "2026-09-29T23:36:46.249+00:00",
+     "issued_at": "2026-09-29T23:36:00.416+00:00",
+     "revoked_at": "2026-09-29T23:36:01.892+00:00"
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "expires_at": "2026-09-29T23:36:58.213+00:00",
+     "issued_at": "2026-09-29T23:36:04.960+00:00",
+     "revoked_at": "2026-09-29T23:36:18.628+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d12",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef86-70d8-783b-8e19-4934ef1b3d14",
+     "revoke_reason": null,
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 3,
+     "lease_id": "01a0ef86-8294-7889-a1de-b7f7abb56c6a",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "2.39437500",
+    "count": 5
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef86-8294-7889-a1de-b7f7abb56c68",
+     "sequence": 1,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef86-70d8-783b-8e19-4934ef1b3d12": null,
+    "01a0ef86-8294-7889-a1de-b7f7abb56c68": null
+   },
+   "results": [],
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_key": "b15-docker-c5a-pause-crash-before",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C6_drain_disable_enable": {
+  "checksums": [
+   "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+   "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d"
+  ],
+  "enable_attempts": 2,
+  "fenced": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2d",
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "quarantined": true,
+     "release_reason": null,
+     "state": "QUARANTINED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "WORKER_DISABLED",
+     "job_fence": 1,
+     "state": "STOPPING",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "checkpoint_id": "01a0ef8b-771b-7808-a6c5-c0e0498843ec",
+     "corrupt": null,
+     "sequence": 1
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "container_id": "ec621c2faf05",
+     "stopped": false,
+     "verified": false
+    }
+   ],
+   "coordinator_epoch": 1,
+   "events": [
+    {
+     "at": "2026-09-29T23:41:20.597+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:41:20.840+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:41:21.970+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:41:31.684+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:41:38.846+00:00",
+     "event_type": "ATTEMPT_FENCED",
+     "reason": "WORKER_DISABLED",
+     "sequence": 5
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 1,
+    "desired_state": "RUNNING",
+    "event_sequence": 5,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "RECOVERING",
+    "terminal": false,
+    "version": 5
+   },
+   "job_id": "01a0ef8b-5355-70f8-b729-9d820a49b447",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "expires_at": "2026-09-29T23:42:19.335+00:00",
+     "issued_at": "2026-09-29T23:41:20.840+00:00",
+     "revoked_at": "2026-09-29T23:41:38.846+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 1,
+     "lease_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2e",
+     "revoke_reason": "WORKER_DISABLED",
+     "revoked": true
+    }
+   ],
+   "reservations": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "sequence": 1,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef8b-547e-7fe3-85ec-d10f337adc2c": null
+   },
+   "results": [],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c6-running",
+   "submit_idempotency_records": 1
+  },
+  "queued_timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef8b-e513-714f-a102-25d269decb6f",
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 1,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "checkpoint_id": "01a0ef8c-055f-7245-9c05-267570374a05",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "checkpoint_id": "01a0ef8c-2c39-7fed-a17f-8b6ca2c68acb",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "checkpoint_id": "01a0ef8c-4bd3-7016-8562-7f655b31962e",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "checkpoint_id": "01a0ef8c-714b-7261-875f-41efbe613129",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "checkpoint_id": "01a0ef8c-8eeb-7a59-a75c-bb1c6cd0bcf3",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "container_id": "61e2ded59c69",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:41:31.769+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:41:57.859+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:41:58.507+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:42:08.442+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:42:18.281+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:42:26.547+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:42:35.983+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:42:43.165+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:42:45.024+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:42:50.738+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 10
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 10,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 10
+   },
+   "job_id": "01a0ef8b-7ef8-7abc-b4c5-e3ad4bd27710",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "expires_at": "2026-09-29T23:43:27.106+00:00",
+     "issued_at": "2026-09-29T23:41:57.859+00:00",
+     "revoked_at": "2026-09-29T23:42:50.738+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 1,
+     "lease_id": "01a0ef8b-e513-714f-a102-25d269decb70",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "8.26234375",
+    "count": 11
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef8b-e513-714f-a102-25d269decb6e": null
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef8b-e513-714f-a102-25d269decb6e",
+     "result_id": "01a0ef8c-97ad-70ba-ac61-342e4be34924"
+    }
+   ],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c6-queued",
+   "submit_idempotency_records": 1
+  },
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2d",
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c353",
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "WORKER_DISABLED",
+     "job_fence": 1,
+     "state": "FAILED",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 3,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "checkpoint_id": "01a0ef8b-771b-7808-a6c5-c0e0498843ec",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "checkpoint_id": "01a0ef8c-d95b-7e6e-8f5b-a5c06127b9b8",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "checkpoint_id": "01a0ef8c-ff07-7071-b8c6-7005143b4188",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "checkpoint_id": "01a0ef8d-1cc1-7697-a6c2-808a30908c24",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "checkpoint_id": "01a0ef8d-43c5-794d-b5cd-0ff7ef0ced53",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "container_id": "ec621c2faf05",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "container_id": "4fdaa9b439bd",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:41:20.597+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:41:20.840+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:41:21.970+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:41:31.684+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:41:38.846+00:00",
+     "event_type": "ATTEMPT_FENCED",
+     "reason": "WORKER_DISABLED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:41:46.393+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:41:49.050+00:00",
+     "event_type": "RETRY_READY",
+     "reason": "BACKOFF_ELAPSED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:42:51.022+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:42:52.040+00:00",
+     "event_type": "CHECKPOINT_RESTORE_SELECTED",
+     "reason": "CHECKPOINT_RESTORED",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:42:52.540+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:43:02.829+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:43:12.136+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 12
+    },
+    {
+     "at": "2026-09-29T23:43:20.057+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 13
+    },
+    {
+     "at": "2026-09-29T23:43:29.511+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 14
+    },
+    {
+     "at": "2026-09-29T23:43:31.553+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 15
+    },
+    {
+     "at": "2026-09-29T23:43:37.275+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 16
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "ended": true,
+     "job_fence": 3,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0ef8b-5355-70f8-b729-9d820a49b447",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "expires_at": "2026-09-29T23:42:19.335+00:00",
+     "issued_at": "2026-09-29T23:41:20.840+00:00",
+     "revoked_at": "2026-09-29T23:41:38.846+00:00"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "expires_at": "2026-09-29T23:44:15.990+00:00",
+     "issued_at": "2026-09-29T23:42:51.022+00:00",
+     "revoked_at": "2026-09-29T23:43:37.275+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 1,
+     "lease_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2e",
+     "revoke_reason": "WORKER_DISABLED",
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 3,
+     "lease_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c354",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "11.21968750",
+    "count": 16
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef8b-547e-7fe3-85ec-d10f337adc2c",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef8b-547e-7fe3-85ec-d10f337adc2c": null,
+    "01a0ef8c-b4c3-7708-8928-ca08fa37c352": {
+     "checkpoint_id": "01a0ef8b-771b-7808-a6c5-c0e0498843ec",
+     "sequence": 1
+    }
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef8c-b4c3-7708-8928-ca08fa37c352",
+     "result_id": "01a0ef8d-4cdb-76b8-bae0-31aecc173003"
+    }
+   ],
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_key": "b15-docker-c6-running",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C7a_manual_retry_with_checkpoint": {
+  "checkpoint": {
+   "checkpoint_id": "01a0ef87-21b1-7d9c-b431-651252187d28",
+   "sequence": 3
+  },
+  "checksum": "sha256:b9900f4d0868d82d1c2ea32c7a720cbf83444815a1f8f12dff4f006cb4233abc",
+  "source_job_id": "01a0ef86-b8de-71f8-9423-3ee7a9a9d2c6",
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef87-528c-77bb-b13f-8449dc0c1635",
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "attempt_number": 1,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 1,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "checkpoint_id": "01a0ef87-75ec-7a4d-83ef-d4fb732bec24",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "checkpoint_id": "01a0ef87-9438-71f5-a775-9cb2492dabc1",
+     "corrupt": null,
+     "sequence": 2
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "container_id": "3c801e3326ef",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:36:57.932+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "MANUAL_RETRY",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:36:58.198+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:36:59.062+00:00",
+     "event_type": "CHECKPOINT_RESTORE_SELECTED",
+     "reason": "CHECKPOINT_RESTORED",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:36:59.601+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:37:09.306+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:37:17.360+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:37:19.784+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:37:25.451+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 8
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 2,
+    "desired_state": "RUNNING",
+    "event_sequence": 8,
+    "job_fence": 1,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": "01a0ef86-b8de-71f8-9423-3ee7a9a9d2c6",
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 7
+   },
+   "job_id": "01a0ef87-514c-7978-abb2-5dfd130184a3",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "expires_at": "2026-09-29T23:38:00.812+00:00",
+     "issued_at": "2026-09-29T23:36:58.198+00:00",
+     "revoked_at": "2026-09-29T23:37:25.451+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef87-528c-77bb-b13f-8449dc0c1636",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "4.25828125",
+    "count": 6
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "sequence": 2,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef87-528c-77bb-b13f-8449dc0c1634": {
+     "checkpoint_id": "01a0ef87-21b1-7d9c-b431-651252187d28",
+     "sequence": 3
+    }
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef87-528c-77bb-b13f-8449dc0c1634",
+     "result_id": "01a0ef87-a11d-7e5a-ae80-256c176ffa52"
+    }
+   ],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c7a-retry",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C8_timeout": {
+  "derived_from_C0": {
+   "checkpoint_gap_seconds": 9.6,
+   "compute_seconds": 44.305
+  },
+  "runtime_limit_seconds": 36,
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef86-ba16-72f4-9094-9197fb47fc60",
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "attempt_number": 1,
+     "failure_class": "TIMEOUT",
+     "failure_reason": "RUNTIME_LIMIT_REACHED",
+     "job_fence": 1,
+     "state": "FAILED",
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "checkpoint_id": "01a0ef86-ddad-7a4c-ae9f-6caa59e956a3",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "checkpoint_id": "01a0ef87-03af-7639-82be-ef5a11d6143c",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "checkpoint_id": "01a0ef87-21b1-7d9c-b431-651252187d28",
+     "corrupt": null,
+     "sequence": 3
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "container_id": "927e3d86d0c6",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:36:18.910+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:36:19.173+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:36:20.356+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:36:30.587+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:36:40.171+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:36:48.168+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:36:57.606+00:00",
+     "event_type": "ATTEMPT_FAILED",
+     "reason": "RUNTIME_LIMIT_REACHED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:36:57.803+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 8
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 4,
+    "desired_state": "RUNNING",
+    "event_sequence": 8,
+    "job_fence": 2,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 0,
+    "retry_of_job_id": null,
+    "state": "FAILED",
+    "terminal": true,
+    "version": 8
+   },
+   "job_id": "01a0ef86-b8de-71f8-9423-3ee7a9a9d2c6",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "expires_at": "2026-09-29T23:37:38.762+00:00",
+     "issued_at": "2026-09-29T23:36:19.173+00:00",
+     "revoked_at": "2026-09-29T23:36:57.606+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "current_worker_incarnation_id": "01a0ef83-6675-7786-9224-14fcd0407a14",
+     "job_fence": 1,
+     "lease_id": "01a0ef86-ba16-72f4-9094-9197fb47fc61",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "6.03593750",
+    "count": 9
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef86-ba16-72f4-9094-9197fb47fc5f",
+     "sequence": 4,
+     "state": "ABANDONED"
+    }
+   ],
+   "restores": {
+    "01a0ef86-ba16-72f4-9094-9197fb47fc5f": null
+   },
+   "results": [],
+   "retries": [],
+   "submit_idempotency_key": "b15-docker-c8-timeout",
+   "submit_idempotency_records": 1
+  }
+ },
+ "C9_network_loss": {
+  "checksum": "sha256:ad2694cef9e001b61e20321a04f40f8227dbeed13238efc8277ca5fac18f7d4d",
+  "compute_gap_seconds": 14.661,
+  "new_runner_started_at": "2026-09-29T23:40:37.767+00:00",
+  "old_lease_expires_at": "2026-09-29T23:40:25.082+00:00",
+  "old_runner_finished_at": "2026-09-29T23:40:23.106+00:00",
+  "old_runner_finished_source": "container FinishedAt",
+  "reaped_fence": 2,
+  "runner_stop_margin_seconds": 1.976,
+  "same_worker_incarnation": true,
+  "timeline": {
+   "allocations": [
+    {
+     "allocation_id": "01a0ef89-9040-7816-bd8f-b6455daef1a9",
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "quarantined": true,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    },
+    {
+     "allocation_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c97",
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "quarantined": false,
+     "release_reason": "VERIFIED_CLEANUP",
+     "state": "RELEASED"
+    }
+   ],
+   "attempt_intents": [
+    {
+     "attempt_number": 1,
+     "execution_intent": "RUN"
+    },
+    {
+     "attempt_number": 2,
+     "execution_intent": "RUN"
+    }
+   ],
+   "attempts": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "attempt_number": 1,
+     "failure_class": "INFRASTRUCTURE",
+     "failure_reason": "LEASE_EXPIRED",
+     "job_fence": 1,
+     "state": "LOST",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "attempt_number": 2,
+     "failure_class": null,
+     "failure_reason": null,
+     "job_fence": 3,
+     "state": "SUCCEEDED",
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "checkpoints": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "checkpoint_id": "01a0ef89-c7de-7114-a5b2-d76ac18b89e6",
+     "corrupt": null,
+     "sequence": 1
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "checkpoint_id": "01a0ef8a-cace-7227-b77e-fdce4ff4f9e7",
+     "corrupt": null,
+     "sequence": 2
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "checkpoint_id": "01a0ef8a-e84f-710a-b8ca-66704170e20b",
+     "corrupt": null,
+     "sequence": 3
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "checkpoint_id": "01a0ef8b-0ed4-72ad-a6d6-db918fdef823",
+     "corrupt": null,
+     "sequence": 4
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "checkpoint_id": "01a0ef8b-2cb4-7764-ae34-a79c870c94d8",
+     "corrupt": null,
+     "sequence": 5
+    }
+   ],
+   "containers": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "container_id": "f5d6ba81ff67",
+     "stopped": true,
+     "verified": true
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "container_id": "e76e4252f61a",
+     "stopped": true,
+     "verified": true
+    }
+   ],
+   "coordinator_epoch": 1,
+   "counters": [
+    0,
+    0
+   ],
+   "events": [
+    {
+     "at": "2026-09-29T23:39:24.807+00:00",
+     "event_type": "JOB_ACCEPTED",
+     "reason": "Job accepted",
+     "sequence": 1
+    },
+    {
+     "at": "2026-09-29T23:39:25.063+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 2
+    },
+    {
+     "at": "2026-09-29T23:39:31.427+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 3
+    },
+    {
+     "at": "2026-09-29T23:39:41.758+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 4
+    },
+    {
+     "at": "2026-09-29T23:40:25.998+00:00",
+     "event_type": "ATTEMPT_LOST",
+     "reason": "LEASE_EXPIRED",
+     "sequence": 5
+    },
+    {
+     "at": "2026-09-29T23:40:27.324+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 6
+    },
+    {
+     "at": "2026-09-29T23:40:29.003+00:00",
+     "event_type": "RETRY_READY",
+     "reason": "BACKOFF_ELAPSED",
+     "sequence": 7
+    },
+    {
+     "at": "2026-09-29T23:40:36.336+00:00",
+     "event_type": "JOB_DISPATCHING",
+     "reason": null,
+     "sequence": 8
+    },
+    {
+     "at": "2026-09-29T23:40:37.398+00:00",
+     "event_type": "CHECKPOINT_RESTORE_SELECTED",
+     "reason": "CHECKPOINT_RESTORED",
+     "sequence": 9
+    },
+    {
+     "at": "2026-09-29T23:40:37.942+00:00",
+     "event_type": "ATTEMPT_STARTED",
+     "reason": "attempt_started",
+     "sequence": 10
+    },
+    {
+     "at": "2026-09-29T23:40:47.755+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 11
+    },
+    {
+     "at": "2026-09-29T23:40:55.603+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 12
+    },
+    {
+     "at": "2026-09-29T23:41:04.913+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 13
+    },
+    {
+     "at": "2026-09-29T23:41:12.953+00:00",
+     "event_type": "CHECKPOINT_COMMITTED",
+     "reason": "CHECKPOINT_COMMITTED",
+     "sequence": 14
+    },
+    {
+     "at": "2026-09-29T23:41:14.838+00:00",
+     "event_type": "RESULT_RECOGNIZED",
+     "reason": "result_recognized",
+     "sequence": 15
+    },
+    {
+     "at": "2026-09-29T23:41:20.457+00:00",
+     "event_type": "ALLOCATION_RELEASED",
+     "reason": "VERIFIED_CLEANUP",
+     "sequence": 16
+    }
+   ],
+   "grants": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "ended": true,
+     "job_fence": 1,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "ended": true,
+     "job_fence": 3,
+     "worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04"
+    }
+   ],
+   "job": {
+    "checkpoint_sequence": 5,
+    "desired_state": "RUNNING",
+    "event_sequence": 16,
+    "job_fence": 3,
+    "max_retries": 2,
+    "recovery_intent": null,
+    "retry_count": 1,
+    "retry_of_job_id": null,
+    "state": "SUCCEEDED",
+    "terminal": true,
+    "version": 15
+   },
+   "job_id": "01a0ef89-8f06-7279-a0ac-4edb22aaaae5",
+   "lease_times": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "expires_at": "2026-09-29T23:40:25.082+00:00",
+     "issued_at": "2026-09-29T23:39:25.063+00:00",
+     "revoked_at": "2026-09-29T23:40:25.998+00:00"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "expires_at": "2026-09-29T23:41:56.436+00:00",
+     "issued_at": "2026-09-29T23:40:36.336+00:00",
+     "revoked_at": "2026-09-29T23:41:20.457+00:00"
+    }
+   ],
+   "leases": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 1,
+     "lease_id": "01a0ef89-9040-7816-bd8f-b6455daef1aa",
+     "revoke_reason": "LEASE_EXPIRED",
+     "revoked": true
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "current_worker_incarnation_id": "01a0ef88-b7e3-7759-a36d-1e0fbbc44c04",
+     "job_fence": 3,
+     "lease_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c98",
+     "revoke_reason": null,
+     "revoked": true
+    }
+   ],
+   "ledger_segments": {
+    "charged": "16.62218750",
+    "count": 14
+   },
+   "reservations": [
+    {
+     "attempt_id": "01a0ef89-9040-7816-bd8f-b6455daef1a8",
+     "sequence": 1,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "sequence": 2,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "sequence": 3,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "sequence": 4,
+     "state": "COMMITTED"
+    },
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "sequence": 5,
+     "state": "COMMITTED"
+    }
+   ],
+   "restores": {
+    "01a0ef89-9040-7816-bd8f-b6455daef1a8": null,
+    "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96": {
+     "checkpoint_id": "01a0ef89-c7de-7114-a5b2-d76ac18b89e6",
+     "sequence": 1
+    }
+   },
+   "results": [
+    {
+     "attempt_id": "01a0ef8a-a6a5-72f2-a0d3-061804ce1c96",
+     "result_id": "01a0ef8b-36b3-792b-a48e-72995c516528"
+    }
+   ],
+   "retries": [
+    {
+     "closed": true,
+     "reason": "INFRASTRUCTURE",
+     "retry_number": 1
+    }
+   ],
+   "submit_idempotency_key": "b15-docker-c9-network-loss",
+   "submit_idempotency_records": 1
+  }
+ },
+ "accepted_jobs": {
+  "count": 13,
+  "states": [
+   "CANCELLED",
+   "CANCELLED",
+   "FAILED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED",
+   "SUCCEEDED"
+  ]
+ },
+ "architecture": "linux/amd64",
+ "checkpoint_interval_seconds": 5,
+ "epochs": [
+  1,
+  2
+ ],
+ "failed_scenario": null,
+ "fairness_scores": [
+  "7.99781250",
+  "17.87328125",
+  "19.74265625",
+  "28.44031250",
+  "30.83468750",
+  "36.87062500",
+  "41.12890625",
+  "58.07937500",
+  "74.70156250",
+  "94.18359375",
+  "110.60109375"
+ ],
+ "image": "nexa/rem-cpu-iterative@sha256:8ecfe240000348e492fbda2774acd78f214416a228bf7399632db686e179645e",
+ "iterations": 250000000,
+ "not_run": {
+  "C8_log_flood": "the cpu-iterative fixture has no log-volume mode",
+  "C8_oom": "the cpu-iterative fixture has no memory-exhaustion mode"
+ },
+ "worker_image": "nexa/rem-worker:r2-amd64"
+}

@@ -10,6 +10,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 
 class ArtifactError(Exception):
@@ -123,6 +124,12 @@ class BoundedReader:
 
 _CHECKSUM_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _BLOB_KEY_PATTERN = re.compile(r"^(?:blobs|staging)/[0-9a-f]{32}$")
+# B14-OBS-01: the root names the store the deployment bound; see ``_missing``.
+_IDENTITY_NAME = "store-identity"
+_IDENTITY_PATTERN = re.compile(
+    rb"^nexa-artifact-store v1 ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\n$"
+)
+_IDENTITY_MAX_BYTES = 128
 
 
 class FilesystemArtifactStore:
@@ -181,6 +188,7 @@ class FilesystemArtifactStore:
             )
         self._active: dict[str, _StagingState] = {}
         self._gc_tokens: dict[str, GcToken] = {}
+        self._identity: UUID | None = None
 
     @staticmethod
     def _validate_checksum(checksum: str) -> None:
@@ -204,7 +212,10 @@ class FilesystemArtifactStore:
             if path.parent.resolve(strict=True) != parent.resolve(strict=True):
                 raise ArtifactError("invalid_blob_key", "Artifact blob key is invalid")
         except OSError as exc:
-            raise ArtifactError("invalid_blob_key", "Artifact blob key is invalid") from exc
+            # The key is well formed; only the storage directory can be at fault.
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage directory is unavailable"
+            ) from exc
         return path
 
     @staticmethod
@@ -364,6 +375,113 @@ class FilesystemArtifactStore:
             # A failed cleanup remains an expiring orphan for reconciliation.
             return
 
+    def read_identity(self) -> UUID | None:
+        """The store identity recorded at the root, or None when the root records none."""
+        try:
+            fd = os.open(self.root / _IDENTITY_NAME, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage identity cannot be read"
+            ) from exc
+        try:
+            if not stat_module.S_ISREG(os.fstat(fd).st_mode):
+                raise ArtifactError("storage_unavailable", "Artifact storage identity is invalid")
+            raw = os.read(fd, _IDENTITY_MAX_BYTES + 1)
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage identity cannot be read"
+            ) from exc
+        finally:
+            os.close(fd)
+        match = _IDENTITY_PATTERN.fullmatch(raw)
+        if match is None:
+            raise ArtifactError("storage_unavailable", "Artifact storage identity is invalid")
+        return UUID(match.group(1).decode())
+
+    def create_identity(self, store_id: UUID) -> UUID:
+        """Record `store_id` at the root unless an identity exists; return the recorded one."""
+        marker = self.root / _IDENTITY_NAME
+        temporary = self.root / f".{_IDENTITY_NAME}-{secrets.token_hex(16)}"
+        try:
+            fd = os.open(
+                temporary,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+            )
+            try:
+                os.write(fd, f"nexa-artifact-store v1 {store_id}\n".encode())
+                self._fsync(fd)
+            finally:
+                os.close(fd)
+            # A hard link never replaces an identity another process recorded first.
+            with suppress(FileExistsError):
+                os.link(temporary, marker, follow_symlinks=False)
+            temporary.unlink()
+            directory_fd = os.open(self.root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                self._fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage identity cannot be recorded"
+            ) from exc
+        finally:
+            with suppress(OSError):
+                temporary.unlink()
+        recorded = self.read_identity()
+        if recorded is None:
+            raise ArtifactError("storage_unavailable", "Artifact storage identity was not recorded")
+        return recorded
+
+    def bind_identity(self, store_id: UUID) -> None:
+        """Bind the identity the deployment recorded; only then can a blob be missing."""
+        self._identity = store_id
+
+    def has_committed_blobs(self) -> bool:
+        try:
+            with os.scandir(self._committed_root) as entries:
+                return any(True for _ in entries)
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact committed directory cannot be listed"
+            ) from exc
+
+    def _verify_bound(self) -> None:
+        """Raise unless the root records the bound identity above a real ``committed``."""
+        unverified = ArtifactError(
+            "storage_unavailable", "Artifact storage identity is not verified"
+        )
+        if self._identity is None or self.read_identity() != self._identity:
+            raise unverified
+        try:
+            committed = os.lstat(self._committed_root)
+        except OSError as exc:
+            raise unverified from exc
+        if stat_module.S_ISLNK(committed.st_mode) or not stat_module.S_ISDIR(committed.st_mode):
+            raise unverified
+
+    def _unverified_absence(self, path: Path) -> ArtifactError | None:
+        """None if the bound store is intact and `path` is absent; else the outage to raise.
+
+        A missing root or ``committed`` directory, a re-created tree, another store's
+        volume or an unreadable identity makes an absent file no evidence about the blob:
+        callers must treat it as a temporary outage, never as a lost blob (B14-OBS-01).
+        """
+        try:
+            self._verify_bound()
+            os.lstat(path)
+        except FileNotFoundError:
+            return None
+        except ArtifactError as exc:
+            return exc
+        except OSError:
+            return ArtifactError("storage_unavailable", "Artifact blob cannot be inspected")
+        # The blob reappeared between the two observations; report the race as transient.
+        return ArtifactError("storage_unavailable", "Artifact blob changed during inspection")
+
     def _open_regular(self, path: Path) -> object:
         try:
             fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
@@ -381,7 +499,13 @@ class FilesystemArtifactStore:
         if not blob_key.startswith("blobs/"):
             raise ArtifactError("invalid_blob_key", "Artifact blob key is invalid")
         path = self._path_for_key(blob_key)
-        stat = self._regular_file(path)
+        try:
+            stat = self._regular_file(path)
+        except ArtifactError as exc:
+            unverified = self._unverified_absence(path) if exc.code == "not_found" else None
+            if unverified is None:
+                raise
+            raise unverified from exc
         start = 0
         length = stat.st_size
         if byte_range is not None:
@@ -407,7 +531,13 @@ class FilesystemArtifactStore:
         if not blob_key.startswith("blobs/"):
             raise ArtifactError("invalid_blob_key", "Artifact blob key is invalid")
         path = self._path_for_key(blob_key)
-        self._regular_file(path)
+        try:
+            self._regular_file(path)
+        except ArtifactError as exc:
+            unverified = self._unverified_absence(path) if exc.code == "not_found" else None
+            if unverified is None:
+                raise
+            raise unverified from exc
         file = self._open_regular(path)
         digest = hashlib.sha256()
         size = 0
@@ -471,6 +601,9 @@ class FilesystemArtifactStore:
                 os.close(directory_fd)
             with suppress(OSError):
                 probe.unlink()
+        # A worker is not READY on a store it cannot verify (B14-OBS-01), so nothing
+        # dispatches onto an empty or wrong volume.
+        self._verify_bound()
 
     def delete_unreferenced(self, blob_key: str, gc_token: GcToken) -> DeleteResult:
         issued = self._gc_tokens.get(gc_token._capability)

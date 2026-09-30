@@ -25,6 +25,8 @@ from nexa.infrastructure.persistence.schema import (
 )
 from nexa.infrastructure.persistence.transactions import run_transaction
 
+_CHUNK_MEDIA_TYPES = frozenset(media for media, _ in workload_adapters.CHUNK_MEDIA_TYPES.values())
+
 
 @dataclass(frozen=True)
 class WorkerUploadPrincipal:
@@ -282,6 +284,11 @@ class AttemptArtifactService(ArtifactService):
             files = checkpoint.get("files") or []
             if isinstance(files, list):
                 graph.extend(files)
+            # B16-R21: the recognized chunk files the Attempt carries forward are read, not
+            # recomputed; the claim pins their bytes but not their kind or media type.
+            recognized = context.get("recognized_chunks") or []
+            if isinstance(recognized, list):
+                graph.extend({**item, "kind": "RESULT_FILE"} for item in recognized)
             expected = next(
                 (item for item in graph if str(item.get("artifact_id")) == str(artifact_id)), None
             )
@@ -308,8 +315,13 @@ class AttemptArtifactService(ArtifactService):
                     status=404,
                     message="Execution artifact was not found",
                 )
+            chunk = "chunk_id" in expected
             for field in ("kind", "media_type", "size_bytes", "checksum"):
-                if expected.get(field) != row[field]:
+                if chunk and field == "media_type":
+                    matches = row[field] in _CHUNK_MEDIA_TYPES
+                else:
+                    matches = expected.get(field) == row[field]
+                if not matches:
                     raise ApplicationError(
                         code="dependency_unavailable",
                         status=503,

@@ -134,6 +134,7 @@ did not independently run the destructive database or Docker fixtures.
 | R14 | Claim/replay leave Job version/event sequence unchanged; start performs the transition. |
 | R15 | First two retry continuation deadlines use `min(30, 2^(retry−1)) + jitter[0,1]` and commit with counters/state in HTTP/DB tests. The later B15 recovery loop is outside B11. |
 | R16 | Updated operation matrix, guarded PostgreSQL races, two-tenant real CPU vertical, independent download oracle, post-commit claim/completion response loss, worker restart both after and before cleanup, coordinator restart and Result/allocation/counter/ledger reconciliation above. Snapshot/dispatch and rejected late-start interleavings have targeted regressions; the latter is HTTP/PostgreSQL plus worker/Docker-backend test, not a Docker-container fault run. |
+| B11-H01 (audit B1–B16, không có hàng gốc) | Remediation B01–B16: xem mục `B11-H01` trong [B01-B16-findings-remediation.md](B01-B16-findings-remediation.md). |
 
 This is B11 implementation and local integration evidence, **not independent
 review approval**. Broader ACC-13/16/17/20/21/31 fault matrices and bare-Linux,

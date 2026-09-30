@@ -30,7 +30,13 @@ the command beyond the startup deadline. A failed send rolls the transition
 back. If a connected supervisor omits `STARTED`, the runner keeps the stream,
 sends `TERM 0`, waits for `EXIT` and only then emits `STOPPED`. If the stream
 disconnects after `START` and stop cannot be confirmed, the runner stays
-`STOPPING`, emits no false `STOPPED`, and terminates PID 1 fail closed.
+`STOPPING`, emits no false `STOPPED`, and terminates PID 1 fail closed. Only an
+`EXIT` report confirms the stop: a stream that fails, breaks protocol or is reset
+(Linux reports a peer that closed with unread data as a reset, not end of file)
+is such a disconnect (REM-R01). A
+watchdog stop that cannot be confirmed does the same: before the B1–B16
+remediation it left the runner `STOPPING` and serving until reconciliation
+removed the container (B15-R14).
 
 `/run/nexa` is an internal tmpfs owned by UID 1000 with mode `0711`; it is not a
 host bind mount. The worker control socket and runner state are mode `0600`.
@@ -52,6 +58,13 @@ Envelope and every payload branch are closed and checked for schema version,
 UUIDv7, int64/batch bounds, enum values and finite numbers before any sequence
 or effect is committed. Unknown fields/types, duplicate JSON fields and
 `NaN`/`Infinity` are invalid.
+
+`STOPPED.reason` also accepts `STARTUP_LIMIT` since the B1–B16 remediation; the
+addition stays within frame `schema_version` 1. `REQUEST_STOP` does not accept
+it: only the runner stops for its startup limit. Frames from earlier runners
+still parse. An earlier worker rejects the new reason as a protocol error and
+fails the attempt closed, so the worker image is upgraded no later than a runner
+image that sends it; both are built from the same source.
 
 Runner messages use `message_sequence`; worker controls use
 `control_sequence`; progress snapshots use an independent
@@ -80,6 +93,22 @@ as it stopped. A stop with no worker connected then ended the container with
 exit 0 and no stop reason, which the worker reports as `RUNNER_PROTOCOL_ERROR`
 (B15-R14, B15-R16).
 
+Since the B1–B16 remediation the container exit status still names the stop
+when no worker kept the `STOPPED` frame. PID 1 (`python -m
+nexa.workloads.trusted_runner`) exits as follows:
+
+| Runner end | Exit status |
+|---|---|
+| a worker ACKed the `STOPPED` frame | 0 |
+| stopped, no worker ACK, or failed closed after a stop was requested | `STOP_EXIT_CODES[reason]`: `PAUSE` 90, `CANCEL` 91, `LEASE_DEADLINE` 92, `FAILURE` 93, `RUNTIME_LIMIT` 94, `SHUTDOWN` 95, `STARTUP_LIMIT` 96 |
+| unreadable launch spec | 78 |
+| failed closed with no stop reason | 124 |
+
+The worker maps a stop status exactly as it maps the `STOPPED` frame with that
+reason ([worker agent](worker-agent.md#pause-cancel-and-runner-stop-reasons-b15)).
+Exit 0 without a frame the worker saw remains `RUNNER_PROTOCOL_ERROR`; 124 and
+Docker statuses such as 137 remain `RUNNER_UNAVAILABLE`.
+
 ## Authority and watchdog
 
 The runner begins in `WAITING_AUTHORITY`; Docker start alone never authorizes
@@ -101,8 +130,11 @@ does not depend on the socket receive loop. Accepting authority does not end
 the startup budget: while the UID-1001 supervisor has not started the workload,
 the watchdog still uses the persisted runner creation timestamp, and the
 deferred registration path rechecks the same strict deadline immediately
-before `START`. Registration at or after 30 seconds stops for `RUNTIME_LIMIT`
-without starting compute. Stop first requests a graceful process-group
+before `START`. Registration at or after 30 seconds stops for `STARTUP_LIMIT`
+without starting compute. A runner that never receives authority stops for
+`STARTUP_LIMIT` at the same limit. Before the B1–B16 remediation both reported
+`RUNTIME_LIMIT`, so a startup timeout looked like a runtime-limit observation
+(B15-R10). Stop first requests a graceful process-group
 termination for the remaining requested grace, capped at five seconds. The
 UID-1001 supervisor owns that timer, sends `SIGKILL` immediately when grace is
 zero or after the shorter grace expires, and reports one final exit status; the
@@ -171,6 +203,19 @@ refuses a result reservation for a checkpointing attempt. The pending cycle,
 descriptor and bindings are part of the persisted runner state and replay
 byte-identically after a controller reconnect.
 
+**Checkpoint storage failure (B14-K5).** Staging copies share the attempt's
+bounded `/output` tmpfs with the workload. Suppose the runner gets `ENOSPC`,
+`EDQUOT` or `EIO` while it reads the live snapshot, copies checkpoint files,
+writes the chunk-output manifest of an open checkpoint, or writes the
+checkpoint manifest. It then emits `FAILED` `INTERNAL/CHECKPOINT_STORAGE_FAILED`
+and rejects the control. It stops the workload with `FAILURE`, and never
+announces a file it did not copy completely. The same holds for a waiting
+request staged by the deadline watchdog. The class is not retried: a new
+attempt would fill the same bounds again. Before the fix, the `OSError` ended
+the runner with status 124, which the worker reported as retryable
+`INFRASTRUCTURE/RUNNER_UNAVAILABLE`. Other `OSError`s keep that fail-closed
+exit. Storage errors on the result path are unchanged.
+
 Since B15 the runner accepts `REQUEST_CHECKPOINT{reason: PAUSE}` through the same
 cycle; it does not stop the workload by itself. A request that arrives before
 the workload's first `state.json` write (a pause right after launch) waits for
@@ -180,9 +225,10 @@ rejected, and a result staged meanwhile is deferred until `CHECKPOINT_READY`
 (B15-R20). After the server commits that
 checkpoint the worker sends `REQUEST_STOP{reason: PAUSE}`, and the runner stops
 the workload within the requested grace and reports `STOPPED{PAUSE}`. The runner
-also stops itself with `RUNTIME_LIMIT`, `LEASE_DEADLINE` (its monotonic authority
-deadline passed before a renewal extended it) or `FAILURE` (for example after a
-rejected checkpoint control). The worker maps each reason to an Attempt failure
+also stops itself with `STARTUP_LIMIT` (its workload did not start within 30
+seconds), `RUNTIME_LIMIT`, `LEASE_DEADLINE` (its monotonic authority deadline
+passed before a renewal extended it) or `FAILURE` (for example after a rejected
+checkpoint control). The worker maps each reason to an Attempt failure
 as listed in [worker agent](worker-agent.md#pause-cancel-and-runner-stop-reasons-b15).
 Cancel does not reach the runner as a control: the worker stops the exact
 container after the server revokes the authority.
@@ -251,7 +297,21 @@ CHUNK_FILE_BATCH (<=64 chunks/frame) -> BIND_ARTIFACT_BATCH(CHUNK_OUTPUT)
   `INFERENCE_WINDOW = 8` unbound chunk files in the 16 MiB `/output` tmpfs
   (B16-R13).
 - **Chunk-output manifest.** The runner builds it only from committed chunk
-  bindings: the restored prefix first, then the chunks of this attempt.
+  bindings: the restored prefix first, then the recognized chunks carried
+  forward, then the chunks of this attempt.
+- **Recognized chunks (B16-R21).** The launch spec key `recognized_chunks`
+  lists the chunks the server recognized beyond the restore cursor (from chunk
+  0 after a fallback), with their original source attempt and fence. They are
+  never recomputed (RV03). Their files are mounted read-only under
+  `/input/recognized/`. Before starting the workload the runner reads each one
+  bounded and compares size and checksum with the spec; a mismatch or missing
+  file emits `FAILED` `INTERNAL/CHUNK_OUTPUT_UNAVAILABLE`. The workload gets
+  `--recognized-dir /input/recognized --recognized-count N`: it validates each
+  file's chunk header, indexes and records checksum, adds its predictions to
+  the carried totals, and writes its first state past the carried chunks. The
+  runner republishes each original entry unchanged and never uploads it. A
+  chunk file the workload still writes for a recognized index stops the
+  workload and emits `FAILED` `INTERNAL/CHUNK_OUTPUT_CONFLICT`.
 - **Item count.** The runner checks that `item_count` in the Arrow metadata
   equals the row count; otherwise `INVALID_INPUT`.
 - **Restore.** A restore mounts `inference-state.json` and the carried
@@ -262,10 +322,14 @@ CHUNK_FILE_BATCH (<=64 chunks/frame) -> BIND_ARTIFACT_BATCH(CHUNK_OUTPUT)
 (B16-R24/R26):
 
 - For the two adapters, exit 65 means that the workload rejected its input or
-  parameters before it wrote any output. This covers malformed Arrow metadata
-  or safetensors header, and a chunk plan above the B16-R17 bounds. It becomes
-  `INVALID_INPUT/INVALID_INPUT`. The parsers map every JSON, integer-limit,
-  nesting and type error to that path.
+  parameters. It becomes `INVALID_INPUT/INVALID_INPUT`. The parsers map every
+  JSON, integer-limit, nesting and type error to that path. Parameters out of
+  range, malformed Arrow metadata or safetensors header, and a chunk plan above
+  `MAX_CHUNKS` (B16-R17/R24) are rejected before any output. A chunk file above
+  the upload bound is found only when that chunk is produced. For chunk k > 0,
+  chunks 0..k-1 and the inference state are already written by then, and may
+  already be bound or recognized by a checkpoint (B16-DOC-01;
+  `test_oversized_later_chunk_is_invalid_input_after_the_earlier_chunks`).
 - Otherwise the runner compares the `oom_kill` counter of the container's
   cgroup v2 `memory.events` with the value it read right before `START`. The
   baseline is persisted in the runner state. A rise means

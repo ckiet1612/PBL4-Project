@@ -172,6 +172,44 @@ def test_batched_oldest_stream_skips_queue_when_no_job_ages_from_resume(
     assert not filtered, filtered
 
 
+@pytest.mark.postgres
+def test_capability_change_stalls_each_tenant_until_its_own_replay_completes(
+    migrated_postgres_engine,
+):
+    # B13-OBS-01 measurement: one admin-rate event per tenant, 200 Jobs each, so at
+    # least 4 pages of 64 per tenant replayed round-robin, one page per tick. No tenant
+    # dispatches while its own event is pending; the first tenant to finish dispatches
+    # while the others still replay.
+    queue_microbench._seed(migrated_postgres_engine, 4, 200)
+    stall = queue_microbench._measure_eligibility_stall(
+        migrated_postgres_engine, "capability", max_ticks=200
+    )
+    assert stall["control_decisions_before_mutation"][-1] == "Dispatch"
+    assert stall["events_created"] == stall["affected_events"] == 4
+    replay_done = stall["ticks_until_affected_replay_done"]
+    first_dispatch = stall["ticks_until_first_dispatch"]
+    assert replay_done >= 16
+    # Three full rounds of pages leave every tenant pending.
+    assert 13 <= first_dispatch < replay_done
+    assert stall["ticks_until_affected_dispatch"] == first_dispatch
+    assert stall["dispatches_before_replay_done"] >= 1
+    assert stall["production_stall_estimate_ms"] >= 250 * first_dispatch
+    assert stall["production_replay_estimate_ms"] >= 250 * replay_done
+
+
+@pytest.mark.postgres
+def test_tenant_toggle_stalls_only_that_tenant(migrated_postgres_engine):
+    queue_microbench._seed(migrated_postgres_engine, 4, 200)
+    stall = queue_microbench._measure_eligibility_stall(
+        migrated_postgres_engine, "tenant-toggle", max_ticks=200
+    )
+    assert stall["affected_events"] == stall["events_created"] == 2
+    # The other tenants keep dispatching while the toggled tenant replays.
+    assert stall["ticks_until_first_dispatch"] == 1
+    assert stall["ticks_until_affected_dispatch"] > stall["ticks_until_affected_replay_done"] - 1
+    assert stall["ticks_until_affected_replay_done"] >= 8
+
+
 def _plan_nodes(node):
     yield node
     for child in node.get("Plans", ()):

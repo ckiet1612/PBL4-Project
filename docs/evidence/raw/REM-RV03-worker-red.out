@@ -1,0 +1,927 @@
+FFF.FFFFFFF......FFFF.......                                             [100%]
+=================================== FAILURES ===================================
+______ test_older_restore_adopts_recognized_chunks_and_keeps_their_source ______
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_older_restore_adopts_reco0')
+
+    def test_older_restore_adopts_recognized_chunks_and_keeps_their_source(tmp_path):
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_older_restore_adopts_reco0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a9937620>
+restore = {'record': {'checkpoint_id': '01a0ef25-173e-74fe-8bcd-3af091fcfee7', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-17e3-710e-babe-6c9940255531', '01a0ef25-183a-7bf7-bc21-8be0c5fed93e']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-1943-70e3-abc4-87e9b8a9ed0f', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+__________ test_fallback_to_input_adopts_recognized_chunks_from_zero ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_fallback_to_input_adopts_0')
+
+    def test_fallback_to_input_adopts_recognized_chunks_from_zero(tmp_path):
+        first, recognized = _first_attempt(tmp_path)
+>       second = _resumed(
+            tmp_path / "second", first, None, (), [_compact(entry) for entry in recognized]
+        )
+
+tests/worker/test_rem_b16_r21_carry_forward.py:275: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_fallback_to_input_adopts_0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99bbe90>
+restore = None, ids = ()
+recognized = [{'chunk_id': 'chunk-00000000', 'start_index': 0, 'end_index_exclusive': 300, 'artifact_id': '01a0ef25-1c5a-7b35-bb5d-...00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-1e0a-76b5-9e1f-275adc9f29e3', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+__________ test_result_adopts_recognized_chunks_without_a_checkpoint ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_result_adopts_recognized_0')
+
+    def test_result_adopts_recognized_chunks_without_a_checkpoint(tmp_path):
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:292: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_result_adopts_recognized_0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99b7890>
+restore = {'record': {'checkpoint_id': '01a0ef25-20a6-7ace-9c9c-b6b0a5b9b34a', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-2149-74b7-bdbd-be81069bae9e', '01a0ef25-21a0-7c56-ad6c-27ff0c6a9da3']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-22bb-7d22-8f2e-828e3d2614cf', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+_ test_output_for_a_recognized_chunk_at_a_checkpoint_fails_internal[identical] _
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c0')
+fill = 0
+
+    @pytest.mark.parametrize("fill", [0, 1], ids=["identical", "different"])
+    def test_output_for_a_recognized_chunk_at_a_checkpoint_fails_internal(tmp_path, fill):
+        # Even identical bytes: a recognized chunk is carried, never recomputed.
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99bbd70>
+restore = {'record': {'checkpoint_id': '01a0ef25-2b52-7c3d-ba8e-611544cc8d1d', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-2c08-7bb4-8091-e6b73f4457a7', '01a0ef25-2c60-7e04-946f-628c46e0f75a']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-2d8b-7895-8d4c-88774ad56df4', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+_ test_output_for_a_recognized_chunk_at_a_checkpoint_fails_internal[different] _
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c1')
+fill = 1
+
+    @pytest.mark.parametrize("fill", [0, 1], ids=["identical", "different"])
+    def test_output_for_a_recognized_chunk_at_a_checkpoint_fails_internal(tmp_path, fill):
+        # Even identical bytes: a recognized chunk is carried, never recomputed.
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c1/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99b5af0>
+restore = {'record': {'checkpoint_id': '01a0ef25-3047-79d5-b58b-960e6781c39a', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-30f8-71c8-b47f-fee2e5068c3b', '01a0ef25-315e-7e36-9b7c-c5a289c17571']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-3282-7d83-8dd1-1572869034c5', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+__ test_output_for_a_recognized_chunk_at_the_result_fails_internal[identical] __
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c2')
+fill = 0
+
+    @pytest.mark.parametrize("fill", [0, 1], ids=["identical", "different"])
+    def test_output_for_a_recognized_chunk_at_the_result_fails_internal(tmp_path, fill):
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c2/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99c8bc0>
+restore = {'record': {'checkpoint_id': '01a0ef25-3531-7287-9a34-e618679a0eff', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-35d8-7b4d-8be8-729b09ff57dc', '01a0ef25-363a-7c89-83dc-695757bdd644']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-374b-73a6-8d34-51b82a06dd89', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+__ test_output_for_a_recognized_chunk_at_the_result_fails_internal[different] __
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c3')
+fill = 1
+
+    @pytest.mark.parametrize("fill", [0, 1], ids=["identical", "different"])
+    def test_output_for_a_recognized_chunk_at_the_result_fails_internal(tmp_path, fill):
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_output_for_a_recognized_c3/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99cb170>
+restore = {'record': {'checkpoint_id': '01a0ef25-39e8-7976-8014-6113614c0a4c', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-3a94-7090-a083-e9347a450a1a', '01a0ef25-3af2-7054-a5ac-80b982b3a217']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-3c0b-7ca2-bf38-b0c0379ae142', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+_ test_claim_without_recognized_chunks_fails_a_conflict_deterministically[checkpoint] _
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_claim_without_recognized_0')
+stage = 'checkpoint'
+
+    @pytest.mark.parametrize("stage", ["checkpoint", "result"])
+    def test_claim_without_recognized_chunks_fails_a_conflict_deterministically(tmp_path, stage):
+        # A claim acknowledged before the upgrade has no ``recognized_chunks``: the runner
+        # recomputes chunk 1 under its own source and the server answers 409 with the
+        # safe reason. The worker fails INTERNAL instead of replaying the publish forever.
+>       first, recognized, second = _older_restore(tmp_path, legacy=True)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:349: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_claim_without_recognized_0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99c95e0>
+restore = {'record': {'checkpoint_id': '01a0ef25-3ee9-7ed5-9647-ed6d903c0411', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-3f97-760f-b164-460f7a72ef98', '01a0ef25-3ff3-7241-a4eb-9bbb6737b265']
+recognized = <object object at 0x7f66aa53ee30>
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+_ test_claim_without_recognized_chunks_fails_a_conflict_deterministically[result] _
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_claim_without_recognized_1')
+stage = 'result'
+
+    @pytest.mark.parametrize("stage", ["checkpoint", "result"])
+    def test_claim_without_recognized_chunks_fails_a_conflict_deterministically(tmp_path, stage):
+        # A claim acknowledged before the upgrade has no ``recognized_chunks``: the runner
+        # recomputes chunk 1 under its own source and the server answers 409 with the
+        # safe reason. The worker fails INTERNAL instead of replaying the publish forever.
+>       first, recognized, second = _older_restore(tmp_path, legacy=True)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:349: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_claim_without_recognized_1/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99b84a0>
+restore = {'record': {'checkpoint_id': '01a0ef25-43fe-70af-bb21-87cc8deb2777', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-44a1-7930-a77a-ac0f3cce010e', '01a0ef25-44ed-7678-a1dd-4594c3abfcb6']
+recognized = <object object at 0x7f66aa53ee30>
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+____________ test_conflict_without_the_safe_reason_keeps_the_replay ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_conflict_without_the_safe0')
+
+    def test_conflict_without_the_safe_reason_keeps_the_replay(tmp_path):
+        first, _ = _first_attempt(tmp_path)
+        restore, ids = _restore_of(first, 2)
+>       second = _resumed(tmp_path / "second", first, restore, ids, [])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:367: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_conflict_without_the_safe0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99b7e60>
+restore = {'record': {'checkpoint_id': '01a0ef25-49d8-73bc-9a1c-af5f57c9b8b5', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-4a72-754d-b24f-d4ec3330450f', '01a0ef25-4ac7-7e18-bb93-e07f01e81dd7']
+recognized = []
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+______ test_recognized_chunk_bytes_that_differ_fail_before_any_container _______
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_recognized_chunk_bytes_th0')
+
+    def test_recognized_chunk_bytes_that_differ_fail_before_any_container(tmp_path):
+        first, entries = _first_attempt(tmp_path)
+        restore, ids = _restore_of(first, 1)
+        artifact = entries[1]["file"]["artifact_id"]
+        first.api.blobs[artifact] = first.api.blobs[artifact] + b"x"
+>       second = _resumed(tmp_path / "second", first, restore, ids, [_compact(entries[1])])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:419: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_recognized_chunk_bytes_th0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99b9f40>
+restore = {'record': {'checkpoint_id': '01a0ef25-6626-79fc-8d97-e1404e6776c8', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-66b8-7fd7-80db-b82e73de6a54', '01a0ef25-6708-79c1-99e5-ea76f99db79a']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-67f5-7f6d-be43-1d221ad9f24f', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+____ test_a_mounted_recognized_chunk_that_differs_fails_before_the_workload ____
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_a_mounted_recognized_chun0')
+
+    def test_a_mounted_recognized_chunk_that_differs_fails_before_the_workload(tmp_path):
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:426: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_a_mounted_recognized_chun0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99cbbf0>
+restore = {'record': {'checkpoint_id': '01a0ef25-6a84-71b8-8d67-1df7911feef1', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-6b24-7395-94ef-45b6dc4e7bbb', '01a0ef25-6b7c-7c7c-bfc2-ea463187159c']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-6c7e-73df-9798-2483a126deab', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+___________ test_recognized_mounts_must_match_the_recognized_chunks ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_recognized_mounts_must_ma0')
+
+    def test_recognized_mounts_must_match_the_recognized_chunks(tmp_path):
+>       first, recognized, second = _older_restore(tmp_path)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:436: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/worker/test_rem_b16_r21_carry_forward.py:214: in _older_restore
+    return first, entries, _resumed(tmp_path / "second", first, restore, ids, recognized)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_recognized_mounts_must_ma0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99cdc40>
+restore = {'record': {'checkpoint_id': '01a0ef25-6f48-77b5-9c01-da76bfb00628', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-6ff4-7ffc-ac1f-d1e6853710bb', '01a0ef25-7045-7056-8a5c-156d21ce4bd4']
+recognized = [{'chunk_id': 'chunk-00000001', 'start_index': 300, 'end_index_exclusive': 600, 'artifact_id': '01a0ef25-7133-735e-80ef-f5f5e9918cf0', ...}]
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+____________ test_newest_restore_launches_without_recognized_chunks ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_newest_restore_launches_w0')
+
+    def test_newest_restore_launches_without_recognized_chunks(tmp_path):
+        first, recognized = _first_attempt(tmp_path)
+        restore, ids = _restore_of(first, 2)
+>       second = _resumed(tmp_path / "second", first, restore, ids, [])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/worker/test_rem_b16_r21_carry_forward.py:448: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-U/pytest-4/test_newest_restore_launches_w0/second')
+first = <tests.worker.test_checkpoint_flow_b14.Harness object at 0x7f66a99c91f0>
+restore = {'record': {'checkpoint_id': '01a0ef25-757b-7835-92bc-d629d3a35c2c', 'job_id': '018f0d60-7b6a-7a28-9d82-1aa39c4f30b7',..._id': '018f0d60-7b6a-7a27-9d82-1aa39c4f30b7', 'kind': 'CHUNK_OUTPUT_MANIFEST', 'media_type': 'application/json', ...}]}
+ids = ['01a0ef25-7624-7cf8-a662-98c863021924', '01a0ef25-767e-788e-bd0d-d1bc1b8cbd9d']
+recognized = []
+
+    def _resumed(tmp_path, first, restore, ids, recognized=_ABSENT):
+        """Claim and dispatch attempt 2 (its own attempt id and fence 4) of the same job."""
+        context = c.inference_claim(restore=restore)
+        if recognized is not _ABSENT:
+            context["recognized_chunks"] = recognized
+        context["authority"] = {
+            **context["authority"],
+            "attempt_id": str(new_uuid7()),
+            "job_fence": 4,
+        }
+        # The server keeps every chunk attempt 1 recognized (its newest publish).
+        newest = max(key for key in first.api.chunk_entries if isinstance(key, int))
+        api = RecognizingApi(
+            context,
+            blobs=first.api.blobs,
+            recognized=[_compact(entry) for entry in first.api.chunk_entries[newest]],
+        )
+        api.artifacts.update(first.api.artifacts)
+        harness = Harness(
+            tmp_path,
+            context,
+            api=api,
+            backend=AttemptBackend(tmp_path / "fs" / "output", context["authority"]["attempt_id"]),
+        )
+        harness.authority = Authority(**context["authority"])
+        (harness.fs / "input" / "model.safetensors").write_bytes(c.MODEL)
+        if restore is not None:
+            directory = harness.fs / adapter_launch.RESTORE_DIR.lstrip("/")
+            directory.mkdir(parents=True)
+            (directory / "inference-state.json").write_bytes(first.api.blobs[ids[0]])
+            (directory / chunk_manifest.LOGICAL_NAME).write_bytes(first.api.blobs[ids[1]])
+        harness.dispatch()
+        control = harness.journal.root / "control" / harness.attempt_id / "launch-spec.json"
+        if control.exists():
+            # The executor's read-only mounts of the recognized chunk files the worker fetched.
+            spec = harness.launch_spec()
+            for item, path in zip(
+>               spec.get("recognized_chunks") or [], adapter_launch.recognized_paths(spec), strict=True
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ):
+E           AttributeError: module 'nexa.workloads.adapter_launch' has no attribute 'recognized_paths'
+
+tests/worker/test_rem_b16_r21_carry_forward.py:187: AttributeError
+=========================== short test summary info ============================
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_older_restore_adopts_recognized_chunks_and_keeps_their_source
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_fallback_to_input_adopts_recognized_chunks_from_zero
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_result_adopts_recognized_chunks_without_a_checkpoint
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_output_for_a_recognized_chunk_at_a_checkpoint_fails_internal[identical]
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_output_for_a_recognized_chunk_at_a_checkpoint_fails_internal[different]
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_output_for_a_recognized_chunk_at_the_result_fails_internal[identical]
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_output_for_a_recognized_chunk_at_the_result_fails_internal[different]
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_claim_without_recognized_chunks_fails_a_conflict_deterministically[checkpoint]
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_claim_without_recognized_chunks_fails_a_conflict_deterministically[result]
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_conflict_without_the_safe_reason_keeps_the_replay
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_recognized_chunk_bytes_that_differ_fail_before_any_container
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_a_mounted_recognized_chunk_that_differs_fails_before_the_workload
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_recognized_mounts_must_match_the_recognized_chunks
+FAILED tests/worker/test_rem_b16_r21_carry_forward.py::test_newest_restore_launches_without_recognized_chunks
+14 failed, 14 passed in 25.27s

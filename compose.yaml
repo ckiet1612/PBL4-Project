@@ -69,6 +69,11 @@ services:
   caddy:
     image: caddy:2.10.2-alpine
     restart: unless-stopped
+    # The wget health check leaves BusyBox's ssl_client helper to PID 1 on every run; caddy
+    # never reaps it, so each check leaked one zombie PID (ENV-01). A reaping init is PID 1
+    # and the PID limit keeps any leak inside this container.
+    init: true
+    pids_limit: 512
     volumes:
       - ./deploy/b10/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

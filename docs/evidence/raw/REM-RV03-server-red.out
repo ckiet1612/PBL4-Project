@@ -1,0 +1,108 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_the_attempt_downloads_the_recognized_chunks_it_carries __________
+
+inference_job = <tests.integration.test_inference_chunks_b16.InferenceFixture object at 0x7da8c5d8c7a0>
+
+    def test_the_attempt_downloads_the_recognized_chunks_it_carries(inference_job):
+        # RV03: the worker fetches each recognized chunk file so the workload takes it over
+        # instead of recomputing it; the execution graph widens by exactly those files.
+        fixture = inference_job
+        _, files, _, newest = _two_checkpoints(fixture)
+        _blob_path(fixture, newest["reference"]["artifact_id"]).unlink()
+        context = _claimed_context(fixture)
+        assert [item["artifact_id"] for item in context["recognized_chunks"]] == [
+            files[1]["artifact_id"]
+        ]
+    
+        carried = _download(fixture, files[1]["artifact_id"])
+>       assert carried.status_code == 200, carried.text
+E       AssertionError: {"code":"resource_not_found","message":"Execution artifact is outside the claimed graph","request_id":"01a0ef24-810f-73f3-b9fd-c03f5b6f1b35"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+../repo/tests/integration/test_rem_b16_r21_recognized_carry_forward.py:157: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+_________ test_a_recognized_chunk_blob_changed_after_claim_is_refused __________
+
+inference_job = <tests.integration.test_inference_chunks_b16.InferenceFixture object at 0x7da8c49bfad0>
+
+    def test_a_recognized_chunk_blob_changed_after_claim_is_refused(inference_job):
+        fixture = inference_job
+        _, files, _, newest = _two_checkpoints(fixture)
+        _blob_path(fixture, newest["reference"]["artifact_id"]).unlink()
+        _claimed_context(fixture)
+        path = _blob_path(fixture, files[1]["artifact_id"])
+        original = path.read_bytes()
+        _overwrite(path, original[:-1] + bytes([original[-1] ^ 1]))
+        refused = _download(fixture, files[1]["artifact_id"])
+>       assert refused.status_code == 503, refused.text
+E       AssertionError: {"code":"resource_not_found","message":"Execution artifact is outside the claimed graph","request_id":"01a0ef24-8934-72e6-a95e-70d849f1857d"}
+E       assert 404 == 503
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+../repo/tests/integration/test_rem_b16_r21_recognized_carry_forward.py:173: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+=============================== warnings summary ===============================
+../venv-red/lib/python3.12/site-packages/fastapi/testclient.py:1
+  ~/nexa-rem/venv-red/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+../venv-red/lib/python3.12/site-packages/starlette/testclient.py:53
+  ~/nexa-rem/venv-red/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_rem_b16_r21_recognized_carry_forward.py::test_the_attempt_downloads_the_recognized_chunks_it_carries
+FAILED tests/integration/test_rem_b16_r21_recognized_carry_forward.py::test_a_recognized_chunk_blob_changed_after_claim_is_refused
+2 failed, 9 deselected, 2 warnings in 7.20s
+EXIT=1

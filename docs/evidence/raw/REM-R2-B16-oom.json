@@ -1,0 +1,349 @@
+{
+  "images": {
+    "NEXA_B09_IMAGE_REF": {
+      "ref": "nexa/rem-cpu-iterative@sha256:8ecfe240000348e492fbda2774acd78f214416a228bf7399632db686e179645e"
+    },
+    "NEXA_B11_WORKER_IMAGE": {
+      "id": "sha256:897a7219b0610c9fab5e4f954791e7979f23030411fdd10277efc64ae236ac8f",
+      "ref": "nexa/rem-worker:r2-amd64"
+    },
+    "NEXA_B16_INFERENCE_IMAGE_REF": {
+      "labels": {
+        "io.nexa.adapter.id": "batch.inference",
+        "io.nexa.adapter.version": "1.0.0",
+        "io.nexa.framework": "PYTORCH",
+        "io.nexa.framework.version": "2.12.1",
+        "io.nexa.runner": "trusted-runner-v1",
+        "io.nexa.runner.checkpoint": "batch-inference-state-v1",
+        "org.opencontainers.image.architecture": "linux/amd64",
+        "org.opencontainers.image.source": "nexa/pbl4",
+        "org.opencontainers.image.title": "nexa-batch.inference",
+        "org.opencontainers.image.version": "1.0.0"
+      },
+      "platform": "linux/amd64",
+      "ref": "nexa/rem-batch-inference@sha256:32e963d043bab5b07952cc90034985208eb601e9236b06cf9bd04b6efa0e3449"
+    },
+    "NEXA_B16_PYTORCH_IMAGE_REF": {
+      "labels": {
+        "io.nexa.adapter.id": "pytorch.cifar10",
+        "io.nexa.adapter.version": "1.0.0",
+        "io.nexa.framework": "PYTORCH",
+        "io.nexa.framework.version": "2.12.1",
+        "io.nexa.runner": "trusted-runner-v1",
+        "io.nexa.runner.checkpoint": "pytorch-cifar10-state-v1",
+        "org.opencontainers.image.architecture": "linux/amd64",
+        "org.opencontainers.image.source": "nexa/pbl4",
+        "org.opencontainers.image.title": "nexa-pytorch.cifar10",
+        "org.opencontainers.image.version": "1.0.0"
+      },
+      "platform": "linux/amd64",
+      "ref": "nexa/rem-pytorch-cifar10@sha256:fb7331027009ab223d0e361e1ba50c563ce6e033e7eacdee72960f010901f2ec"
+    }
+  },
+  "inference": {
+    "attempts": [
+      [
+        1,
+        "OOM",
+        "CONTAINER_OOM"
+      ]
+    ],
+    "events": [
+      [
+        "JOB_ACCEPTED",
+        "Job accepted"
+      ],
+      [
+        "JOB_DISPATCHING",
+        null
+      ],
+      [
+        "ATTEMPT_STARTED",
+        "attempt_started"
+      ],
+      [
+        "ATTEMPT_FAILED",
+        "CONTAINER_OOM"
+      ],
+      [
+        "ALLOCATION_RELEASED",
+        "VERIFIED_CLEANUP"
+      ]
+    ],
+    "job_id": "01a0ef4c-28b5-742b-b287-3cf9d23efd93",
+    "memory_peak_bytes": {
+      "01a0ef4c-3c20-7a0d-8eba-311f4858955d": 268435456
+    },
+    "parameters": {
+      "batch_size": 2000,
+      "chunk_size": 2000,
+      "output_format": "JSONL"
+    },
+    "retry_count": 0,
+    "seconds": 15.1,
+    "spec": {
+      "resources": {
+        "cpu_millis": 1000,
+        "gpu_count": 0,
+        "memory_bytes": 268435456
+      },
+      "template_version": 2
+    },
+    "terminal_state": "FAILED",
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955e",
+          "attempt_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955d",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955d",
+          "attempt_number": 1,
+          "failure_class": "OOM",
+          "failure_reason": "CONTAINER_OOM",
+          "job_fence": 1,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0ef4b-ec05-74b0-aca7-3fbeed50231a"
+        }
+      ],
+      "checkpoints": [],
+      "containers": [
+        {
+          "attempt_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955d",
+          "container_id": "806b5d28c1e3",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-29T22:32:20.917+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-29T22:32:25.835+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-29T22:32:27.197+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-29T22:32:30.378+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "CONTAINER_OOM",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-29T22:32:35.663+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 5
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955d",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0ef4b-ec05-74b0-aca7-3fbeed50231a"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 0,
+        "desired_state": "RUNNING",
+        "event_sequence": 5,
+        "job_fence": 2,
+        "max_retries": 2,
+        "retry_count": 0,
+        "state": "FAILED"
+      },
+      "job_id": "01a0ef4c-28b5-742b-b287-3cf9d23efd93",
+      "leases": [
+        {
+          "attempt_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955d",
+          "current_worker_incarnation_id": "01a0ef4b-ec05-74b0-aca7-3fbeed50231a",
+          "job_fence": 1,
+          "lease_id": "01a0ef4c-3c20-7a0d-8eba-311f4858955f",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "reservations": [],
+      "restores": {
+        "01a0ef4c-3c20-7a0d-8eba-311f4858955d": null
+      },
+      "results": [],
+      "retries": [],
+      "submit_idempotency_key": "b16-docker-oom-inference",
+      "submit_idempotency_records": 1
+    }
+  },
+  "memory_bytes": 268435456,
+  "template_version": 2,
+  "training": {
+    "attempts": [
+      [
+        1,
+        "OOM",
+        "CONTAINER_OOM"
+      ]
+    ],
+    "events": [
+      [
+        "JOB_ACCEPTED",
+        "Job accepted"
+      ],
+      [
+        "JOB_DISPATCHING",
+        null
+      ],
+      [
+        "ATTEMPT_STARTED",
+        "attempt_started"
+      ],
+      [
+        "ATTEMPT_FAILED",
+        "CONTAINER_OOM"
+      ],
+      [
+        "ALLOCATION_RELEASED",
+        "VERIFIED_CLEANUP"
+      ]
+    ],
+    "job_id": "01a0ef4c-00ee-7ddf-b383-8e68d2aaf170",
+    "memory_peak_bytes": {
+      "01a0ef4c-01c3-7ce0-82f1-cdd262045062": 268435456
+    },
+    "parameters": {
+      "batch_size": 512,
+      "epochs": 30,
+      "learning_rate": 0.05,
+      "seed": 7,
+      "subset_size": 5000
+    },
+    "retry_count": 0,
+    "seconds": 10.2,
+    "spec": {
+      "resources": {
+        "cpu_millis": 1000,
+        "gpu_count": 0,
+        "memory_bytes": 268435456
+      },
+      "template_version": 2
+    },
+    "terminal_state": "FAILED",
+    "timeline": {
+      "allocations": [
+        {
+          "allocation_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045063",
+          "attempt_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045062",
+          "quarantined": true,
+          "release_reason": "VERIFIED_CLEANUP",
+          "state": "RELEASED"
+        }
+      ],
+      "attempts": [
+        {
+          "attempt_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045062",
+          "attempt_number": 1,
+          "failure_class": "OOM",
+          "failure_reason": "CONTAINER_OOM",
+          "job_fence": 1,
+          "state": "FAILED",
+          "worker_incarnation_id": "01a0ef4b-ec05-74b0-aca7-3fbeed50231a"
+        }
+      ],
+      "checkpoints": [],
+      "containers": [
+        {
+          "attempt_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045062",
+          "container_id": "3db07c1d348e",
+          "stopped": true,
+          "verified": true
+        }
+      ],
+      "coordinator_epoch": 1,
+      "events": [
+        {
+          "at": "2026-09-29T22:32:10.737+00:00",
+          "event_type": "JOB_ACCEPTED",
+          "reason": "Job accepted",
+          "sequence": 1
+        },
+        {
+          "at": "2026-09-29T22:32:10.897+00:00",
+          "event_type": "JOB_DISPATCHING",
+          "reason": null,
+          "sequence": 2
+        },
+        {
+          "at": "2026-09-29T22:32:12.089+00:00",
+          "event_type": "ATTEMPT_STARTED",
+          "reason": "attempt_started",
+          "sequence": 3
+        },
+        {
+          "at": "2026-09-29T22:32:15.155+00:00",
+          "event_type": "ATTEMPT_FAILED",
+          "reason": "CONTAINER_OOM",
+          "sequence": 4
+        },
+        {
+          "at": "2026-09-29T22:32:20.380+00:00",
+          "event_type": "ALLOCATION_RELEASED",
+          "reason": "VERIFIED_CLEANUP",
+          "sequence": 5
+        }
+      ],
+      "grants": [
+        {
+          "attempt_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045062",
+          "ended": true,
+          "job_fence": 1,
+          "worker_incarnation_id": "01a0ef4b-ec05-74b0-aca7-3fbeed50231a"
+        }
+      ],
+      "job": {
+        "checkpoint_sequence": 0,
+        "desired_state": "RUNNING",
+        "event_sequence": 5,
+        "job_fence": 2,
+        "max_retries": 2,
+        "retry_count": 0,
+        "state": "FAILED"
+      },
+      "job_id": "01a0ef4c-00ee-7ddf-b383-8e68d2aaf170",
+      "leases": [
+        {
+          "attempt_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045062",
+          "current_worker_incarnation_id": "01a0ef4b-ec05-74b0-aca7-3fbeed50231a",
+          "job_fence": 1,
+          "lease_id": "01a0ef4c-01c3-7ce0-82f1-cdd262045064",
+          "revoke_reason": null,
+          "revoked": true
+        }
+      ],
+      "reservations": [],
+      "restores": {
+        "01a0ef4c-01c3-7ce0-82f1-cdd262045062": null
+      },
+      "results": [],
+      "retries": [],
+      "submit_idempotency_key": "b16-docker-oom-training",
+      "submit_idempotency_records": 1
+    }
+  }
+}

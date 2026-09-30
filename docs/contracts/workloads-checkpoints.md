@@ -89,15 +89,19 @@ Sweep is a finite grouping/admission operation, not an executor workload. It has
 
 Request contains one allowlisted training base spec and `1..16` dimensions, each with `1..100` typed values. Cartesian product must produce `1..100` children after canonical de-duplication; larger/empty product is `422`. Parameter names must exist in the child template schema and each resulting child must validate independently.
 
+Dimension names are unique, and the values of one dimension are unique by their RFC 8785 form (OpenAPI `uniqueItems`): `0.01`, `0.010` and `1e-2` are one value, while `1`, `true` and `"1"` are three. A repeated name or value is `422 validation_failed` and persists nothing (remediation B16-R10, chờ Task Review; breaking: B16 dropped repeated values silently). The canonical de-duplication above is therefore a defensive no-op on an accepted request. The rule validates only a new parent request: a replay of a stored parent key and hash returns the stored mapping, and resumes its unfinished indexes from the stored expansion, before the request is validated again, so a sweep stored under the B16 behaviour replays unchanged.
+
 ### Partial acceptance and replay
 
 1. Parent idempotency transaction stores canonical request hash and immutable ordered expansion. Order is dimension request order, then value request order; `child_index=0..n-1`.
 2. Child parameter JSON uses RFC 8785 hash. Internal child idempotency key is deterministically derived from `(sweep_id, child_index, parameter_hash)` and has normal tenant/principal/operation scope.
-3. Every child calls the same submit use case: auth, input ownership, schema, rate, outstanding/concurrency/resource quota and queue checks. No bypass/bulk counter path.
+3. Every child calls the same submit use case: auth, input ownership, schema, rate, outstanding/concurrency/resource quota and queue checks. No bypass/bulk counter path. Authentication and tenant membership are preconditions of the request, not child outcomes (remediation B16-R04, chờ Task Review). If the principal loses them between children (session or token revoked, membership removed), the request aborts fail closed with that `401 authentication_required` or `403 permission_denied` and writes no outcome, not even `REJECTED`, for the remaining indexes; an outcome is immutable and must not freeze a temporary credential state. Accepted children stay, and step 4 resumes the unfinished indexes when a permitted principal replays the same key. A temporary `503 dependency_unavailable`, a child record still in progress, or `WRITE_FROZEN` aborts the same way.
 4. Each outcome is durably `ACCEPTED(job_id)` or `REJECTED(error snapshot)`. A crash resumes unfinished indexes; completed indexes replay rather than create duplicates.
 5. Response `207` exposes every child outcome. Parent counts are derived from immutable outcomes. Replaying parent key/hash returns identical mapping and does not spend rate/counter again for completed children.
 
 Rejected child can be resubmitted only through a new parent request/key or normal job submit after conditions change. Parent cancellation does not implicitly cancel accepted child jobs; user controls each job, avoiding a hidden second state machine.
+
+Retention follows [contracts.md, Idempotency rule 8](../contracts.md#idempotency): the parent `submitSweep` record and its parent/child mapping are kept as long as the longest-kept child, i.e. while any index is unfinished and until every accepted child's own `submitJob` record has passed its `terminal_at` + 30 days retention (remediation B16-R05, chờ Task Review). The coordinator sweep deletes the parent record only then; until then it keeps it outside the sweep walk, deferred to its last child record's expiry ([coordinator](../coordinator.md), B15-R18).
 
 ## `batch-inference` version 1
 
@@ -129,6 +133,8 @@ Carry-forward is job-scoped, not arbitrary cross-attempt access. For each chunk 
 
 Recognition occurs only inside a fenced checkpoint/result publish transaction under the Job and artifact/reference locks. If `source_attempt_id` and `source_job_fence` equal the current publishing Authority, the transaction insert-or-verifies immutable `RecognizedChunk(job_id,chunk_id,range,artifact_id,checksum,source_attempt_id,source_job_fence)`: absent row is inserted with its reference edge; an existing byte-for-byte identical row is reused for callback replay or concurrent duplicate compute; any different range/artifact/checksum/source returns `409 state_conflict` and commits no checkpoint/result. If the source is a prior attempt, an exact existing `RecognizedChunk` row is mandatory and no new prior-attempt recognition can be invented by the current worker. Thus the first checkpoint can recognize newly produced chunks, while later attempts carry forward only previously fenced facts without copying bytes.
 
+A restore may select a checkpoint older than the newest recognition, or fall back to input. The chunks recognized beyond the restored cursor stay authoritative, so claim hands them to the attempt as `ExecutionContext.recognized_chunks` (B1–B16 remediation, B16-R21). The list is the contiguous, ordered run of `RecognizedChunk` rows from the restore cursor (or chunk 0 after fallback), each with its range, artifact, size, checksum and original source attempt/fence, and at most 2048 items. It is `[]` when nothing lies beyond the cursor. It is `null` when a row beyond the cursor cannot be read or verified, or when the rows are not contiguous; the worker then fails the attempt `INTERNAL/CHUNK_OUTPUT_UNAVAILABLE` before any container exists. Non-chunked adapters omit the field. Recognized chunks are never recomputed. The worker downloads each listed file through the attempt's execution graph, verifies its size and checksum, and mounts it read-only under `/input/recognized/`; the runner rechecks the mounted files before it starts the workload. The workload validates each file's chunk header, indexes and records checksum, adds its predictions to the carried totals, and starts at the next unrecognized chunk. The runner republishes each original entry unchanged, without uploading its bytes again. A file that cannot be fetched or verified fails the attempt `INTERNAL/CHUNK_OUTPUT_UNAVAILABLE` before the workload starts; output the workload writes for a recognized chunk fails it `INTERNAL/CHUNK_OUTPUT_CONFLICT` before any upload. A publish or completion that still conflicts is answered `409 state_conflict` with the safe `reason: CHUNK_OUTPUT_CONFLICT`, which the worker also classifies `INTERNAL/CHUNK_OUTPUT_CONFLICT`. `_same` and the checks above stay exact: a different artifact or source is never accepted as a carried chunk.
+
 Publishing a checkpoint/result creates reference edges to the exact current-attempt chunk-output manifest and from that manifest to every current/prior-attempt chunk file. Restore and final recognition traverse those edges and recheck artifact kind, tenant, job/session, source attempt/fence, checksum and stored size. GC treats the whole reachable graph as live while any committed checkpoint/result/reference remains; deleting or replacing a manifest artifact ID cannot silently retarget a reference.
 
 ## Durable publish sequence
@@ -147,12 +153,14 @@ No Docker/filesystem mutation occurs inside the DB transaction; read-only metada
 
 For a new Attempt in the same Job (or explicit same-tenant manual retry reference):
 
+The server, not the worker, proves an inherited checkpoint's source (remediation B15-R05, chờ Task Review). The worker cannot re-derive another Job's session, so both the manual retry request and the claim of every Attempt of the new Job require: the checkpoint and the new Job are in the same tenant; a `MANUAL_RETRY` CheckpointReference links them; the checkpoint's owner is the source Job or an ancestor on its `retry_of_job_id` chain; and the owner's spec checksum, input, model, template version, adapter and image digest equal the new Job's. A retry request that fails the proof is `422 infeasible_request` and writes nothing. At claim, an inherited checkpoint that fails the proof is an incompatible candidate with reason `CHECKPOINT_PROVENANCE_MISMATCH`: it is never read, never marked corrupt (it is not this Job's checkpoint), and the scan continues to steps 5–6. The worker then verifies the frozen record, manifest, file checksums and bytes exactly as for its own checkpoint and taking only the source session from the server's proof; any mismatch fails the Attempt `INCOMPATIBLE`/`CHECKPOINT_RESTORE_UNAVAILABLE` before a container exists.
+
 1. Query committed checkpoints newest sequence first; exclude metadata marked corrupt.
 2. Verify referenced blobs exist and checksums match, then provenance input/spec/template/adapter/image and environment compatibility.
-3. On checksum/corruption, mark evidence/event and try the next older committed checkpoint.
+3. On checksum/corruption, mark evidence/event and try the next older committed checkpoint. A blob counts as missing only when the verified artifact store proves it absent (store identity, B14-OBS-01); a missing or unverified store is a temporary 503 that marks nothing.
 4. On incompatibility, emit exact reason and try an older checkpoint only if it could differ meaningfully; otherwise stop scanning with reason.
 5. If none valid and adapter version says `restart_safe=true`, emit `CHECKPOINT_FALLBACK_TO_INPUT` and start immutable input from step/cursor zero.
-6. Otherwise Job fails or remains blocked during relocation with `waiting_for_compatibility`; no unsafe deserialize or silent fallback.
+6. Otherwise (adapter version not `restart_safe`) emit `CHECKPOINT_RESTORE_UNAVAILABLE`: start is refused and the Attempt fails `INCOMPATIBLE`/`CHECKPOINT_RESTORE_UNAVAILABLE` before any container, so the Job fails; no unsafe deserialize, input replay or silent fallback. Steps 1–6 run only for an Attempt on a destination that can run the Job; a destination that cannot keeps the Job blocked instead (Relocation below, B14-R04).
 
 Automatic recovery uses retry budget; resume after PAUSED does not. Restore failure caused by corrupt checkpoint can move to older checkpoint within the same attempt creation decision; it does not consume extra retry until an Attempt actually fails.
 
@@ -161,7 +169,7 @@ Automatic recovery uses retry budget; resume after PAUSED does not. Restore fail
 | Dimension | Exact / allowed rule |
 |---|---|
 | Schema | `schema_version=1` supported explicitly; unknown version rejected |
-| Tenant/job/session | Exact for automatic recovery/resume; manual retry permits new job/session only through explicit same-tenant CheckpointReference |
+| Tenant/job/session | Exact for automatic recovery/resume; manual retry permits new job/session only through explicit same-tenant `MANUAL_RETRY` CheckpointReference whose source is owned by the retried Job or its `retry_of_job_id` ancestor, proven by the server (B15-R05) |
 | Input/spec | Exact checksums; manual retry keeps immutable spec/input |
 | Adapter/template | Exact ID and compatible declared version range; default is exact version |
 | Image | Exact digest by default; replacement digest only via future approved migration contract, not B01 |
@@ -170,7 +178,10 @@ Automatic recovery uses retry budget; resume after PAUSED does not. Restore fail
 | Device | CPU checkpoint restores to CPU. CUDA restore requires declared CUDA/driver/compute capability and device-state support; no silent CPU fallback |
 | Files | All required files, size/checksum and manifest checksum exact |
 
-Relocation runs the same compatibility evaluator after restore and new inventory. Incompatible jobs remain blocked with visible reason; they are not auto-failed merely because the destination temporarily lacks capability, unless an administrator explicitly cancels or policy declares permanent failure.
+Relocation runs the same compatibility evaluator after restore and new inventory. Two cases are distinct (remediation B14-R04, chờ Task Review):
+
+- **The destination cannot run the Job**: the template's architecture, image, adapter, framework or device requirements do not match the current inventory, or the Job's resources exceed it (the evaluator dispatch uses). The Job is not dispatched and no restore selection runs. A recovering Job whose backoff elapsed stays `RETRY_WAIT` with visible `waiting_for_compatibility` (event `RETRY_BLOCKED` when the reason changes); its retry schedule is kept and its committed checkpoints are not judged, marked or skipped. It is not auto-failed merely because the destination temporarily lacks capability, unless an administrator explicitly cancels or policy declares permanent failure. A compatible inventory promotes and dispatches it, and steps 1–6 run then.
+- **The destination runs the Job but no committed checkpoint is compatible** (e.g. checkpoints written on another architecture the template also declares): a restore decision, not a wait. Each rejected checkpoint emits `CHECKPOINT_INCOMPATIBLE` with the exact reason (step 4); then step 5 applies for a `restart_safe` adapter version (`CHECKPOINT_FALLBACK_TO_INPUT`, start from input), otherwise step 6.
 
 ## Failure classification and retry
 
@@ -182,7 +193,7 @@ Relocation runs the same compatibility evaluator after restore and new inventory
 | `INVALID_INPUT` | schema/data/checksum/model validation | No |
 | `INCOMPATIBLE` | image/architecture/framework/CUDA/driver mismatch | No automatic attempt; visible blocked/failure decision |
 | `USER_CANCEL` | committed cancel | No; terminal CANCELLED |
-| `INTERNAL` | adapter invariant, conflicting chunk/result, unsafe state | No blind retry; fail and audit |
+| `INTERNAL` | adapter invariant, conflicting chunk/result (`CHUNK_OUTPUT_CONFLICT`), recognized chunk unavailable (`CHUNK_OUTPUT_UNAVAILABLE`), checkpoint copy out of space or failing I/O in the attempt's bounded staging (`CHECKPOINT_STORAGE_FAILED`, B14-K5), unsafe state | No blind retry; fail and audit |
 
 The trusted worker reports any classified attempt failure through callback-deduplicated `workerFailAttempt` before cleanup. The callback includes exact live Authority, immutable container identity, typed observations and an allowlisted safe reason code; it never carries raw stderr, input, path, credential or checkpoint content. Commit stores the class/reason, revokes lease, increments fence and quarantines allocation. Separate exact-identity cleanup is still required before release and retry/terminal resolution.
 

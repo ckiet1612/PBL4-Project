@@ -47,6 +47,16 @@ admin-rate changes. The coordinator replays at most 64 queued Jobs per tick,
 preserving each mutation's DB-time eligibility boundary, and excludes a tenant
 from dispatch while its events remain pending. `fairness_ledgers.eligibility_signature`
 is a legacy column and no longer drives a per-tick queue reconciliation.
+**Measured limit (B13-OBS-01; remediation measurement, criterion awaits owner
+decision OD-2).** Pending events are picked least recently processed first, so
+tenants replay page by page in turn and each tenant finishes near the end of the
+whole replay. On L (VPS1, PostgreSQL 17, direct-DB harness) with 100 tenants ×
+1,000 queued Jobs, a capability change that leaves every Job possible still
+replays 1,600 pages. The first tenant dispatches after 1,502 ticks, an estimated
+~376 s at the 250 ms tick floor, and the replay ends after 1,600 ticks (~457 s).
+Disabling and re-enabling one tenant replays only that tenant, in 32 ticks
+(~43 s). Other tenants keep dispatching from the second tick.
+Raw data: `docs/evidence/raw/REM-B13-OBS-01-stall.json`.
 Held-quota headroom is not stored on Jobs. Since migration 0017, `jobs.eligible_since`
 is base eligibility only. Each allocation insert or state/size change updates the
 tenant's CPU and memory staircase in `quota_headroom_steps`, under a per-tenant
@@ -114,8 +124,15 @@ nothing more. Cleanup (API side) opens a `retry_schedules` row only for an
 `INFRASTRUCTURE` attempt failure with budget left, desired `RUNNING` and a
 restorable Job (a committed non-corrupt checkpoint or template `restart_safe`);
 see [database](database.md). The leader probes due schedules at most once per
-second from the tick. `promote_retries` then runs its own short transaction under
-the leadership and policy locks, takes the GLOBAL admission counter, and locks at
+second from the tick. The probe first reads, without any lock, the batch that
+promotion would lock and applies the same block rules to it; when every due Job is
+still blocked for the reason it already shows, the probe ends there, so a retry
+that stays blocked for hours costs no decision lock per second (remediation
+B14-K1, chờ Task Review; measurements in the
+[remediation evidence](evidence/B01-B16-findings-remediation.md)). That read
+decides nothing. Only a batch with something to write (a promotion, or a new block
+reason to announce) continues: `promote_retries` then runs its own short
+transaction under the leadership and policy locks, takes the GLOBAL admission counter, and locks at
 most a bounded batch of due Jobs and their open schedules. A Job that is still
 `RETRY_WAIT`, desired `RUNNING`, without a recovery intent and whose schedule
 `ready_at` has passed in DB time moves to `QUEUED` with a fresh ready sequence,
@@ -156,7 +173,11 @@ allocation or a slot, because only accepted child Jobs enter the queue.
 Every tick runs at most one probe per second, in the order lease reaper → retry
 promotion → idempotency retention sweep, before the dispatch snapshot. Each step
 re-checks leadership (`_leader`) and the current policy's operational mode inside
-its own write transaction; under `WRITE_FROZEN` none of them writes. Each step
+its own write transaction; under `WRITE_FROZEN` none of them writes. Under
+`ADMISSION_OFF` these steps and the ledger heartbeat still run, but the dispatch
+snapshot and its commit decide nothing unless the mode is `NORMAL`: no new offer
+and no reservation change, while an offer committed earlier stays pollable
+(B15-OBS-02). Each step
 commits on its own: a failing step, or one lease that cannot be reaped (for
 example its job row locked past `lock_timeout`), is logged
 (`coordinator_reap_lease_failed`) and retried by the next probe; it neither
@@ -209,13 +230,41 @@ attempt is dispatched with `execution_intent = CHECKPOINT_FOR_PAUSE`, enters
 CHECK makes `state = 'QUEUED'` the complete queue predicate, the B13 snapshot and
 eligibility queries and the four partial queue indexes filter on state alone.
 
+**Lock order against requests (B15-R32).** Every request transaction first
+revalidates its principal: it locks the credential row and the user's `users` row
+`FOR NO KEY UPDATE`, then takes policy, counter and job locks. The coordinator
+takes policy and counter locks, then job rows; a job UPDATE that makes the job
+queued (retry promotion) fires the B13 `queue_submitters` trigger, and that
+insert's foreign key takes `KEY SHARE` on the submitter's `users` row while the
+coordinator still holds the job. `KEY SHARE` does not conflict with
+`FOR NO KEY UPDATE`, so the coordinator never waits on a request's principal lock
+and the cycle `users` → job → `users` cannot form (before, the principal was locked
+`FOR UPDATE`: deadlock or the 1 s coordinator `lock_timeout`). No request or admin
+path changes `users.user_id`, so every `users` lock is `FOR NO KEY UPDATE`; it
+still excludes a second request of the same principal and every user update, so
+an administrator disabling a user waits for the user's running request. Test:
+`tests/integration/test_rem_b15_r32_submitter_lock.py`.
+
 **Idempotency retention sweep** (`coordinator/retention.py`). One transaction
 locks at most 100 `COMPLETED` records of `submitJob`, `cancelJob`, `pauseJob`,
 `resumeJob` and `retryFailedJob` whose `expires_at` is before the transaction's DB
-`now()` and whose job is terminal (`FOR UPDATE OF idempotency_records SKIP
-LOCKED`), then deletes them under leadership. The query walks the partial index
+`now()` (`FOR UPDATE OF idempotency_records SKIP LOCKED`), then, under leadership,
+deletes those whose job is terminal. The query walks the partial index
 `ix_idempotency_records_b15_sweep` in expiry order and reads each candidate's job
 state by primary key, so its cost does not grow with the number of queued jobs
 (B15-R18). Terminal paths raise a job's records to `terminal_at + retention`, so
 a record of a live job, a `PENDING` record or a record of any other operation is
-never deleted. See [B15 evidence](evidence/B15-control-recovery.md).
+never deleted. A walked record that is not due yet (its job is live, or it has no
+job) is deferred instead: its `expires_at` is raised to `now()` + 1 day, so the
+walk leaves it and no tick reads it again before then (remediation B15-R18
+residual, chờ Task Review). Deferral only raises `expires_at` and is not a deletion
+rule: the retention rule of [contracts](contracts.md#idempotency) is unchanged,
+because the terminal path's `greatest(expires_at, terminal_at + retention)` still
+sets the exact retention and 1 day is shorter than the 30-day minimum. Expired
+`submitSweep` records follow the same walk once the job-request batch leaves room
+(B16-R05): an unfinished sweep is deferred by 1 day; a finished one is deleted when
+no accepted child still has its own `submitJob` record, and otherwise deferred to
+that record's latest expiry. A deferral is a write, so it needs leadership and is
+skipped under `WRITE_FROZEN` like the delete. See
+[B15 evidence](evidence/B15-control-recovery.md) and the
+[remediation evidence](evidence/B01-B16-findings-remediation.md).

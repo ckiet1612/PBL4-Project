@@ -1,5 +1,6 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 
@@ -204,6 +205,8 @@ def test_staging_key_is_never_read_as_a_committed_blob(tmp_path) -> None:
 def test_delete_requires_unexpired_matching_gc_token(tmp_path) -> None:
     payload = b"delete"
     store = FilesystemArtifactStore(tmp_path)
+    # Only the store a deployment bound can report a blob missing (B14-OBS-01).
+    store.bind_identity(store.create_identity(uuid4()))
     handle = store.begin_staging(
         owner="tenant",
         expected_size=len(payload),
@@ -236,6 +239,7 @@ def test_delete_requires_unexpired_matching_gc_token(tmp_path) -> None:
 
 def test_readiness_probe_fsyncs_cleans_up_and_rejects_storage_faults(tmp_path) -> None:
     store = FilesystemArtifactStore(tmp_path / "healthy")
+    store.bind_identity(store.create_identity(uuid4()))
     store.check_readiness(critical_watermark_percent=95)
     assert list((tmp_path / "healthy" / "staging").iterdir()) == []
 
