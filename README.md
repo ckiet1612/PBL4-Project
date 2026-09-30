@@ -6,7 +6,7 @@ Nền tảng single-node, self-hosted và hardware-portable chạy batch AI cho 
 
 Đợt **B1–B16 Findings Remediation** xử lý 31 finding còn mở mà audit độc lập B01–B16 đã xác nhận. Đợt này đã được Task Review duyệt theo xác nhận của user ngày 30/09/2026. Kết quả: 23 finding `CLOSED`, 5 `ENVIRONMENT BLOCKED` (chưa chạy lại được trên Docker Desktop của Mac), 3 `NEEDS OWNER DECISION` và 0 `BLOCKED`. Chi tiết ở mục B1–B16 Findings Remediation bên dưới và trong [evidence remediation](docs/evidence/B01-B16-findings-remediation.md).
 
-Task **CI-python-fix** (30/09/2026) sửa ba nguyên nhân khiến job `Python quality` trên GitHub Actions đỏ từ B12. Các thay đổi đã được kiểm local và được Task Ask kiểm tra lại; run GitHub đầu tiên sau khi push vẫn đang chờ xác nhận. Chi tiết ở mục CI Python trên GitHub bên dưới.
+Task **CI-python-fix** (30/09/2026) sửa, qua hai vòng, các nguyên nhân khiến job `Python quality` trên GitHub Actions đỏ từ B12. Run `36735072023` trên commit `69160e0` đã xanh cả hai job Python và Web. Chi tiết ở mục CI Python trên GitHub bên dưới.
 
 [PLAN.md](PLAN.md) bản duyệt ngày 16/09/2026 là nguồn sự thật về phạm vi, kiến trúc, thuật toán, backlog và nghiệm thu; PLAN được ưu tiên khi tài liệu dẫn xuất này mâu thuẫn. Yêu cầu trực tiếp mới nhất của user có ưu tiên cao nhất; không tự sửa PLAN để hợp thức hóa thay đổi thiết kế.
 
@@ -531,11 +531,23 @@ Kiểm chứng local trên Mac:
 
 Task Ask đã chạy lại test CLI, Ruff và `git diff --check`, và kiểm evidence không chứa mật khẩu. Chi tiết ở [evidence CI-python-fix](docs/evidence/CI-python-fix.md).
 
+**Vòng 2 (CI-R03).** Run đầu tiên sau fix (`36731320212`, commit `ce6bd98`) không còn timeout, và 5 test lỗi cũ đều pass. Tuy vậy 3 test gọi `nexa-maintenance` fail:
+
+- Nguyên nhân là chính biến mới `NEXA_TEST_PG_CLIENT_PREFIX`. Config Nexa từ chối mọi biến `NEXA_*` không khai báo; đây là hành vi fail closed đúng thiết kế. 3 test này chỉ xóa `NEXA_TEST_DATABASE_URL` trước khi gọi CLI.
+- Commit `69160e0` sửa trong test: xóa mọi biến `NEXA_TEST_*`. Không đổi `src/` hay `ci.yml`.
+- Trước khi push, Task Code chạy toàn bộ lệnh CI local với đúng môi trường CI: 2346 passed, 25 skipped, 0 failed.
+
+**Kết quả trên GitHub.** Run `36735072023` (commit `69160e0`, 30/09/2026) thành công cả `Python quality` và `Web quality`:
+
+- pytest được 2346 passed, 25 skipped trong 744 giây; job Python chạy khoảng 13 phút, dưới giới hạn 30 phút;
+- không có dòng `SKIPPED` nào của `test_rem_b13_r12_search_path.py`; 25 skip gồm 24 suite Docker opt-in và 1 test cần `torch`;
+- `src/` của commit này giống hệt commit remediation `b4271f2`, nên mã sản phẩm của đợt remediation đã qua bộ test Python trên GitHub (trừ các suite Docker opt-in và torch).
+
+Các run đỏ trước đó (B10, và từ B12 đến `ce6bd98`) vẫn giữ nguyên trong lịch sử Actions. Chạy lại chúng dùng đúng code và workflow của commit cũ nên sẽ đỏ lại. Không xóa chúng, vì evidence tham chiếu các run ID này.
+
 Còn mở:
 
-- **Run GitHub sau fix:** chưa có. Cần kiểm run đầu tiên sau khi push:
-  - `Python quality` thành công, dưới 30 phút;
-  - không còn dòng `SKIPPED` nào của `test_rem_b13_r12_search_path.py`.
+- **Thời gian test:** pytest mất 443 giây ở run `36731320212` và 744 giây ở run `36735072023`, và tăng dần theo từng chặng. Cần theo dõi để không chạm giới hạn 30 phút.
 - **CI-R01** (có từ trước, ngoài phạm vi task): khi một test PostgreSQL fail, traceback của pytest in đối số là URL có mật khẩu của DB test.
   - Trong CI đây là mật khẩu CI-only, vốn đã công khai trong `ci.yml`.
   - Trên máy local, owner cần quyết định có xử lý hay không.
@@ -544,7 +556,7 @@ Còn mở:
 
 Theo PLAN §11/§13: **contract + simulator → vertical slice → fairness → recovery → Web UI → nghiệm thu/release**. Contract `1.0.0-b01` đã đóng R-03, R-05 và R-09 qua focused rereview cùng verification mới; ACC-01 là `pass`. B01–B16 đã được duyệt (B13 và B14 theo xác nhận của user ngày 26/09/2026, B15 ngày 27/09/2026, B16 ngày 28/09/2026), và đợt B1–B16 Findings Remediation được duyệt ngày 30/09/2026. Các chặng tiếp theo là **B17 — Web UI cho user**, **B18 — Web UI cho admin** và **B19 — Metrics, audit, storage limits**; cả ba đã đủ điều kiện và có thể làm song song. Owner còn ba quyết định OD-1..3 và một lượt chạy lại trên Docker Desktop cho năm finding `ENVIRONMENT BLOCKED`, nêu ở mục remediation phía trên. Evidence container B10–B15 giới hạn ở Docker Desktop Linux VM. B16 có thêm evidence Linux thật (môi trường L) trên VPS1, một EC2 VM; đợt remediation chạy lại toàn bộ `tests/docker` trên đó. Các gate bare-Linux/portability/release vẫn thuộc các chặng sau. B23 GPU có điều kiện: bắt đầu được khi B16 và B19 xong và có GPU thật; thiếu GPU không chặn lõi CPU nhưng chặn claim GPU verified.
 
-[Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run đã chạy trên mỗi lần push; job Python đỏ từ B12, được sửa trong CI-python-fix, và run xanh sau fix còn chờ xác nhận. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
+[Environment inventory](docs/environment-inventory.md) ghi nhận Git, Python 3.12, Docker/Compose, Node.js và `pnpm` trên máy macOS hiện tại; system PATH vẫn thiếu `uv` và `psql`, nhưng B02/B05 đã dùng isolated `uv`, psycopg và Docker PostgreSQL 17 để hoàn tất local evidence tương ứng. GitHub-hosted run đã chạy trên mỗi lần push; job Python đỏ từ B12 và xanh lại từ run `36735072023` (commit `69160e0`) sau CI-python-fix. macOS hỗ trợ development và PostgreSQL integration, không thay evidence Linux/cgroups. Các command B05 chỉ chứng minh persistence trên PostgreSQL 17, không phải product runtime.
 
 ## Kiểm tra repository hiện tại
 

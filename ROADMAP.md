@@ -42,7 +42,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
   - Task Review vòng 1 không duyệt vì bốn điểm chặn; vòng 2 đã sửa hết.
 
   Chi tiết ở [evidence remediation](docs/evidence/B01-B16-findings-remediation.md) và mục Bàn giao B1–B16 Findings Remediation bên dưới.
-- **Kiểm thử tự động trên GitHub (CI) đã được sửa ngày 30/09/2026 (task CI-python-fix), chờ xác nhận bằng lần chạy đầu tiên sau khi push.** Từ B12, phần kiểm thử Python trên GitHub luôn đỏ vì ba lỗi của môi trường CI và của cách viết test, không phải lỗi sản phẩm: chạy quá 15 phút, chữ bị chèn mã màu, và công cụ sao lưu cơ sở dữ liệu cũ hơn máy chủ. Cả ba đã được sửa và kiểm trên máy local; Task Ask đã kiểm tra lại thay cho một vòng Task Review đầy đủ. Chi tiết ở [evidence CI-python-fix](docs/evidence/CI-python-fix.md) và mục Bàn giao CI-python-fix bên dưới.
+- **Kiểm thử tự động trên GitHub (CI) đã xanh trở lại ngày 30/09/2026 (task CI-python-fix, hai vòng).** Từ B12, phần kiểm thử Python trên GitHub luôn đỏ vì ba lỗi của môi trường CI và của cách viết test, không phải lỗi sản phẩm: chạy quá 15 phút, chữ bị chèn mã màu, và công cụ sao lưu cơ sở dữ liệu cũ hơn máy chủ. Vòng 1 sửa ba lỗi này. Lần chạy đầu tiên sau đó lộ thêm một lỗi do chính bản sửa gây ra: bản sửa thêm một biến môi trường mà cấu hình Nexa từ chối, đúng như thiết kế. Vòng 2 sửa lỗi đó. Lần chạy `36735072023` trên GitHub xanh cả phần Python và web. Task Ask đã kiểm tra lại thay cho một vòng Task Review đầy đủ. Chi tiết ở [evidence CI-python-fix](docs/evidence/CI-python-fix.md) và mục Bàn giao CI-python-fix bên dưới.
 
 Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B16 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
 
@@ -52,7 +52,6 @@ Owner còn các việc sau:
 
 - chọn phương án cho OD-1, OD-2 và OD-3;
 - giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường;
-- push bản sửa CI và kiểm lần chạy GitHub đầu tiên sau đó;
 - quyết định có xử lý CI-R01 hay không.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
@@ -434,7 +433,8 @@ release. B17, B18 và B19 vẫn là các chặng tiếp theo.
 
 Task CI-python-fix sửa phần kiểm thử Python trên GitHub Actions, vốn đỏ từ B12 (lần xanh cuối là
 B11). Task chỉ đổi file CI và test, không đổi mã sản phẩm, migration hay lockfile. Task Code
-hoàn tất ngày 30/09/2026; Task Ask kiểm tra lại thay cho một vòng Task Review đầy đủ.
+hoàn tất hai vòng ngày 30/09/2026 (commit `ce6bd98` và `69160e0`); Task Ask kiểm tra lại thay
+cho một vòng Task Review đầy đủ.
 [Evidence CI-python-fix](docs/evidence/CI-python-fix.md) ghi nguyên nhân, cách sửa và kết quả.
 
 - **Ba nguyên nhân và cách sửa:**
@@ -448,9 +448,19 @@ hoàn tất ngày 30/09/2026; Task Ask kiểm tra lại thay cho một vòng Tas
   - suite mặc định khi giả lập môi trường GitHub được 1772 passed;
   - công cụ sao lưu bản 16 thật báo lệch phiên bản, xác nhận đúng nguyên nhân;
   - test sao lưu/khôi phục chạy qua container được 9 passed, không skip.
+- **Vòng 2 (CI-R03):**
+  - lần chạy GitHub đầu tiên sau vòng 1 hết lỗi cũ, nhưng 3 test công cụ bảo trì fail;
+  - nguyên nhân: bản sửa thêm một biến môi trường mà cấu hình Nexa từ chối (đúng thiết kế),
+    còn 3 test này chưa xóa biến đó trước khi gọi công cụ;
+  - cách sửa: các test xóa mọi biến môi trường dành cho kiểm thử trước khi gọi công cụ, không
+    đổi mã sản phẩm;
+  - trước khi push, toàn bộ bộ kiểm thử được chạy trên Mac với đúng môi trường GitHub: 2346
+    passed, 0 failed.
+- **Kết quả trên GitHub:** lần chạy `36735072023` xanh cả phần Python và web; 2346 test pass,
+  job Python chạy khoảng 13 phút (giới hạn 30 phút), test sao lưu/khôi phục không bị bỏ qua.
+  Các lần chạy đỏ cũ vẫn giữ nguyên trong lịch sử, vì chạy lại chúng sẽ dùng code cũ.
 - **Còn mở:**
-  - lần chạy GitHub đầu tiên sau khi push, cần xanh, dưới 30 phút và không skip test sao
-    lưu/khôi phục;
+  - theo dõi thời gian chạy kiểm thử, vì thời gian tăng dần theo từng chặng;
   - CI-R01: khi test PostgreSQL fail, pytest in URL có mật khẩu của DB test (có từ trước, chờ
     owner quyết định).
 
