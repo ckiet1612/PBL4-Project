@@ -72,3 +72,5 @@ jobs:
         run: pnpm --dir web run typecheck
       - name: Build web workspace
         run: pnpm --dir web run build
+      - name: Unit-test web workspace
+        run: pnpm --dir web run test

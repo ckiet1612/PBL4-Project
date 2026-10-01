@@ -70,6 +70,19 @@ Bearer bị từ chối, không merge authority. Theo OpenAPI hiện hành, `/v1
 nhận browser cookie; mô tả “CLI introspection bằng any valid token” còn mâu thuẫn và chưa
 được tự ý mở rộng.
 
+### Web UI (B17)
+
+UI user ([web-ui.md](web-ui.md)) chạy cùng origin với API sau Caddy TLS
+(`deploy/web/Caddyfile`): trình duyệt gửi `Origin`/`Host` của origin đó nên
+`NEXA_PUBLIC_ORIGIN` phải là đúng `https://<host>:<port>` trình duyệt thấy; Caddy
+chuyển `Host` nguyên vẹn. Vì login đi qua proxy, source của login rate là địa chỉ
+proxy; rate vẫn tách theo username. UI không đọc cookie (HttpOnly) và giữ CSRF token
+chỉ trong memory: lấy bằng `GET /v1/auth/session` khi tải trang, lấy lại một lần khi
+gặp `invalid_csrf`, rồi gửi lại cùng request; không ghi vào localStorage,
+sessionStorage hay IndexedDB. 401 đưa về `/login?next=<path nội bộ>`. Playwright W1
+kiểm cờ cookie, mutation thiếu CSRF bị chặn, storage rỗng và phiên bị thu hồi qua
+trình duyệt thật.
+
 ## CLI token
 
 Các scope exact, không phân cấp:
@@ -154,4 +167,5 @@ dependency DB trả 503 + `Retry-After` mà không lộ SQL/credential.
 - B10 dùng local worker ID, bootstrap credential và `resolve_worker_credential`; vẫn cần B09
   executor và phải thêm incarnation/heartbeat/reconcile/fencing.
 - B12/UI dùng cookie/CSRF hoặc exact-scope token, ETag, signed cursor và error contract. B12
-  chưa được phép coi `/auth/session` là bearer introspection khi OpenAPI chưa đổi.
+  chưa được phép coi `/auth/session` là bearer introspection khi OpenAPI chưa đổi. B17 UI
+  chỉ dùng cookie/CSRF (mục Web UI ở trên); token CLI chỉ được tạo/thu hồi từ UI.

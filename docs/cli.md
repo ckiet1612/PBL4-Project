@@ -62,7 +62,7 @@ update` dùng `--password-stdin` khi đổi password. Khi tạo user bằng flag
 nexa config show|set-endpoint|set-tenant|use-profile
 nexa token list|create|revoke
 nexa artifact list|get|upload|download
-nexa job submit|list|get|session|events|checkpoints|attempts|result|result-download
+nexa job submit|list|get|session|events|checkpoints|attempts|progress|result|result-download
 nexa job cancel|pause|resume|retry
 nexa template list|show|get
 nexa sweep submit|show
@@ -87,9 +87,17 @@ read. API còn kiểm tra active user, tenant role/membership, ownership và
 B15 đăng ký control job `cancel`, `pause`, `resume`, `retry` (scope
 `jobs:write`), `job attempts` (scope `jobs:read`) và admin
 `worker`/`allocations`/`recovery-events` sau khi route và API integration
-evidence tồn tại. Logs, progress, admin job và admin fairness vẫn chưa được đăng
-ký vì FastAPI snapshot chưa có route/service tương ứng; retention sweep là tác vụ
+evidence tồn tại. Logs, admin job và admin fairness vẫn chưa được đăng ký vì
+FastAPI snapshot chưa có route/service tương ứng; retention sweep là tác vụ
 coordinator, không có lệnh CLI.
+
+B17 đăng ký `job progress JOB_ID [--tenant T]` (`getJobProgress`, scope
+`jobs:read`). Output là `ProgressRecord`: `{"available": false}` khi attempt mới
+nhất của job chưa báo tiến độ (hoặc job chưa có attempt); khi có thì gồm
+`attempt_id`, `progress_sequence`, `snapshot`, `restore_checkpoint_id` (checkpoint
+mà attempt đó khôi phục, `null` nếu chạy từ đầu) và `reported_at` (thời điểm
+attempt được cập nhật lần cuối, B17-R15). Attempt khôi phục bắt đầu lại từ
+sequence 1; tiến độ của attempt cũ không được dùng lại.
 
 B16 đăng ký `template list [--enabled true|false]` (`listTemplates`, mặc định
 chỉ template enabled) và `template show TEMPLATE_ID` (`getTemplate`; `get` là

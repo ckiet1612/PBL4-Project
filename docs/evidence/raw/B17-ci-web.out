@@ -1,0 +1,48 @@
+## node v24.21.0 pnpm 11.9.0; files: 100
+Scope: all 2 workspace projects
+✓ Lockfile passes supply-chain policies (verified 3h ago)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +85
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 85, reused 85, downloaded 0, added 85, done
+
+dependencies:
++ react 19.3.0
++ react-dom 19.3.0
++ react-router 8.4.0
+
+devDependencies:
++ @playwright/test 1.63.0
++ @types/node 24.19.0
++ @types/react 19.3.0
++ @types/react-dom 19.3.0
++ @vitejs/plugin-react 6.1.1
++ typescript 7.0.2
++ vite 8.3.0
++ vitest 5.0.2
+
+Done in 726ms using pnpm v11.9.0
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 135 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.48 kB │ gzip:   0.31 kB
+dist/assets/index-DxNve0CI.css   10.93 kB │ gzip:   2.72 kB
+dist/assets/index-DFsuDEKX.js   362.33 kB │ gzip: 110.79 kB
+
+✓ built in 387ms
+$ vitest run
+
+ RUN  v5.0.2 /private/tmp/b17-ci-web/web
+
+
+ Test Files  13 passed (13)
+      Tests  101 passed (101)
+   Start at  03:47:35
+   Duration  413ms (transform 52%, tests 22%, import 21%, worker 5%)
+
+EXIT=0

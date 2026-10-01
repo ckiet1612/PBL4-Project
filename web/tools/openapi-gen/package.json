@@ -1,0 +1,11 @@
+{
+  "name": "nexa-openapi-gen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Isolated OpenAPI type generator: openapi-typescript needs the TypeScript 5 compiler API, which TypeScript 7 does not expose.",
+  "type": "module",
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,60 @@
+# B17 dev/test entry point: the Web UI build and REST /v1 behind one TLS origin.
+# Not the product deployment (B21/B25). scripts/b17_e2e_stack.py runs it with
+# caddy:2.10.2-alpine, --read-only, tmpfs /data and /config, 127.0.0.1 only.
+#
+# NEXA_B17_PORT          port the browser sees; NEXA_PUBLIC_ORIGIN is https://localhost:<port>
+# NEXA_B17_BIND          listen address: 0.0.0.0 inside a bridge container published on
+#                        127.0.0.1, or 127.0.0.1 with --network host (Linux)
+# NEXA_B17_API_UPSTREAM  host:port of the API process
+# The UI build (web/dist) is mounted read-only at /srv.
+{
+	admin off
+	persist_config off
+	skip_install_trust
+	auto_https disable_redirects
+}
+
+https://localhost:{$NEXA_B17_PORT} {
+	bind {$NEXA_B17_BIND}
+	tls internal
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	# The OpenAPI browser pages are not part of the UI origin. A `handle` block of its own:
+	# a bare `respond` sorts after `handle`, so the SPA fallback below would answer first.
+	@api_docs path /docs /docs/* /redoc /redoc/* /openapi.json
+	handle @api_docs {
+		respond 404
+	}
+
+	# Bootstrap and maintenance routes are not part of the browser origin. Docker Desktop hands
+	# proxied requests to the API from 127.0.0.1, inside the default maintenance CIDRs, so they
+	# are closed here; the harness worker calls the API directly.
+	handle /v1/internal/* {
+		respond 404
+	}
+
+	handle /v1/* {
+		# Host is forwarded unchanged so it matches the netloc of NEXA_PUBLIC_ORIGIN.
+		reverse_proxy {$NEXA_B17_API_UPSTREAM}
+	}
+
+	# Hashed build assets: long cache and no SPA fallback, so a missing asset is a 404.
+	handle /assets/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle {
+		root * /srv
+		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

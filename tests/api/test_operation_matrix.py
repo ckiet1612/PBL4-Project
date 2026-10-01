@@ -97,6 +97,8 @@ EXPECTED_B16_OPERATIONS = {
     "getSweep",
 }
 
+EXPECTED_B17_OPERATIONS = {"getJobProgress"}
+
 _DUMMY_ID = "018f05c4-a922-7d0d-9f55-f9084a72d0f9"
 ADMIN_OPERATION_CASES = (
     ("GET", "/v1/admin/tenants", None, 200, 403),
@@ -183,6 +185,7 @@ def test_b06_through_b11_operation_ids_are_registered(migrated_postgres_engine, 
         | EXPECTED_B14_OPERATIONS
         | EXPECTED_B15_OPERATIONS
         | EXPECTED_B16_OPERATIONS
+        | EXPECTED_B17_OPERATIONS
     )
 
 

@@ -20,6 +20,7 @@ from nexa.api.schemas import (
     JobState,
     JobSubmitRequest,
     LogicalSession,
+    ProgressRecord,
     ResultRecord,
     RetryRequest,
     UuidV7,
@@ -354,6 +355,29 @@ async def get_job_result(
         job_id=job_id,
     )
     return wire_response(ResultRecord, result)
+
+
+@router.get(
+    "/jobs/{job_id}/progress",
+    operation_id="getJobProgress",
+    summary="Read the latest accepted progress for an owned job",
+    response_model=ProgressRecord,
+    responses=_error_responses(400, 401, 403, 404, 500, 503),
+    openapi_extra={"security": _READ_SECURITY},
+)
+async def get_job_progress(
+    request: Request,
+    job_id: UuidV7,
+    tenant_id: Annotated[UuidV7, Header(alias="X-Nexa-Tenant-Id")],
+) -> JSONResponse:
+    principal = await run_in_threadpool(resolve_principal, request, mutation=False)
+    progress = await run_in_threadpool(
+        _job_service(request).get_progress,
+        principal,
+        tenant_id=tenant_id,
+        job_id=job_id,
+    )
+    return wire_response(ProgressRecord, progress)
 
 
 @router.get(

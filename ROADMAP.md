@@ -10,7 +10,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 30/09/2026
+## Trạng thái ghi nhận ngày 01/10/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
@@ -43,16 +43,27 @@ Hãy hình dung dự án như xây một ngôi nhà:
 
   Chi tiết ở [evidence remediation](docs/evidence/B01-B16-findings-remediation.md) và mục Bàn giao B1–B16 Findings Remediation bên dưới.
 - **Kiểm thử tự động trên GitHub (CI) đã xanh trở lại ngày 30/09/2026 (task CI-python-fix, hai vòng).** Từ B12, phần kiểm thử Python trên GitHub luôn đỏ vì ba lỗi của môi trường CI và của cách viết test, không phải lỗi sản phẩm: chạy quá 15 phút, chữ bị chèn mã màu, và công cụ sao lưu cơ sở dữ liệu cũ hơn máy chủ. Vòng 1 sửa ba lỗi này. Lần chạy đầu tiên sau đó lộ thêm một lỗi do chính bản sửa gây ra: bản sửa thêm một biến môi trường mà cấu hình Nexa từ chối, đúng như thiết kế. Vòng 2 sửa lỗi đó. Lần chạy `36735072023` trên GitHub xanh cả phần Python và web. Task Ask đã kiểm tra lại thay cho một vòng Task Review đầy đủ. Chi tiết ở [evidence CI-python-fix](docs/evidence/CI-python-fix.md) và mục Bàn giao CI-python-fix bên dưới.
+- **B17 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 01/10/2026.** Người dùng giờ có trang web để:
+  - đăng nhập;
+  - chuẩn bị dữ liệu;
+  - gửi việc hoặc thử nhiều bộ cài đặt;
+  - xem tiến độ và lịch sử;
+  - hủy, tạm dừng/chạy tiếp hoặc chạy lại công việc;
+  - tải kết quả;
+  - tạo token cho CLI.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B16 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+  Trang web gọi cùng API với CLI, và backend vẫn là nơi kiểm quyền. Bấm hai lần hay gửi lại khi mất mạng không tạo việc trùng. Trang không báo "đã dừng" trước khi hệ thống xác nhận. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac: 23 test không có worker, 1 test chế độ tạm ngừng nhận việc, và 4 test có worker chạy việc thật đến khi có kết quả. Task Review vòng 1 không duyệt vì hai lỗi chặn; vòng 2 đã sửa hết. Trang quản trị (B18) và xem log của công việc chưa có. Chi tiết ở [B17 evidence](docs/evidence/B17-web-ui-user.md), [hướng dẫn Web UI](docs/web-ui.md) và mục Bàn giao B17 bên dưới.
 
-Các chặng tiếp theo là **B17 — Web UI cho user**, **B18 — Web UI cho admin** và **B19 — Metrics, audit, storage limits**. Cả ba đã đủ điều kiện (B17 cần B12 và B16, B18 và B19 cần B15), và có thể làm song song. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), [B17 evidence](docs/evidence/B17-web-ui-user.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation, ngày 01/10/2026 đã duyệt B17. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B17 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+
+Các chặng tiếp theo là **B18 — Web UI cho admin** và **B19 — Metrics, audit, storage limits**. Cả hai đã đủ điều kiện (cần B15) và có thể làm song song. B18 dùng lại khung trang, menu và bộ gọi API của B17. Khi B18 và B19 xong, có thể làm B20 và B21. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
 
 Owner còn các việc sau:
 
 - chọn phương án cho OD-1, OD-2 và OD-3;
 - giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường;
-- quyết định có xử lý CI-R01 hay không.
+- quyết định có xử lý CI-R01 hay không;
+- dừng hoặc khởi động lại `nexa_b10_smoke3-caddy-1` trước các lượt kiểm thử container dài. Container này vẫn rò tiến trình: lúc chạy B17 vòng 2 nó đã giữ 5158 tiến trình.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -121,7 +132,7 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B14 | CPU checkpoint/restore | Đã hoàn thành và được duyệt: công việc CPU lưu tiến độ giữa chừng, chạy tiếp từ lần lưu hợp lệ gần nhất, bỏ qua lần lưu hỏng và cho kết quả giống từng byte với khi chạy không bị ngắt. Đã kiểm thử sáu tình huống container thật trên Docker Desktop Linux VM. Hủy/tạm dừng và phục hồi đầy đủ thuộc B15; workload AI thuộc B16. | B11 |
 | B15 | Cancel, pause/resume, retry, recovery | Đã hoàn thành và được duyệt: hủy, tạm dừng, chạy tiếp và thử lại công việc qua API/CLI; tự thu hồi quyền khi worker mất liên lạc và khôi phục từ điểm lưu; chỉ cấp lại tài nguyên khi lần chạy cũ đã thực sự dừng; admin drain/disable/enable worker. Đã kiểm thử với container thật trên Docker Desktop Linux VM. | B12, B13, B14 |
 | B16 | PyTorch, sweep, chunk inference | Đã hoàn thành và được duyệt: thêm các mẫu việc AI được cho phép, gồm dạy một mô hình nhỏ trên CPU, thử tối đa 100 bộ cài đặt và dùng mô hình xử lý dữ liệu từng phần. Việc dạy mô hình chạy tiếp đúng sau lỗi trong ngưỡng sai số đã khóa trước; việc xử lý từng phần không tạo phần trùng. Đã kiểm thử với container thật trên VPS1 (Linux thật, không GPU). | B15 |
-| B17 | Web UI cho user | Tạo trang web để người dùng đăng nhập, gửi việc, xem tiến độ, hủy hoặc tạm dừng/chạy tiếp và tải kết quả. | B12, B16 |
+| B17 | Web UI cho user | Đã hoàn thành và được duyệt: trang web để người dùng đăng nhập, chuẩn bị dữ liệu, gửi việc, xem tiến độ, hủy hoặc tạm dừng/chạy tiếp, chạy lại và tải kết quả, dùng chung API với CLI. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac, gồm cả việc chạy thật trong container. Xem log của công việc chưa có. | B12, B16 |
 | B18 | Web UI cho admin | Tạo trang quản trị để quản lý người dùng, giới hạn được phép, máy chạy, hàng chờ; xem cách chia tài nguyên, sự cố và lịch sử thao tác. | B15 |
 | B19 | Metrics, audit, storage limits | Ghi số liệu và nhật ký cần thiết, giới hạn dung lượng và giúp biết hệ thống đang khỏe hay gặp vấn đề. | B15 |
 | B20 | Security và race tests | Kiểm tra người dùng không xem dữ liệu trái quyền và không vượt giới hạn. Thử các tình huống như hủy công việc đúng lúc kết quả vừa gửi về để tìm và sửa lỗi. | B17, B18, B19 |
@@ -227,6 +238,7 @@ Có thể tra phần này khi gặp một từ lạ; không cần học thuộc 
 - **Compose / clean install:** Compose là công cụ khởi chạy các phần của hệ thống theo cấu hình chung; clean install là thử cài từ đầu trên máy chưa có dự án.
 - **Portability / backup:** portability là khả năng cài cùng sản phẩm trên các máy có cấu hình khác nhau; backup là sao lưu dữ liệu để có thể khôi phục. Khôi phục bản sao lưu toàn hệ thống khác với chạy tiếp một công việc từ điểm lưu tiến độ.
 - **Load / soak / chaos:** lần lượt là thử nhiều yêu cầu, chạy liên tục trong thời gian dài và cố ý tạo sự cố để kiểm tra khả năng chịu đựng, phục hồi.
+- **Playwright:** công cụ điều khiển trình duyệt thật để tự động bấm, gõ và kiểm tra trang web như một người dùng.
 - **Benchmark / demo:** benchmark là bài đo có điều kiện rõ ràng để so sánh kết quả; demo là trình diễn sản phẩm hoạt động.
 - **DoD (Definition of Done):** danh sách điều kiện cần đạt để xác nhận dự án hoàn thành.
 - **Release / v1.0.0:** release là bản sản phẩm đóng gói, phát hành cho người khác cài; `v1.0.0` là tên phiên bản chính thức dự án cần bàn giao.
@@ -465,3 +477,31 @@ cho một vòng Task Review đầy đủ.
     owner quyết định).
 
 Task này không thay các chặng B17–B25 và không nâng gate nghiệm thu nào.
+
+## Bàn giao B17
+
+B17 — Web UI cho user đã được Task Review duyệt theo xác nhận của user ngày 01/10/2026. Vòng 1 không duyệt vì hai lỗi chặn, vòng 2 đã sửa. [B17 evidence](docs/evidence/B17-web-ui-user.md) ghi cách làm và kết quả; [hướng dẫn Web UI](docs/web-ui.md) ghi cách tổ chức trang, cách chạy thử và hướng dẫn làm lại giao diện.
+
+- **Đã thêm:**
+  - trang web tiếng Việt cho thành viên và quản trị viên của một tenant, dùng được trên điện thoại. Trang web thay trang mẫu của B02 và mới ở mức bộ khung chức năng; làm đẹp giao diện là việc sau;
+  - menu chính chỉ có hai mục: Jobs và Dữ liệu. Token CLI nằm trong menu tài khoản;
+  - mọi thao tác đi qua cùng API với CLI, nên trang web không có quyền nào CLI không có;
+  - API và lệnh CLI mới để xem tiến độ của một công việc;
+  - cấu hình Caddy để phục vụ trang web qua HTTPS khi phát triển và kiểm thử, kèm các header bảo mật;
+  - công cụ dựng hệ thống thật để chạy kiểm thử trình duyệt; kiểm thử phần logic giao diện (Vitest) được thêm vào CI.
+- **Kết quả kiểm thử trên Mac:**
+  - kiểm thử trình duyệt trên hệ thống thật: 23 test không có worker, 1 test chế độ tạm ngừng nhận việc, 4 test có worker chạy công việc thật trong container. Bốn test có worker gồm: chạy xong rồi tải kết quả đúng checksum, tạm dừng/chạy tiếp có điểm lưu, hủy khi đang chạy, chạy lại một việc đã lỗi;
+  - Vitest 105 test; kiểm thử Python 1775 passed, kiểm thử với PostgreSQL 2350 passed;
+  - Task Review tự build lại và được bản giống từng byte, chạy lại typecheck, Vitest, Ruff và kiểm thử Python mặc định đều sạch.
+- **Hai lỗi chặn đã sửa ở vòng 2:**
+  - một đường dẫn chuyển hướng sau đăng nhập được viết khéo có thể làm trang trắng → đã chặn;
+  - khi proxy báo lỗi 5xx không rõ nguyên nhân, trang web bỏ khóa chống trùng, nên gửi lại có thể tạo việc trùng → giờ trang web giữ khóa.
+- **Còn mở, không chặn:**
+  - chưa xem được log của công việc (B17-R01);
+  - các khuyến nghị B17-RV03–RV11 của Task Review, như đồng bộ phiên giữa các tab, thời gian chờ của trình duyệt và lỗi khi gửi lại upload sau gián đoạn;
+  - API còn thiếu tên người dùng/tenant trong phiên, danh sách sweep, giá trị tham số của từng việc con trong sweep và liên kết từ việc cũ tới các lần chạy lại;
+  - bật lại nhận việc từ chế độ tạm ngừng qua API luôn bị từ chối (B17-R18), thuộc B18/B19;
+  - kiểm thử trình duyệt chưa chạy trên GitHub CI (B17-R14).
+- **Chưa chạy:** VPS1 và kịch bản quan sát phục hồi qua trang web.
+
+Task này không thay các chặng B18–B25. Các gate nghiệm thu chỉ đạt phần thuộc B17 và vẫn ghi `specified`. Bước tiếp theo là B18 và B19.

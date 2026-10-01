@@ -1,0 +1,57 @@
+[b17-stack] run 4be4afab tier=w1 network=bridge dist index=f5b69e53c73c
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 55418 (bind 0.0.0.0)
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:55419
+[b17-stack] seeded 3 tenants, 9 users, 3 templates
+[b17-stack] running: pnpm --dir web exec playwright test --project=w1-desktop --project=w1-mobile
+
+Running 20 tests using 1 worker
+
+  ✓   1 [w1-desktop] › tests/e2e/w1/auth.spec.ts:6:1 › 1. login: generic error, secure cookie, no web storage, reload keeps session, logout → 401 (1.3s)
+  ✓   2 [w1-desktop] › tests/e2e/w1/auth.spec.ts:56:3 › with member A › 2. CSRF: a mutation without X-CSRF-Token is refused with 403 invalid_csrf (208ms)
+  ✓   3 [w1-desktop] › tests/e2e/w1/auth.spec.ts:79:1 › 3. revoked session: logout in page 1, next action in page 2 → login with notice, next returns there (1.1s)
+  ✓   4 [w1-desktop] › tests/e2e/w1/controls.spec.ts:10:1 › 11. cancel a QUEUED job: dismissing changes nothing, confirming gives CANCELLED (800ms)
+  ✓   5 [w1-desktop] › tests/e2e/w1/controls.spec.ts:43:1 › 10. 412: tab 2 acts on a stale ETag after tab 1 cancelled → reload, explain, no resend (953ms)
+  ✓   6 [w1-desktop] › tests/e2e/w1/data.spec.ts:11:1 › 8a. upload an INPUT, see it listed, pick it in the form, download it with a matching SHA-256 (627ms)
+  ✓   7 [w1-desktop] › tests/e2e/w1/data.spec.ts:50:1 › 8b. a file over the browser limit is never read: the CLI command is shown instead (321ms)
+  ✓   8 [w1-desktop] › tests/e2e/w1/pagination.spec.ts:49:1 › 9. cursor pages forward/back/first, filters, empty result, tampered cursor, page_size (2.0s)
+  ✓   9 [w1-desktop] › tests/e2e/w1/submit.spec.ts:31:3 › member A › 6a. cpu-iterative is accepted: detail shows QUEUED and waits for a worker (551ms)
+  ✓  10 [w1-desktop] › tests/e2e/w1/submit.spec.ts:46:3 › member A › 6b. invalid fields are blocked inline and nothing is sent (406ms)
+  ✓  11 [w1-desktop] › tests/e2e/w1/submit.spec.ts:72:3 › member A › 6c. an error only the server can detect (9 cores over the template bound) is shown in its group (439ms)
+  ✓  12 [w1-desktop] › tests/e2e/w1/submit.spec.ts:95:3 › member A › 6f. pytorch-cifar10-cnn and batch-inference forms follow parameter_schema and are accepted (945ms)
+  ✓  13 [w1-desktop] › tests/e2e/w1/submit.spec.ts:138:3 › member A › 7a. double click creates exactly one job (702ms)
+  ✓  14 [w1-desktop] › tests/e2e/w1/submit.spec.ts:152:3 › member A › 7b. the first response is cut: the resend reuses the Idempotency-Key and one job exists (660ms)
+  ✓  15 [w1-desktop] › tests/e2e/w1/submit.spec.ts:187:1 › 6d. low-quota tenant: the second job is refused with a clear quota message and no countdown (783ms)
+  ✓  16 [w1-desktop] › tests/e2e/w1/sweep.spec.ts:8:1 › 12. sweep 2×2 → sweep page lists 4 accepted children; each link opens its job (1.1s)
+  ✓  17 [w1-desktop] › tests/e2e/w1/tenancy.spec.ts:19:1 › 4. two tenants: B cannot see, download or address A's job and data; multi switches tenant (721ms)
+  ✓  18 [w1-desktop] › tests/e2e/w1/tenancy.spec.ts:80:1 › 5. roles: member A2 has no controls and a forced call gets 404; tenant admin A cancels (874ms)
+  ✓  19 [w1-desktop] › tests/e2e/w1/tokens.spec.ts:27:1 › 13. token shown once, gone after reload, revocable; a member is never offered admin:* (665ms)
+  ✓  20 [w1-mobile] › tests/e2e/mobile/mobile.spec.ts:6:1 › mobile: login, list, submit, detail, cancel dialog, data and tokens without horizontal scroll (1.4s)
+
+  20 passed (27.3s)
+[b17-stack] command exit=0 in 28.2s
+[b17-stack] cleaned up run 4be4afab

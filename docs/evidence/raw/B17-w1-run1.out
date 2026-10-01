@@ -1,0 +1,555 @@
+[b17-stack] run d2349815 tier=w1 network=bridge dist index=575019a02e41
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 55009 (bind 0.0.0.0)
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:55010
+[b17-stack] seeded 3 tenants, 9 users, 3 templates
+[b17-stack] running: pnpm --dir web exec playwright test --project=w1-desktop --project=w1-mobile
+
+Running 21 tests using 1 worker
+
+  ✓   1 [w1-desktop] › tests/e2e/w1/auth.spec.ts:6:1 › 1. login: generic error, secure cookie, no web storage, reload keeps session, logout → 401 (2.1s)
+  ✓   2 [w1-desktop] › tests/e2e/w1/auth.spec.ts:56:3 › with member A › 2. CSRF: a mutation without X-CSRF-Token is refused with 403 invalid_csrf (459ms)
+  ✓   3 [w1-desktop] › tests/e2e/w1/auth.spec.ts:79:1 › 3. revoked session: logout in page 1, next action in page 2 → login with notice, next returns there (996ms)
+  ✓   4 [w1-desktop] › tests/e2e/w1/controls.spec.ts:10:1 › 11. cancel a QUEUED job: dismissing changes nothing, confirming gives CANCELLED (1.1s)
+  ✓   5 [w1-desktop] › tests/e2e/w1/controls.spec.ts:43:1 › 10. 412: tab 2 acts on a stale ETag after tab 1 cancelled → reload, explain, no resend (1.1s)
+  ✘   6 [w1-desktop] › tests/e2e/w1/data.spec.ts:11:1 › 8a. upload an INPUT, see it listed, pick it in the form, download it with a matching SHA-256 (388ms)
+  ✘   7 [w1-desktop] › tests/e2e/w1/data.spec.ts:50:1 › 8b. a file over the browser limit is never read: the CLI command is shown instead (560ms)
+  ✘   8 [w1-desktop] › tests/e2e/w1/pagination.spec.ts:49:1 › 9. cursor pages forward/back/first, filters, empty result, tampered cursor, page_size (12.1s)
+  ✘   9 [w1-desktop] › tests/e2e/w1/submit.spec.ts:44:3 › member A › 6a. cpu-iterative is accepted: detail shows QUEUED and waits for a worker (10.8s)
+  ✘  10 [w1-desktop] › tests/e2e/w1/submit.spec.ts:59:3 › member A › 6b. invalid fields are blocked inline and nothing is sent (1.0m)
+  ✓  11 [w1-desktop] › tests/e2e/w1/submit.spec.ts:84:3 › member A › 6c. an error only the server can detect (9 cores over the template bound) is shown in its group (849ms)
+  ✓  12 [w1-desktop] › tests/e2e/w1/submit.spec.ts:107:3 › member A › 6f. pytorch-cifar10-cnn and batch-inference forms follow parameter_schema and are accepted (1.1s)
+  ✘  13 [w1-desktop] › tests/e2e/w1/submit.spec.ts:150:3 › member A › 6e. ADMISSION_OFF set by the admin through the API: submit explains the pause; back to NORMAL (10.6s)
+  ✘  14 [w1-desktop] › tests/e2e/w1/submit.spec.ts:172:3 › member A › 7a. double click creates exactly one job (11.0s)
+  ✘  15 [w1-desktop] › tests/e2e/w1/submit.spec.ts:186:3 › member A › 7b. the first response is cut: the resend reuses the Idempotency-Key and one job exists (10.8s)
+  ✘  16 [w1-desktop] › tests/e2e/w1/submit.spec.ts:221:1 › 6d. low-quota tenant: the second job is refused with a clear quota message and no countdown (10.6s)
+  ✘  17 [w1-desktop] › tests/e2e/w1/sweep.spec.ts:8:1 › 12. sweep 2×2 → sweep page lists 4 accepted children; each link opens its job (11.2s)
+  ✘  18 [w1-desktop] › tests/e2e/w1/tenancy.spec.ts:19:1 › 4. two tenants: B cannot see, download or address A's job and data; multi switches tenant (0ms)
+  -  19 [w1-desktop] › tests/e2e/w1/tenancy.spec.ts:80:1 › 5. roles: member A2 has no controls and a forced call gets 404; tenant admin A cancels
+  ✘  20 [w1-desktop] › tests/e2e/w1/tokens.spec.ts:21:1 › 13. token shown once, gone after reload, revocable; a member is never offered admin:* (801ms)
+  ✘  21 [w1-mobile] › tests/e2e/mobile/mobile.spec.ts:6:1 › mobile: login, list, submit, detail, cancel dialog, data and tokens without horizontal scroll (10.6s)
+
+
+  1) [w1-desktop] › tests/e2e/w1/data.spec.ts:11:1 › 8a. upload an INPUT, see it listed, pick it in the form, download it with a matching SHA-256 
+
+    Error: locator.setInputFiles: Error: strict mode violation: getByRole('dialog', { name: 'Tải lên tệp' }).getByLabel('Tệp') resolved to 2 elements:
+        1) <div role="group" class="upload-panel" aria-label="Tải lên tệp">…</div> aka getByRole('group', { name: 'Tải lên tệp' })
+        2) <input id="_r_6_" type="file" aria-invalid="false" aria-describedby="_r_6_-help"/> aka getByRole('button', { name: 'Tệp', exact: true })
+
+    Call log:
+      - waiting for getByRole('dialog', { name: 'Tải lên tệp' }).getByLabel('Tệp')
+
+
+      21 |   await dialog.getByLabel("Loại dữ liệu").selectOption("INPUT");
+      22 |   await expect(dialog.getByLabel("Media type")).toHaveValue("application/vnd.nexa.cpu-iterative-input+json");
+    > 23 |   await dialog.getByLabel("Tệp").setInputFiles({ name: "input.json", mimeType: "application/json", buffer: content });
+         |   ^
+      24 |   await dialog.getByRole("button", { name: "Tải lên", exact: true }).click();
+      25 |   await expect(dialog).toBeHidden();
+      26 |
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/data.spec.ts:23:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/data-8a-upload-an-INPUT-se-89e8e--it-with-a-matching-SHA-256-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/data-8a-upload-an-INPUT-se-89e8e--it-with-a-matching-SHA-256-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/data-8a-upload-an-INPUT-se-89e8e--it-with-a-matching-SHA-256-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/data-8a-upload-an-INPUT-se-89e8e--it-with-a-matching-SHA-256-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [w1-desktop] › tests/e2e/w1/data.spec.ts:50:1 › 8b. a file over the browser limit is never read: the CLI command is shown instead 
+
+    Error: locator.setInputFiles: Error: strict mode violation: getByRole('dialog', { name: 'Tải lên tệp' }).getByLabel('Tệp') resolved to 2 elements:
+        1) <div role="group" class="upload-panel" aria-label="Tải lên tệp">…</div> aka getByRole('group', { name: 'Tải lên tệp' })
+        2) <input id="_r_6_" type="file" aria-invalid="false" aria-describedby="_r_6_-help"/> aka getByRole('button', { name: 'Tệp', exact: true })
+
+    Call log:
+      - waiting for getByRole('dialog', { name: 'Tải lên tệp' }).getByLabel('Tệp')
+
+
+      63 |     await page.getByRole("button", { name: "Tải lên tệp" }).first().click();
+      64 |     const dialog = page.getByRole("dialog", { name: "Tải lên tệp" });
+    > 65 |     await dialog.getByLabel("Tệp").setInputFiles(path);
+         |     ^
+      66 |     await expect(dialog.getByText(/Tệp lớn hơn 256 MiB: tải lên bằng CLI/)).toBeVisible();
+      67 |     await expect(dialog.getByText(/nexa artifact upload FILE --kind INPUT/)).toBeVisible();
+      68 |     await expect(dialog.getByRole("button", { name: "Tải lên", exact: true })).toBeDisabled();
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/data.spec.ts:65:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/data-8b-a-file-over-the-br-141d4-LI-command-is-shown-instead-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/data-8b-a-file-over-the-br-141d4-LI-command-is-shown-instead-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/data-8b-a-file-over-the-br-141d4-LI-command-is-shown-instead-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/data-8b-a-file-over-the-br-141d4-LI-command-is-shown-instead-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [w1-desktop] › tests/e2e/w1/pagination.spec.ts:49:1 › 9. cursor pages forward/back/first, filters, empty result, tampered cursor, page_size 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Vị trí trang không còn hợp lệ, đã quay về trang đầu')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Vị trí trang không còn hợp lệ, đã quay về trang đầu') with timeout 10000ms
+      - waiting for getByText('Vị trí trang không còn hợp lệ, đã quay về trang đầu')
+
+
+      90 |
+      91 |   await page.goto(`/t/${seed.tenants.b}/jobs?cursor=tampered-by-e2e`);
+    > 92 |   await expect(page.getByText("Vị trí trang không còn hợp lệ, đã quay về trang đầu")).toBeVisible();
+         |                                                                                       ^
+      93 |   await expect(page).not.toHaveURL(/cursor=/);
+      94 |   await expect.poll(() => shownIds(page)).toEqual(expected.slice(0, PAGE));
+      95 |
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/pagination.spec.ts:92:87
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/pagination-9-cursor-pages--85ae7-t-tampered-cursor-page-size-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/pagination-9-cursor-pages--85ae7-t-tampered-cursor-page-size-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/pagination-9-cursor-pages--85ae7-t-tampered-cursor-page-size-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/pagination-9-cursor-pages--85ae7-t-tampered-cursor-page-size-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [w1-desktop] › tests/e2e/w1/submit.spec.ts:44:3 › member A › 6a. cpu-iterative is accepted: detail shows QUEUED and waits for a worker 
+
+    Error: expect(locator).toBeChecked() failed
+
+    Locator:  getByRole('radio', { name: /CPU iterative/ })
+    Expected: checked
+    Received: unchecked
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeChecked" getByRole('radio', { name: /CPU iterative/ }) with timeout 10000ms
+      - waiting for getByRole('radio', { name: /CPU iterative/ })
+        23 × locator resolved to <input type="radio" name="template"/>
+           - unexpected value "unchecked"
+
+
+      12 |
+      13 | async function fillCpu(page: Page, inputArtifactId: string, seed: string): Promise<void> {
+    > 14 |   await expect(page.getByRole("radio", { name: /CPU iterative/ })).toBeChecked();
+         |                                                                    ^
+      15 |   await page.getByLabel("Dữ liệu đầu vào").selectOption(inputArtifactId);
+      16 |   await page.getByLabel("iterations", { exact: true }).fill("10");
+      17 |   await page.getByLabel("seed", { exact: true }).fill(seed);
+        at fillCpu (/Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:14:68)
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:47:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/submit-member-A-6a-cpu-ite-95f08-EUED-and-waits-for-a-worker-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/submit-member-A-6a-cpu-ite-95f08-EUED-and-waits-for-a-worker-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/submit-member-A-6a-cpu-ite-95f08-EUED-and-waits-for-a-worker-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/submit-member-A-6a-cpu-ite-95f08-EUED-and-waits-for-a-worker-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [w1-desktop] › tests/e2e/w1/submit.spec.ts:59:3 › member A › 6b. invalid fields are blocked inline and nothing is sent 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.selectOption: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for getByLabel('Dữ liệu đầu vào')
+        - locator resolved to <select id="_r_2_" aria-invalid="false" aria-describedby="_r_a_">…</select>
+      - attempting select option action
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+        - waiting 20ms
+        2 × waiting for element to be visible and enabled
+          - did not find some options
+        - retrying select option action
+          - waiting 100ms
+        118 × waiting for element to be visible and enabled
+            - did not find some options
+          - retrying select option action
+            - waiting 500ms
+
+
+      61 |     const posts = countJobPosts(page);
+      62 |     await openForm(page, seed.tenants.a);
+    > 63 |     await page.getByLabel("Dữ liệu đầu vào").selectOption(seed.artifacts.a_input.artifact_id);
+         |                                              ^
+      64 |     await page.getByLabel("iterations", { exact: true }).fill("0");
+      65 |     await page.getByLabel("seed", { exact: true }).fill("1");
+      66 |     await page.getByLabel("CPU (core)").fill("abc");
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:63:46
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/submit-member-A-6b-invalid-3b8b1--inline-and-nothing-is-sent-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/submit-member-A-6b-invalid-3b8b1--inline-and-nothing-is-sent-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/submit-member-A-6b-invalid-3b8b1--inline-and-nothing-is-sent-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/submit-member-A-6b-invalid-3b8b1--inline-and-nothing-is-sent-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [w1-desktop] › tests/e2e/w1/submit.spec.ts:150:3 › member A › 6e. ADMISSION_OFF set by the admin through the API: submit explains the pause; back to NORMAL 
+
+    Error: {"code":"state_conflict","message":"Readiness and worker reconciliation are required","request_id":"01a0f394-dd64-736b-891c-dd2e071f4bdb"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 409
+
+       at support.ts:176
+
+      174 |       data: { operational_mode: mode },
+      175 |     });
+    > 176 |     expect(response.status(), await response.text()).toBe(200);
+          |                                                      ^
+      177 |     return previous;
+      178 |   }
+      179 |
+        at Api.setOperationalMode (/Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/support.ts:176:54)
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:164:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/submit-member-A-6e-ADMISSI-18806-ns-the-pause-back-to-NORMAL-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/submit-member-A-6e-ADMISSI-18806-ns-the-pause-back-to-NORMAL-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/submit-member-A-6e-ADMISSI-18806-ns-the-pause-back-to-NORMAL-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/submit-member-A-6e-ADMISSI-18806-ns-the-pause-back-to-NORMAL-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [w1-desktop] › tests/e2e/w1/submit.spec.ts:172:3 › member A › 7a. double click creates exactly one job 
+
+    Error: expect(locator).toBeChecked() failed
+
+    Locator:  getByRole('radio', { name: /CPU iterative/ })
+    Expected: checked
+    Received: unchecked
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeChecked" getByRole('radio', { name: /CPU iterative/ }) with timeout 10000ms
+      - waiting for getByRole('radio', { name: /CPU iterative/ })
+        23 × locator resolved to <input type="radio" name="template"/>
+           - unexpected value "unchecked"
+
+
+      12 |
+      13 | async function fillCpu(page: Page, inputArtifactId: string, seed: string): Promise<void> {
+    > 14 |   await expect(page.getByRole("radio", { name: /CPU iterative/ })).toBeChecked();
+         |                                                                    ^
+      15 |   await page.getByLabel("Dữ liệu đầu vào").selectOption(inputArtifactId);
+      16 |   await page.getByLabel("iterations", { exact: true }).fill("10");
+      17 |   await page.getByLabel("seed", { exact: true }).fill(seed);
+        at fillCpu (/Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:14:68)
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:178:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/submit-member-A-7a-double-click-creates-exactly-one-job-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/submit-member-A-7a-double-click-creates-exactly-one-job-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/submit-member-A-7a-double-click-creates-exactly-one-job-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/submit-member-A-7a-double-click-creates-exactly-one-job-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [w1-desktop] › tests/e2e/w1/submit.spec.ts:186:3 › member A › 7b. the first response is cut: the resend reuses the Idempotency-Key and one job exists 
+
+    Error: expect(locator).toBeChecked() failed
+
+    Locator:  getByRole('radio', { name: /CPU iterative/ })
+    Expected: checked
+    Received: unchecked
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeChecked" getByRole('radio', { name: /CPU iterative/ }) with timeout 10000ms
+      - waiting for getByRole('radio', { name: /CPU iterative/ })
+        24 × locator resolved to <input type="radio" name="template"/>
+           - unexpected value "unchecked"
+
+
+      12 |
+      13 | async function fillCpu(page: Page, inputArtifactId: string, seed: string): Promise<void> {
+    > 14 |   await expect(page.getByRole("radio", { name: /CPU iterative/ })).toBeChecked();
+         |                                                                    ^
+      15 |   await page.getByLabel("Dữ liệu đầu vào").selectOption(inputArtifactId);
+      16 |   await page.getByLabel("iterations", { exact: true }).fill("10");
+      17 |   await page.getByLabel("seed", { exact: true }).fill(seed);
+        at fillCpu (/Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:14:68)
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:203:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/submit-member-A-7b-the-fir-66f6f-ency-Key-and-one-job-exists-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/submit-member-A-7b-the-fir-66f6f-ency-Key-and-one-job-exists-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/submit-member-A-7b-the-fir-66f6f-ency-Key-and-one-job-exists-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/submit-member-A-7b-the-fir-66f6f-ency-Key-and-one-job-exists-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [w1-desktop] › tests/e2e/w1/submit.spec.ts:221:1 › 6d. low-quota tenant: the second job is refused with a clear quota message and no countdown 
+
+    Error: expect(locator).toBeChecked() failed
+
+    Locator:  getByRole('radio', { name: /CPU iterative/ })
+    Expected: checked
+    Received: unchecked
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeChecked" getByRole('radio', { name: /CPU iterative/ }) with timeout 10000ms
+      - waiting for getByRole('radio', { name: /CPU iterative/ })
+        24 × locator resolved to <input type="radio" name="template"/>
+           - unexpected value "unchecked"
+
+
+      12 |
+      13 | async function fillCpu(page: Page, inputArtifactId: string, seed: string): Promise<void> {
+    > 14 |   await expect(page.getByRole("radio", { name: /CPU iterative/ })).toBeChecked();
+         |                                                                    ^
+      15 |   await page.getByLabel("Dữ liệu đầu vào").selectOption(inputArtifactId);
+      16 |   await page.getByLabel("iterations", { exact: true }).fill("10");
+      17 |   await page.getByLabel("seed", { exact: true }).fill(seed);
+        at fillCpu (/Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:14:68)
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/submit.spec.ts:228:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/submit-6d-low-quota-tenant-dbd79-ta-message-and-no-countdown-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/submit-6d-low-quota-tenant-dbd79-ta-message-and-no-countdown-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/submit-6d-low-quota-tenant-dbd79-ta-message-and-no-countdown-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/submit-6d-low-quota-tenant-dbd79-ta-message-and-no-countdown-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [w1-desktop] › tests/e2e/w1/sweep.spec.ts:8:1 › 12. sweep 2×2 → sweep page lists 4 accepted children; each link opens its job 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Kết quả sweep', level: 1 })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('heading', { name: 'Kết quả sweep', level: 1 }) with timeout 10000ms
+      - waiting for getByRole('heading', { name: 'Kết quả sweep', level: 1 })
+
+
+      27 |
+      28 |   await page.getByRole("button", { name: "Gửi sweep (4 job)" }).click();
+    > 29 |   await expect(page.getByRole("heading", { level: 1, name: "Kết quả sweep" })).toBeVisible();
+         |                                                                                ^
+      30 |   await expect(page.getByText("Đã gửi sweep: 4 job được nhận, 0 bị từ chối.")).toBeVisible();
+      31 |   await expect(page.getByText("4 tổng · 4 được nhận · 0 bị từ chối")).toBeVisible();
+      32 |   const links = page.locator("tbody tr td:last-child a");
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/sweep.spec.ts:29:80
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/sweep-12-sweep-2×2-→-sweep-ded9e-ren-each-link-opens-its-job-w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/sweep-12-sweep-2×2-→-sweep-ded9e-ren-each-link-opens-its-job-w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/sweep-12-sweep-2×2-→-sweep-ded9e-ren-each-link-opens-its-job-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/sweep-12-sweep-2×2-→-sweep-ded9e-ren-each-link-opens-its-job-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [w1-desktop] › tests/e2e/w1/tenancy.spec.ts:19:1 › 4. two tenants: B cannot see, download or address A's job and data; multi switches tenant 
+
+    Error: {"code":"state_conflict","message":"New job submissions are disabled in the current operational mode","request_id":"01a0f395-a006-7923-846c-bbc13d502158"}
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 202
+    Received: 409
+
+       at support.ts:135
+
+      133 |   async submit(tenantId: string, spec: Record<string, unknown>): Promise<Job> {
+      134 |     const response = await this.post("/jobs", tenantId, { spec });
+    > 135 |     expect(response.status(), await response.text()).toBe(202);
+          |                                                      ^
+      136 |     return (await response.json()) as Job;
+      137 |   }
+      138 |
+        at Api.submit (/Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/support.ts:135:54)
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/tenancy.spec.ts:13:10
+
+    Error Context: test-results/tenancy-4-two-tenants-B-ca-e79fe--data-multi-switches-tenant-w1-desktop/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tenancy-4-two-tenants-B-ca-e79fe--data-multi-switches-tenant-w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/tenancy-4-two-tenants-B-ca-e79fe--data-multi-switches-tenant-w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [w1-desktop] › tests/e2e/w1/tokens.spec.ts:21:1 › 13. token shown once, gone after reload, revocable; a member is never offered admin:* 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 400
+
+      36 |   const token = (await secret.textContent()) ?? "";
+      37 |   expect(token.length > 20).toBe(true);
+    > 38 |   expect(await bearerStatus(token)).toBe(200);
+         |                                     ^
+      39 |   await expect(page.getByRole("button", { name: `Thu hồi token ${name}` })).toBeVisible();
+      40 |
+      41 |   await page.reload();
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/w1/tokens.spec.ts:38:37
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/tokens-13-token-shown-once-4077e-ber-is-never-offered-admin--w1-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/tokens-13-token-shown-once-4077e-ber-is-never-offered-admin--w1-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tokens-13-token-shown-once-4077e-ber-is-never-offered-admin--w1-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/tokens-13-token-shown-once-4077e-ber-is-never-offered-admin--w1-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [w1-mobile] › tests/e2e/mobile/mobile.spec.ts:6:1 › mobile: login, list, submit, detail, cancel dialog, data and tokens without horizontal scroll 
+
+    Error: expect(locator).toBeChecked() failed
+
+    Locator:  getByRole('radio', { name: /CPU iterative/ })
+    Expected: checked
+    Received: unchecked
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeChecked" getByRole('radio', { name: /CPU iterative/ }) with timeout 10000ms
+      - waiting for getByRole('radio', { name: /CPU iterative/ })
+        23 × locator resolved to <input type="radio" name="template"/>
+           - unexpected value "unchecked"
+
+
+      16 |   await page.getByRole("link", { name: "Tạo job" }).first().click();
+      17 |   await expect(page.getByRole("heading", { level: 1, name: "Tạo job" })).toBeVisible();
+    > 18 |   await expect(page.getByRole("radio", { name: /CPU iterative/ })).toBeChecked();
+         |                                                                    ^
+      19 |   await page.getByLabel("Dữ liệu đầu vào").selectOption(seed.artifacts.a_input.artifact_id);
+      20 |   await page.getByLabel("iterations", { exact: true }).fill("10");
+      21 |   await page.getByLabel("seed", { exact: true }).fill("1501");
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/mobile/mobile.spec.ts:18:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/mobile-mobile-login-list-s-f2f2a-s-without-horizontal-scroll-w1-mobile/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/mobile-mobile-login-list-s-f2f2a-s-without-horizontal-scroll-w1-mobile/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/mobile-mobile-login-list-s-f2f2a-s-without-horizontal-scroll-w1-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/mobile-mobile-login-list-s-f2f2a-s-without-horizontal-scroll-w1-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13 failed
+    [w1-desktop] › tests/e2e/w1/data.spec.ts:11:1 › 8a. upload an INPUT, see it listed, pick it in the form, download it with a matching SHA-256 
+    [w1-desktop] › tests/e2e/w1/data.spec.ts:50:1 › 8b. a file over the browser limit is never read: the CLI command is shown instead 
+    [w1-desktop] › tests/e2e/w1/pagination.spec.ts:49:1 › 9. cursor pages forward/back/first, filters, empty result, tampered cursor, page_size 
+    [w1-desktop] › tests/e2e/w1/submit.spec.ts:44:3 › member A › 6a. cpu-iterative is accepted: detail shows QUEUED and waits for a worker 
+    [w1-desktop] › tests/e2e/w1/submit.spec.ts:59:3 › member A › 6b. invalid fields are blocked inline and nothing is sent 
+    [w1-desktop] › tests/e2e/w1/submit.spec.ts:150:3 › member A › 6e. ADMISSION_OFF set by the admin through the API: submit explains the pause; back to NORMAL 
+    [w1-desktop] › tests/e2e/w1/submit.spec.ts:172:3 › member A › 7a. double click creates exactly one job 
+    [w1-desktop] › tests/e2e/w1/submit.spec.ts:186:3 › member A › 7b. the first response is cut: the resend reuses the Idempotency-Key and one job exists 
+    [w1-desktop] › tests/e2e/w1/submit.spec.ts:221:1 › 6d. low-quota tenant: the second job is refused with a clear quota message and no countdown 
+    [w1-desktop] › tests/e2e/w1/sweep.spec.ts:8:1 › 12. sweep 2×2 → sweep page lists 4 accepted children; each link opens its job 
+    [w1-desktop] › tests/e2e/w1/tenancy.spec.ts:19:1 › 4. two tenants: B cannot see, download or address A's job and data; multi switches tenant 
+    [w1-desktop] › tests/e2e/w1/tokens.spec.ts:21:1 › 13. token shown once, gone after reload, revocable; a member is never offered admin:* 
+    [w1-mobile] › tests/e2e/mobile/mobile.spec.ts:6:1 › mobile: login, list, submit, detail, cancel dialog, data and tokens without horizontal scroll 
+  1 did not run
+  7 passed (3.0m)
+[b17-stack] command exit=1 in 179.9s
+[b17-stack] cleaned up run d2349815

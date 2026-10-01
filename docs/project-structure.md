@@ -259,18 +259,35 @@ Cây file nền sau khi B09 được implement (không liệt kê metadata `.git
     ├── index.html
     ├── package.json
     ├── pnpm-lock.yaml
+    ├── pnpm-workspace.yaml
+    ├── playwright.config.ts
+    ├── vitest.config.ts
     ├── src/
     │   ├── App.tsx
     │   ├── main.tsx
-    │   ├── styles.css
-    │   └── vite-env.d.ts
+    │   ├── vite-env.d.ts
+    │   ├── api/            client, endpoints, errors, polling, idempotency, limits, types, generated.ts (+ *.test.ts)
+    │   ├── app/            AppLayout.tsx, SimplePages.tsx, labels.ts (+ test)
+    │   ├── auth/           session.tsx, guards.tsx, LoginPage.tsx, next.ts (+ test)
+    │   ├── components/     bits, Dialog, ErrorPanel, Pager, Tabs, DownloadButton, CliHint, usePolled, useCountdown, format, pageTrail (+ tests)
+    │   ├── features/
+    │   │   ├── account/    TokensPage.tsx
+    │   │   ├── data/       DataPage.tsx, UploadPanel.tsx, files.ts (+ test)
+    │   │   ├── jobs/       JobsPage, JobDetailPage, useJobDetail, useJobControls, actions.ts, retryLinks.ts (+ tests)
+    │   │   └── submit/     SubmitPage, SweepPage, ArtifactPicker, params.ts, spec.ts, sweep.ts, defaults.ts (+ test)
+    │   └── styles/         tokens.css, layout.css, components.css
     ├── tests/
-    │   └── .gitkeep
+    │   ├── .gitkeep
+    │   └── e2e/            fixture.ts, global-setup.ts, support.ts; w1/ (auth, controls, data, origin,
+    │                       pagination, submit, sweep, tenancy, tokens), admission/, mobile/, w2/lifecycle
+    ├── tools/openapi-gen/  package.json, generate.mjs (openapi-typescript pin, --check drift)
     ├── tsconfig.app.json
     ├── tsconfig.json
     ├── tsconfig.node.json
     └── vite.config.ts
 ```
+
+B17 thêm UI user trong `web/` (cây trên), `deploy/web/Caddyfile` (một origin TLS cho `web/dist` + `/v1`, dev/test), harness `scripts/b17_e2e_stack.py` (DB test guarded + API + Caddy, thêm coordinator/worker ở W2), route `GET /v1/jobs/{job_id}/progress` và lệnh `nexa job progress`, test `tests/api/test_openapi_b17.py`, `tests/integration/test_job_progress_b17.py`, tài liệu [web-ui.md](web-ui.md).
 
 B10 bổ sung worker agent, `schema_v4.py` và migration `20260921_0004`. B11 working tree bổ sung `src/nexa/coordinator/{service,snapshot,dispatch,accounting,runtime,main}.py`, các service `execution_*`/`result_validation`, API worker/result, worker dispatch/result flow, `schema_v5.py`/`schema_v6.py`, migrations `20260922_0005`–`20260923_0007`, tests và [evidence B11](evidence/B11-coordinator-dispatch-result.md). Mục trên là baseline để dễ đọc; các file B10/B11 mới được mô tả tại đây. B16 thêm `tests/fixtures/workloads/` (`pytorch-cifar10-v1/{fixture,tolerance}.json`, `batch-inference-v1/fixture.json`, `cpu-iterative-v1/{fixture,input}.json`, `hyperparameter-sweep-v1/{request,expansion}.json`). Các file này chỉ ghi checksum, kích thước và nguồn của dataset/model, không chứa bytes của chúng. Bytes được dựng lại ngoài repo bằng `scripts/b16_prepare_fixtures.py`. B16 cũng thêm các test `*_b16.py` trong `tests/{domain,application,integration,worker,workloads,coordinator,cli}/` và cặp opt-in `tests/docker/{b16_support,test_b16_workloads}.py`.
 
@@ -282,7 +299,7 @@ Hiện có contract B01, bootstrap B02, simulator B03, fairness policy B04, Post
 
 `ROADMAP.md` là tài liệu điều hướng trạng thái task và được cập nhật cùng B09; nó không thay thế PLAN hoặc evidence gate.
 
-B05 bỏ marker khỏi `migrations/` và `src/nexa/infrastructure/` sau khi có file thật. Working tree còn 11 `.gitkeep` rỗng; `domain` và `scheduler` giữ marker lịch sử cạnh source B04, các marker khác giữ boundary chưa có implementation. `web/tests/.gitkeep` vẫn còn vì chưa có Playwright/product UI tests. Marker không chứa source, migration hay runtime config.
+B05 bỏ marker khỏi `migrations/` và `src/nexa/infrastructure/` sau khi có file thật. Working tree còn 11 `.gitkeep` rỗng; `domain` và `scheduler` giữ marker lịch sử cạnh source B04, các marker khác giữ boundary chưa có implementation. `web/tests/.gitkeep` vẫn còn cạnh `web/tests/e2e/` của B17. Marker không chứa source, migration hay runtime config.
 
 **Bootstrap và simulator không phải product implementation hay runtime acceptance evidence.** Remediation và focused rereview B01 đã đóng R-03, R-05 và R-09 nên ACC-01 là `pass`, nhưng mọi gate runtime/product khác vẫn theo status đã ghi. B03 evidence chỉ thuộc lớp D; nó không chứng minh API, production scheduler, recovery, Linux, PostgreSQL, Docker hoặc GPU.
 
@@ -322,7 +339,7 @@ Hai skill đọc PLAN/invariants/acceptance, không thay đổi boundary hoặc 
 | `src/nexa/worker/` | B09 resource discovery/probe, Docker executor/journal; B10 thêm singleton, credential, callback state, heartbeat/reconciliation/adoption/renewal và runner deadline/control; B11 thêm poll/claim/download/start, result handshake/upload và proof cleanup | API client cho control plane; `ResourceProvider` và `Executor`; Docker socket chỉ tại worker; không query DB trực tiếp | B09–B11, B23 |
 | `src/nexa/workloads/` | B09 trusted runner protocol/deadline, one-shot supervisor registration, CPU iterative adapter/entrypoint; B14/B16 bổ sung checkpoint/PyTorch/sweep/chunk contracts | PID 1 và workload đều non-root bằng UID riêng; adapter gọi framework ML trong workload image; runner bảo vệ lease channel; workload không có credential worker | B09, B14, B16, B23 |
 | `src/nexa/cli/` | B06 có maintenance command local chỉ để reopen worker-bootstrap window; product Typer CLI user/admin vẫn thuộc B12 | Maintenance path dùng cùng application transaction/audit; user/admin flows task sau phải qua REST API; workload không được dùng | B06, B12, B15 |
-| `web/` | React/TypeScript/Vite UI user/admin | Chỉ REST API; không truy cập DB/filesystem/Docker hoặc tự quyết định quyền/state | B17–B18 |
+| `web/` | React/TypeScript/Vite UI user/admin; B17 có UI user (MEMBER/TENANT_ADMIN), admin thuộc B18 | Chỉ REST API; không truy cập DB/filesystem/Docker hoặc tự quyết định quyền/state; không storage phía trình duyệt | B17–B18 |
 | `tests/` | Unit/property, PostgreSQL integration, race/fault/security, contract/adapter fixtures | B06 bổ sung auth/RBAC/policy evidence; B08 thêm submit replay/conflict, concurrent same-key, admission, response-loss/restart, query and OpenAPI tests; B09 thêm worker/workload protocol, executor race và opt-in Docker scenarios. UI/runtime/load tests vẫn thuộc task sau. | B03–B23 |
 | `web/tests/` | Playwright flows và kiểm tra UI | Backend thật cho acceptance UI; cursor, ownership và control theo API | B17–B18, B20 |
 | `migrations/` | Alembic schema/version/index/constraint | Một head `20260929_0022`: B05–B16 revisions bất biến; B11 thêm dispatch/claim, upload grant lineage và completion callback identity; B13 `0008`–`0017` queue/eligibility, B14 `0018` checkpoint corruption, B15 `0019` queue CHECK checkpoint-for-pause, sweep/resource/recovery-event index và audit reason 256, B16 `0020` sweep expansion/inference extents; remediation B1–B16 chỉ thêm mới: `0021` hàm SQL không phụ thuộc `search_path` (B13-R12), `0022` identity của artifact store (B14-OBS-01); không auto-run lúc import/request | B05–B16, B21, B25 |
@@ -372,6 +389,7 @@ Chỉ source-controlled file và directory được liệt kê trong cây curren
 | B14 scoped source/evidence | `src/nexa/application/checkpoint_{service,validation,restore}.py`, `src/nexa/coordinator/retry.py`, `src/nexa/infrastructure/persistence/schema_v15.py`, migration `20260926_0018`, `src/nexa/worker/checkpoint_flow.py`, `src/nexa/workloads/cpu_state.py`, `deploy/cpu-iterative/Dockerfile`, B14 tests (`*_b14.py`, opt-in `tests/docker/test_b14_checkpoint_restore.py`), `docs/evidence/B14-cpu-checkpoint-restore.md`, `docs/evidence/raw/B14-*` | Đã triển khai, chờ Task Review. Evidence PostgreSQL/unit chạy local; kịch bản Docker chỉ hợp lệ khi evidence ghi pass trên Docker Desktop Linux VM, không phải bare Linux/GPU; ACC-22 đầy đủ thuộc B15, GC thuộc B19, PyTorch/inference thuộc B16. |
 | B15 scoped source/evidence | `src/nexa/application/{job_control,job_recovery,admin_workers}.py`, `src/nexa/coordinator/{reaper,retention}.py`, B15 changes in `coordinator/{retry,dispatch,eligibility,snapshot,service}.py`, `application/{execution_service,execution_cleanup,checkpoint_restore,worker_service}.py`, `api/routes_{jobs,admin}.py`, `worker/{agent,execution,checkpoint_flow,state}.py`, `workloads/trusted_runner.py`, `cli/commands/{job,admin}.py`, `src/nexa/infrastructure/persistence/schema_v16.py`, migration `20260926_0019`, B15 tests (`*_b15.py`, opt-in `tests/docker/test_b15_control_recovery.py`), `docs/evidence/B15-control-recovery.md`, `docs/evidence/raw/B15-*` | Đã triển khai, chờ Task Review. Evidence PostgreSQL/unit chạy local và kịch bản Docker trên Docker Desktop Linux VM; không phải bare Linux, reboot hay GPU. Sweep bounded/chunk thuộc B16, GC checkpoint thuộc B19. |
 | B16 scoped source/evidence | `src/nexa/domain/workload_adapters.py`, `src/nexa/application/{template_registry,sweep_expansion,sweep_service,chunk_recognition}.py`, B16 changes in `application/{job_service,execution_artifacts,execution_service,checkpoint_*,result_validation}.py`, `api/routes_{templates,sweeps}.py`, `coordinator/{eligibility,snapshot,retention}.py`, `worker/{adapter_dispatch,inference_flow}.py` plus `worker/{probes,executor,models,checkpoint_flow,result_flow,main}.py`, `workloads/{adapter_launch,pytorch_cifar10,batch_inference,pytorch_arch,torch_common,training_state,inference_state,chunk_manifest,dataset_format,safetensors_format,canonical_json}.py`, `cli/commands/{template,sweep}.py`, `src/nexa/infrastructure/persistence/schema_v17.py`, migration `20260928_0020`, `deploy/pytorch-cpu/` (Dockerfile, hash-locked requirements, runner config, test image), `deploy/templates/*.v1.json`, `scripts/b16_{build_image.sh,prepare_fixtures.py}`, `tests/fixtures/workloads/*` (fixture/tolerance/sweep golden, không chứa bytes dataset/model), B16 tests (`*_b16.py`, opt-in `tests/docker/test_b16_workloads.py`), `docs/evidence/B16-pytorch-sweep-inference.md`, `docs/evidence/raw/B16-*` | Đã triển khai, chờ Task Review. Evidence PostgreSQL/unit chạy trên Mac (P); kịch bản Docker PyTorch/sweep/inference chạy trên VPS1 (L, linux/amd64). Không phải GPU, portability hai máy, tải B22 hay release. Torch/numpy/pyarrow/safetensors chỉ có trong image, không vào `uv.lock`; scheduler/coordinator không import framework ML. |
+| B17 scoped source/evidence | `web/` (package/lockfile/workspace, `src/**`, `tests/e2e/**`, `tools/openapi-gen/`, `vitest.config.ts`, `playwright.config.ts`, `index.html`, tsconfig), `deploy/web/Caddyfile`, `scripts/b17_e2e_stack.py`, `src/nexa/{api/routes_jobs.py,api/schemas.py,application/job_service.py,cli/commands/job.py}` (progress), `tests/api/test_openapi_b17.py`, `tests/integration/test_job_progress_b17.py`, cập nhật `tests/api/test_operation_matrix.py`, `tests/cli/{test_api_route_contract,test_job_commands}.py`, `.github/workflows/ci.yml` (bước Vitest), `docs/web-ui.md`, `docs/evidence/B17-web-ui-user.md`, `docs/evidence/raw/B17*` | Đã triển khai, chờ Task Review. Playwright W1/W2 chạy trên Mac (P + W, Docker Desktop, arm64); không có migration mới; Playwright chưa vào CI (B17-R14); log (B17-R01), admin UI (B18), Compose/UI image (B21/B25) chưa thuộc B17. |
 | Source-controlled khi task sau triển khai | Product source/tests/fixtures, migrations, benchmark/plot scripts và evidence runtime bổ sung trong `docs/evidence/` | Tạo theo task có scope phù hợp, review cùng contract/gate; không chứa credential hoặc dữ liệu private của workload |
 | Generated files | `build/`, `dist/`, `*.egg-info/`, `*.tsbuildinfo`, coverage/test reports tạm | Tái tạo từ source, ignore; báo cáo chọn để nghiệm thu chuyển vào `docs/evidence/` kèm provenance |
 | Runtime data | Volume DB/artifact thật đặt ngoài checkout; mapping local tại `runtime/`, `data/postgres/`, `data/artifacts/`, `data/checkpoints/`, `data/logs/` hoặc `pgdata/`, `artifacts/`, `checkpoints/`, `logs/` ở root | Ignore không phải backup; giữ durability/permission/consistent backup theo PLAN |

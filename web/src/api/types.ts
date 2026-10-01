@@ -1,0 +1,47 @@
+// Short names for the generated contract types the UI uses.
+import type { components } from "./generated";
+
+type Schemas = components["schemas"];
+
+export type BrowserSession = Schemas["BrowserSession"];
+export type Membership = Schemas["Membership"];
+export type Role = Schemas["Role"];
+export type TokenScope = Schemas["TokenScope"];
+export type TokenMetadata = Schemas["TokenMetadata"];
+export type TokenPage = Schemas["TokenPage"];
+export type TokenCreated = Schemas["TokenCreated"];
+export type TokenCreateRequest = Schemas["TokenCreateRequest"];
+export type Template = Schemas["Template"];
+export type ParameterDefinition = Schemas["ParameterDefinition"];
+export type Artifact = Schemas["Artifact"];
+export type ArtifactKind = Schemas["ArtifactKind"];
+export type UserArtifactKind = Schemas["UserArtifactKind"];
+export type ArtifactPage = Schemas["ArtifactPage"];
+export type Job = Schemas["Job"];
+export type JobPage = Schemas["JobPage"];
+export type JobSpec = Schemas["JobSpec"];
+export type CpuJobSpec = Schemas["CpuJobSpec"];
+export type TrainingJobSpec = Schemas["TrainingJobSpec"];
+export type InferenceJobSpec = Schemas["InferenceJobSpec"];
+export type JobState = Schemas["JobState"];
+export type DesiredState = Schemas["DesiredState"];
+export type WaitingReason = Schemas["WaitingReason"];
+export type Attempt = Schemas["Attempt"];
+export type AttemptPage = Schemas["AttemptPage"];
+export type AttemptState = Schemas["AttemptState"];
+export type FailureClass = NonNullable<Attempt["failure_class"]>;
+export type CheckpointRecord = Schemas["CheckpointRecord"];
+export type CheckpointPage = Schemas["CheckpointPage"];
+export type JobEvent = Schemas["Event"];
+export type EventPage = Schemas["EventPage"];
+export type ProgressRecord = Schemas["ProgressRecord"];
+export type ResultRecord = Schemas["ResultRecord"];
+export type ResultManifest = Schemas["resultManifest"];
+export type ManifestFile = Schemas["fileEntry"];
+export type ControlRequest = Schemas["ControlRequest"];
+export type RetryRequest = Schemas["RetryRequest"];
+export type SweepDimension = Schemas["SweepDimension"];
+export type SweepSubmitRequest = Schemas["SweepSubmitRequest"];
+export type Sweep = Schemas["Sweep"];
+export type SweepChildOutcome = Schemas["SweepChildOutcome"];
+export type TemplateId = JobSpec["template_id"];

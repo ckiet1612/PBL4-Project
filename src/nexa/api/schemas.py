@@ -529,6 +529,31 @@ class ResultRecord(BaseModel):
     created_at: datetime
 
 
+class ProgressAbsent(BaseModel):
+    model_config = ConfigDict(title="ProgressAbsent", extra="forbid")
+
+    job_id: UuidV7
+    available: Literal[False]
+
+
+class ProgressPresent(BaseModel):
+    model_config = ConfigDict(title="ProgressPresent", extra="forbid")
+
+    job_id: UuidV7
+    available: Literal[True]
+    attempt_id: UuidV7
+    progress_sequence: int = Field(ge=1)
+    snapshot: ProgressSnapshot
+    restore_checkpoint_id: UuidV7 | None
+    reported_at: datetime
+
+
+class ProgressRecord(
+    RootModel[Annotated[ProgressAbsent | ProgressPresent, Field(discriminator="available")]]
+):
+    model_config = ConfigDict(title="ProgressRecord")
+
+
 class AdoptResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

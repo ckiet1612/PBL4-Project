@@ -182,3 +182,42 @@ def test_job_checkpoints_reads_the_owned_job_page(monkeypatch):
     assert dict(request.url.params) == {"cursor": "opaque-cursor-value", "page_size": "100"}
     assert request.headers["X-Nexa-Tenant-Id"] == "018f0d60-7b6a-7a65-9d82-1aa39c4f30b7"
     assert json.loads(result.output)["items"] == [item]
+
+
+def test_job_progress_reads_the_owned_job_progress(monkeypatch):
+    requests = []
+    job_id = "018f0d60-7b6a-7a62-9d82-1aa39c4f30b7"
+    body = {
+        "job_id": job_id,
+        "available": True,
+        "attempt_id": "018f0d60-7b6a-7a63-9d82-1aa39c4f30b7",
+        "progress_sequence": 3,
+        "snapshot": {"fraction": 0.5, "step": 10, "epoch": None, "item_cursor": None},
+        "restore_checkpoint_id": None,
+        "reported_at": "2026-09-30T00:00:00.000Z",
+    }
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json=body, request=request)
+
+    _patch_client(monkeypatch, respond)
+    result = CliRunner().invoke(
+        app,
+        [
+            "--output",
+            "json",
+            "job",
+            "progress",
+            job_id,
+            "--tenant",
+            "018f0d60-7b6a-7a65-9d82-1aa39c4f30b7",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    (request,) = requests
+    assert request.method == "GET"
+    assert request.url.path == f"/v1/jobs/{job_id}/progress"
+    assert dict(request.url.params) == {}
+    assert request.headers["X-Nexa-Tenant-Id"] == "018f0d60-7b6a-7a65-9d82-1aa39c4f30b7"
+    assert json.loads(result.output) == body

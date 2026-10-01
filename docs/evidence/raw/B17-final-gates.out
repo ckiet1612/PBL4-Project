@@ -1,0 +1,21 @@
+## ruff check
+All checks passed!
+EXIT=0
+## ruff format --check
+506 files already formatted
+EXIT=0
+## pytest -q
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1775 passed, 603 skipped, 2 warnings in 47.51s
+## web
+v24.21.0
+11.9.0
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+dist/index.html                   0.48 kB │ gzip:   0.31 kB
+dist/assets/index-DxNve0CI.css   10.93 kB │ gzip:   2.72 kB
+dist/assets/index-DFsuDEKX.js   362.33 kB │ gzip: 110.79 kB
+
+✓ built in 135ms
+ Test Files  13 passed (13)
+      Tests  101 passed (101)
+EXIT=0

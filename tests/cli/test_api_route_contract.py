@@ -22,6 +22,7 @@ SUPPORTED_CLI_ROUTES = {
     ("POST", "/v1/jobs/{job_id}/resume"),
     ("POST", "/v1/jobs/{job_id}/retry"),
     ("GET", "/v1/jobs/{job_id}/attempts"),
+    ("GET", "/v1/jobs/{job_id}/progress"),
     ("GET", "/v1/admin/tenants"),
     ("POST", "/v1/admin/tenants"),
     ("GET", "/v1/admin/tenants/{tenant_id}"),
@@ -54,7 +55,6 @@ SUPPORTED_CLI_ROUTES = {
 
 EXCLUDED_CLI_ROUTES = {
     "/v1/jobs/{job_id}/logs",
-    "/v1/jobs/{job_id}/progress",
     "/v1/admin/jobs",
     "/v1/admin/fairness",
 }

@@ -1247,6 +1247,59 @@ class JobService(JobControlMixin):
 
         return run_transaction(self.session_factory, operation)
 
+    def get_progress(
+        self, principal: Principal, *, tenant_id: UUID, job_id: UUID
+    ) -> dict[str, Any]:
+        """Latest accepted progress of the Job's newest attempt, or explicit absence.
+
+        Only the newest attempt (highest attempt number) counts: a recovery attempt
+        restarts at sequence 1, so an older attempt's snapshot is never reused (B17-R02).
+        ``reported_at`` is the attempt's ``updated_at``; renew advances it together with
+        the snapshot, but there is no dedicated progress timestamp column (B17-R15).
+        """
+
+        def operation(session: Session) -> dict[str, Any]:
+            self._authorize(session, principal, tenant_id, write=False)
+            exists = session.execute(
+                select(jobs.c.job_id).where(jobs.c.tenant_id == tenant_id, jobs.c.job_id == job_id)
+            ).scalar_one_or_none()
+            if exists is None:
+                raise ApplicationError(
+                    code="resource_not_found", status=404, message="Job was not found"
+                )
+            row = (
+                session.execute(
+                    select(
+                        attempts.c.attempt_id,
+                        attempts.c.progress_sequence,
+                        attempts.c.progress_snapshot,
+                        attempts.c.execution_context,
+                        attempts.c.updated_at,
+                    )
+                    .where(attempts.c.tenant_id == tenant_id, attempts.c.job_id == job_id)
+                    .order_by(attempts.c.attempt_number.desc())
+                    .limit(1)
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None or row["progress_sequence"] < 1 or row["progress_snapshot"] is None:
+                return json_wire_value({"job_id": job_id, "available": False})
+            restore = (row["execution_context"] or {}).get("restore_checkpoint") or {}
+            return json_wire_value(
+                {
+                    "job_id": job_id,
+                    "available": True,
+                    "attempt_id": row["attempt_id"],
+                    "progress_sequence": row["progress_sequence"],
+                    "snapshot": row["progress_snapshot"],
+                    "restore_checkpoint_id": (restore.get("record") or {}).get("checkpoint_id"),
+                    "reported_at": row["updated_at"],
+                }
+            )
+
+        return run_transaction(self.session_factory, operation)
+
     def get_session(
         self, principal: Principal, *, tenant_id: UUID, session_id: UUID
     ) -> dict[str, Any]:

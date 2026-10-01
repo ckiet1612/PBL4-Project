@@ -321,6 +321,14 @@ def register(group: typer.Typer) -> None:
         query = _strict_page(ctx, cursor, page_size)
         _read(ctx, "GET", f"/v1/jobs/{job_id}/attempts", query=query, tenant=tenant)
 
+    @group.command("progress")
+    def get_progress(
+        ctx: Context,
+        job_id: Annotated[str, typer.Argument()],
+        tenant: Annotated[str | None, typer.Option("--tenant")] = None,
+    ) -> None:
+        _read(ctx, "GET", f"/v1/jobs/{job_id}/progress", tenant=tenant)
+
     def control(command: str, summary: str) -> None:
         @group.command(command, help=summary)
         def run_control(
