@@ -1,0 +1,15 @@
+# Playwright JSON reporter, run 5 (w2-admin + w2-admin-mobile): test.info().annotations
+14–15. worker inventory and capacity, a RUNNING job's HELD allocation, drain waits for it, enable dispatches the queued job | w2-admin | passed | 53116 ms
+  worker health while job A runs (API) => STARTING
+  Ngừng nhận job "b18 e2e drain" refusals before 202 => []
+  waiting_reason (job B while draining) => waiting_for_worker
+  Bật lại "b18 e2e enable after drain" refusals before 200 => []
+16. disable fences a RUNNING job; QUARANTINED blocks enable until the worker cleans up; the job recovers | w2-admin | passed | 65219 ms
+  enable while QUARANTINED → 409 => The latest worker heartbeat did not pass the READY checks
+  Bật lại "b18 e2e enable after cleanup" refusals before 200 => ["409 The latest worker heartbeat did not pass the READY checks","409 The latest worker heartbeat did not pass the READY checks"]
+17. worker action 412: a second admin acts on a stale page and is told to re-check | w2-admin | passed | 1840 ms
+  Ngừng nhận job "b18 e2e drain by admin one" refusals before 202 => []
+  Bật lại "b18 e2e enable by admin two" refusals before 200 => []
+18. fairness with real allocations: tenants that ran have service > 0; the tenant filter narrows the report | w2-admin | passed | 686 ms
+19. mobile admin: nav, overview, worker detail and tenant policy form without horizontal scroll | w2-admin-mobile | passed | 850 ms
+stats {"startTime": "2026-10-01T11:33:45.598Z", "duration": 124373.156, "expected": 5, "skipped": 0, "unexpected": 0, "flaky": 0}

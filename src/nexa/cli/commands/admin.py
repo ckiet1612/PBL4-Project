@@ -320,15 +320,15 @@ def _register_entity_groups(group: typer.Typer) -> None:
     worker = typer.Typer(no_args_is_help=True)
     fairness = typer.Typer(no_args_is_help=True)
     audit = typer.Typer(no_args_is_help=True)
-    # Contract operations without a FastAPI route (admin job, fairness) stay
-    # unregistered until their backend service and API integration evidence exist.
     for sub, name in (
         (tenant, "tenant"),
         (user, "user"),
+        (job, "job"),
         (membership, "membership"),
         (policy, "policy"),
         (tenant_policy, "tenant-policy"),
         (worker, "worker"),
+        (fairness, "fairness"),
         (audit, "audit"),
     ):
         group.add_typer(sub, name=name)

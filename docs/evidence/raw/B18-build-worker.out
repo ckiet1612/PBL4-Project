@@ -1,0 +1,101 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 458B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/7] FROM docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+#4 resolve docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 147.28kB 0.0s done
+#5 DONE 0.0s
+
+#6 [2/7] RUN apt-get update     && apt-get install -y --no-install-recommends docker-cli     && rm -rf /var/lib/apt/lists/*     && python -m pip install --no-cache-dir uv==0.9.27
+#6 CACHED
+
+#7 [3/7] WORKDIR /opt/nexa
+#7 CACHED
+
+#8 [4/7] COPY pyproject.toml uv.lock README.md alembic.ini ./
+#8 CACHED
+
+#9 [5/7] COPY src ./src
+#9 DONE 0.3s
+
+#10 [6/7] COPY migrations ./migrations
+#10 DONE 0.1s
+
+#11 [7/7] RUN uv sync --frozen --no-dev --no-editable
+#11 0.835 Using CPython 3.12.14 interpreter at: /usr/local/bin/python3
+#11 0.835 Creating virtual environment at: .venv
+#11 0.863    Building nexa @ file:///opt/nexa
+#11 1.205 Downloading pygments (1.2MiB)
+#11 1.222 Downloading psycopg-binary (6.5MiB)
+#11 1.223 Downloading sqlalchemy (3.3MiB)
+#11 1.224 Downloading pydantic-core (1.9MiB)
+#11 4.643  Downloaded pydantic-core
+#11 4.703  Downloaded pygments
+#11 4.887  Downloaded sqlalchemy
+#11 5.251  Downloaded psycopg-binary
+#11 6.169       Built nexa @ file:///opt/nexa
+#11 6.185 Prepared 35 packages in 5.33s
+#11 6.294 Installed 35 packages in 108ms
+#11 6.294  + alembic==1.18.5
+#11 6.294  + annotated-doc==0.0.5
+#11 6.294  + annotated-types==0.8.0
+#11 6.294  + anyio==4.15.1
+#11 6.294  + argon2-cffi==25.1.0
+#11 6.295  + argon2-cffi-bindings==26.1.0
+#11 6.295  + certifi==2026.7.22
+#11 6.295  + cffi==2.1.1
+#11 6.295  + click==8.5.0
+#11 6.295  + fastapi==0.141.1
+#11 6.295  + greenlet==3.5.6
+#11 6.295  + h11==0.16.0
+#11 6.295  + httpcore==1.0.9
+#11 6.295  + httpx==0.28.1
+#11 6.295  + idna==3.20
+#11 6.295  + mako==1.4.1
+#11 6.295  + markdown-it-py==4.2.0
+#11 6.295  + markupsafe==3.0.3
+#11 6.295  + mdurl==0.1.2
+#11 6.295  + nexa==0.1.0 (from file:///opt/nexa)
+#11 6.295  + psycopg==3.3.5
+#11 6.295  + psycopg-binary==3.3.5
+#11 6.295  + pycparser==3.0
+#11 6.295  + pydantic==2.13.5
+#11 6.295  + pydantic-core==2.46.5
+#11 6.295  + pygments==2.21.0
+#11 6.295  + rfc8785==0.1.4
+#11 6.295  + rich==15.0.0
+#11 6.295  + shellingham==1.5.4
+#11 6.295  + sqlalchemy==2.0.54
+#11 6.295  + starlette==1.6.0
+#11 6.295  + typer==0.27.2
+#11 6.295  + typing-extensions==4.16.0
+#11 6.295  + typing-inspection==0.4.4
+#11 6.295  + uvicorn==0.41.0
+#11 DONE 6.5s
+
+#12 exporting to image
+#12 exporting layers
+#12 exporting layers 1.9s done
+#12 exporting manifest sha256:266700de4304192d3c6e3cfb857cb4011b95f0d887efc58b5c20f4f5447ab9b7 done
+#12 exporting config sha256:0ec98789066fefcc5ec4c68858e6bee0cd0682c4784828447fab9b97c95978d1 done
+#12 exporting attestation manifest sha256:6860f619097543b2c3130c84eb09c66213c238b33ba77d519dcea59c477b0c32 done
+#12 exporting manifest list sha256:a2b0aace4881c028a3593b2e0974406f14cce3f4e67584e34a847c2360e17d19 done
+#12 naming to docker.io/nexa/b18-worker:local done
+#12 unpacking to docker.io/nexa/b18-worker:local
+#12 unpacking to docker.io/nexa/b18-worker:local 1.5s done
+#12 DONE 3.6s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/vppguw6gnhrmkdr4ikgjv4nmu

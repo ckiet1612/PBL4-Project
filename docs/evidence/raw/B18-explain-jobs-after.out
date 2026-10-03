@@ -1,0 +1,192 @@
+server PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+jobs=100200 tenants_with_jobs=20
+ledger_segments=202010 open=40 span_days=61
+oldest_open_segment_age_days=43
+indexes: ix_allocation_ledger_segments_open, ix_allocation_ledger_segments_period, ix_allocation_ledger_segments_tenant_time, pk_allocation_ledger_segments, ix_jobs_b13_head, ix_jobs_b13_priority_age, ix_jobs_b13_submitter, ix_jobs_b13_submitter_age, ix_jobs_created_keyset, ix_jobs_oldest_eligible, ix_jobs_queue_head, ix_jobs_retry_ready, ix_jobs_tenant_created_keyset, pk_jobs, uq_jobs_tenant_job
+
+=== adminListJobs no filter
+Limit  (cost=1.25..56.80 rows=51 width=261) (actual time=0.060..0.178 rows=51 loops=1)
+  Buffers: shared hit=414
+  ->  Nested Loop  (cost=1.25..130995.80 rows=120278 width=261) (actual time=0.059..0.173 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = logical_sessions.job_id)
+        Buffers: shared hit=414
+        ->  Nested Loop  (cost=0.83..78757.80 rows=100200 width=261) (actual time=0.036..0.094 rows=51 loops=1)
+              Buffers: shared hit=209
+              ->  Index Scan using ix_jobs_created_keyset on jobs  (cost=0.42..15403.02 rows=100200 width=148) (actual time=0.024..0.030 rows=51 loops=1)
+                    Buffers: shared hit=5
+              ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.63 rows=1 width=113) (actual time=0.001..0.001 rows=1 loops=51)
+                    Index Cond: (job_id = jobs.job_id)
+                    Buffers: shared hit=204
+        ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.51 rows=1 width=48) (actual time=0.001..0.001 rows=1 loops=51)
+              Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+              Heap Fetches: 51
+              Buffers: shared hit=205
+Planning:
+  Buffers: shared hit=697
+Planning Time: 0.605 ms
+Execution Time: 0.234 ms
+
+=== adminListJobs tenant_id
+Limit  (cost=1.25..213.55 rows=51 width=261) (actual time=0.042..0.846 rows=51 loops=1)
+  Buffers: shared hit=404
+  ->  Nested Loop  (cost=1.25..24902.09 rows=5982 width=261) (actual time=0.042..0.839 rows=51 loops=1)
+        Buffers: shared hit=404
+        ->  Nested Loop  (cost=0.83..22369.22 rows=4980 width=261) (actual time=0.028..0.580 rows=51 loops=1)
+              Buffers: shared hit=250
+              ->  Index Scan using ix_jobs_tenant_created_keyset on jobs  (cost=0.42..5198.92 rows=4980 width=148) (actual time=0.017..0.168 rows=51 loops=1)
+                    Index Cond: (tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid)
+                    Buffers: shared hit=46
+              ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..3.45 rows=1 width=113) (actual time=0.007..0.007 rows=1 loops=51)
+                    Index Cond: (job_id = jobs.job_id)
+                    Buffers: shared hit=204
+        ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.51 rows=1 width=48) (actual time=0.004..0.004 rows=1 loops=51)
+              Index Cond: ((tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid) AND (job_id = job_specs.job_id))
+              Heap Fetches: 0
+              Buffers: shared hit=154
+Planning:
+  Buffers: shared hit=697
+Planning Time: 0.703 ms
+Execution Time: 0.861 ms
+
+=== adminListJobs state=QUEUED
+Limit  (cost=1.25..186.44 rows=51 width=261) (actual time=0.158..5.467 rows=51 loops=1)
+  Buffers: shared hit=1022 read=138
+  ->  Nested Loop  (cost=1.25..31185.98 rows=8588 width=261) (actual time=0.158..5.458 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=1022 read=138
+        ->  Nested Loop  (cost=0.83..25931.39 rows=8588 width=180) (actual time=0.108..3.914 rows=51 loops=1)
+              Buffers: shared hit=908 read=48
+              ->  Index Scan using ix_jobs_created_keyset on jobs  (cost=0.42..15653.52 rows=7154 width=148) (actual time=0.089..2.943 rows=51 loops=1)
+                    Filter: ((state)::text = 'QUEUED'::text)
+                    Rows Removed by Filter: 938
+                    Buffers: shared hit=798 read=4
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..1.44 rows=1 width=48) (actual time=0.018..0.018 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=110 read=44
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.60 rows=1 width=113) (actual time=0.029..0.029 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=114 read=90
+Planning:
+  Buffers: shared hit=719
+Planning Time: 0.783 ms
+Execution Time: 5.495 ms
+
+=== adminListJobs waiting_reason=waiting_for_quota
+Limit  (cost=1.25..441.16 rows=51 width=261) (actual time=0.064..5.321 rows=51 loops=1)
+  Buffers: shared hit=2273 read=86
+  ->  Nested Loop  (cost=1.25..24696.69 rows=2863 width=261) (actual time=0.063..5.312 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=2273 read=86
+        ->  Nested Loop  (cost=0.83..22944.95 rows=2863 width=180) (actual time=0.052..4.333 rows=51 loops=1)
+              Buffers: shared hit=2123 read=32
+              ->  Index Scan using ix_jobs_created_keyset on jobs  (cost=0.42..15653.52 rows=2385 width=148) (actual time=0.046..3.740 rows=51 loops=1)
+                    Filter: ((waiting_reason)::text = 'waiting_for_quota'::text)
+                    Rows Removed by Filter: 2134
+                    Buffers: shared hit=1995 read=6
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..3.06 rows=1 width=48) (actual time=0.011..0.011 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=128 read=26
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.60 rows=1 width=113) (actual time=0.019..0.019 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=150 read=54
+Planning:
+  Buffers: shared hit=697
+Planning Time: 0.989 ms
+Execution Time: 5.340 ms
+
+=== adminListJobs user_id
+Limit  (cost=1.25..245.56 rows=51 width=261) (actual time=0.036..1.076 rows=51 loops=1)
+  Buffers: shared hit=1406
+  ->  Nested Loop  (cost=1.25..28637.92 rows=5978 width=261) (actual time=0.035..1.070 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=1406
+        ->  Nested Loop  (cost=0.83..24980.27 rows=5978 width=180) (actual time=0.026..0.821 rows=51 loops=1)
+              Buffers: shared hit=1202
+              ->  Index Scan using ix_jobs_created_keyset on jobs  (cost=0.42..15653.52 rows=4980 width=148) (actual time=0.018..0.646 rows=51 loops=1)
+                    Filter: (submitter_user_id = '01a0f694-5351-7df1-a9a2-e64376be0c06'::uuid)
+                    Rows Removed by Filter: 1184
+                    Buffers: shared hit=1048
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..1.87 rows=1 width=48) (actual time=0.003..0.003 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=154
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.60 rows=1 width=113) (actual time=0.004..0.004 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=204
+Planning:
+  Buffers: shared hit=697
+Planning Time: 0.646 ms
+Execution Time: 1.091 ms
+
+=== adminListJobs created_after=now-7d
+Limit  (cost=1.25..122.09 rows=51 width=261) (actual time=0.012..0.127 rows=51 loops=1)
+  Buffers: shared hit=414
+  ->  Nested Loop  (cost=1.25..33152.42 rows=13992 width=261) (actual time=0.012..0.123 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=414
+        ->  Nested Loop  (cost=0.83..24591.38 rows=13992 width=180) (actual time=0.010..0.075 rows=51 loops=1)
+              Buffers: shared hit=210
+              ->  Index Scan using ix_jobs_created_keyset on jobs  (cost=0.42..12343.88 rows=11656 width=148) (actual time=0.005..0.010 rows=51 loops=1)
+                    Index Cond: (created_at >= '2026-09-24 08:46:35.260821+00'::timestamp with time zone)
+                    Buffers: shared hit=5
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..1.05 rows=1 width=48) (actual time=0.001..0.001 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 51
+                    Buffers: shared hit=205
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.60 rows=1 width=113) (actual time=0.001..0.001 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=204
+Planning:
+  Buffers: shared hit=700
+Planning Time: 0.630 ms
+Execution Time: 0.139 ms
+
+=== adminListJobs page 2 (no filter, keyset after row 50)
+Limit  (cost=1.25..57.12 rows=51 width=261) (actual time=0.015..0.166 rows=51 loops=1)
+  Buffers: shared hit=409 read=1
+  ->  Nested Loop  (cost=1.25..131731.37 rows=120256 width=261) (actual time=0.015..0.162 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = logical_sessions.job_id)
+        Buffers: shared hit=409 read=1
+        ->  Nested Loop  (cost=0.83..79501.47 rows=100182 width=261) (actual time=0.012..0.074 rows=51 loops=1)
+              Buffers: shared hit=210
+              ->  Index Scan using ix_jobs_created_keyset on jobs  (cost=0.42..16154.52 rows=100182 width=148) (actual time=0.009..0.017 rows=51 loops=1)
+                    Filter: ((created_at < '2026-10-01 08:36:53.986591+00'::timestamp with time zone) OR ((created_at = '2026-10-01 08:36:53.986591+00'::timestamp with time zone) AND (job_id < '01a0f69c-0062-79a2-bfea-4a85565b966c'::uuid)))
+                    Rows Removed by Filter: 50
+                    Buffers: shared hit=6
+              ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.63 rows=1 width=113) (actual time=0.001..0.001 rows=1 loops=51)
+                    Index Cond: (job_id = jobs.job_id)
+                    Buffers: shared hit=204
+        ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.51 rows=1 width=48) (actual time=0.001..0.001 rows=1 loops=51)
+              Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+              Heap Fetches: 46
+              Buffers: shared hit=199 read=1
+Planning:
+  Buffers: shared hit=785
+Planning Time: 0.626 ms
+Execution Time: 0.180 ms
+
+=== adminListJobs page 2 with tenant_id
+Limit  (cost=1.25..213.86 rows=51 width=261) (actual time=0.020..0.221 rows=51 loops=1)
+  Buffers: shared hit=404
+  ->  Nested Loop  (cost=1.25..24934.49 rows=5981 width=261) (actual time=0.020..0.217 rows=51 loops=1)
+        Buffers: shared hit=404
+        ->  Nested Loop  (cost=0.83..22402.13 rows=4979 width=261) (actual time=0.015..0.141 rows=51 loops=1)
+              Buffers: shared hit=250
+              ->  Index Scan using ix_jobs_tenant_created_keyset on jobs  (cost=0.42..5236.27 rows=4979 width=148) (actual time=0.011..0.051 rows=51 loops=1)
+                    Index Cond: (tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid)
+                    Filter: ((created_at < '2026-10-01 08:36:53.986591+00'::timestamp with time zone) OR ((created_at = '2026-10-01 08:36:53.986591+00'::timestamp with time zone) AND (job_id < '01a0f69c-0062-79a2-bfea-4a85565b966c'::uuid)))
+                    Buffers: shared hit=46
+              ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..3.45 rows=1 width=113) (actual time=0.002..0.002 rows=1 loops=51)
+                    Index Cond: (job_id = jobs.job_id)
+                    Buffers: shared hit=204
+        ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.51 rows=1 width=48) (actual time=0.001..0.001 rows=1 loops=51)
+              Index Cond: ((tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid) AND (job_id = job_specs.job_id))
+              Heap Fetches: 0
+              Buffers: shared hit=154
+Planning:
+  Buffers: shared hit=785
+Planning Time: 0.602 ms
+Execution Time: 0.234 ms
+

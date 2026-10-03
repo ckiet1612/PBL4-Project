@@ -268,3 +268,34 @@ that record's latest expiry. A deferral is a write, so it needs leadership and i
 skipped under `WRITE_FROZEN` like the delete. See
 [B15 evidence](evidence/B15-control-recovery.md) and the
 [remediation evidence](evidence/B01-B16-findings-remediation.md).
+
+## Fairness report (B18; đã triển khai, chờ Task Review)
+
+`adminQueryFairness` reads the ledger the coordinator writes; it never changes
+scheduling, ledger state or the fairness score, and it is not the scheduler's input.
+
+- Parameters: `from`/`to` RFC 3339 with an offset, `to > from`, a range of at most
+  31 days, `bucket_seconds` 1–86400 and at most 1000 buckets. Every violation is a
+  400 `validation_failed`; the operation documents no 422.
+- Buckets are half-open `[from + k·b, min(from + (k+1)·b, to))`, so the last bucket
+  may be shorter. A segment contributes its overlap with each bucket; an open
+  segment (`ended_at IS NULL`) counts up to the statement's DB time. Every instant
+  (segment start/end, bucket bounds, statement time) is floored to the whole
+  millisecond before the overlap is taken, the same `epoch_ms` the accounting tick
+  charges with, so the normalized service of closed segments inside the range equals
+  their summed `charged_amount` (B18-R26); a sub-millisecond segment contributes
+  nothing, as it is never charged. Per tenant and
+  bucket: dominant resource time = Σ share × overlap; normalized service = Σ share ×
+  overlap / weight; allocation occupancy = Σ overlap; weight = DRT / normalized
+  service, or the latest overlapping segment's weight when that is zero. Buckets
+  without an overlapping segment are omitted; a report that would hold more than
+  1000 tenant buckets is a 400 asking for a narrower query.
+- The sums use the exact decimal ledger values inside PostgreSQL and are rounded to
+  JSON numbers only on the wire. `fairness_report.aggregate_fairness` is the
+  reference model the SQL is tested against (Hypothesis).
+- The segment filter is one range overlap, `tstzrange(started_at, ended_at, '[)') &&
+  [from, to)`, served by the GiST index `ix_allocation_ledger_segments_period`
+  (migration 0023). The read sets `jit = off` locally: the bucket series makes the
+  plan cost unestimable and JIT compilation dominated the statement. The read takes
+  no row lock and writes only its audit record (`admin.fairness.query`). Plans and
+  timings are in [B18 evidence](evidence/B18-web-ui-admin.md).

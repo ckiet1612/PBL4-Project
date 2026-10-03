@@ -1,0 +1,13 @@
+# ACC-29 write cost, perf DB at 20260929_0022 (before)
+insert 5000 jobs+specs+sessions ms: runs=[926.0, 938.8, 1001.4, 1236.7, 1304.0]
+median_ms=1001.4
+open_segments=40
+200 charge ticks ms: runs=[671.0, 921.6, 952.1, 1006.4, 1026.4] median_ms=952.1
+200 boundary rebuilds (close+insert) ms: runs=[2084.7, 2434.5, 2469.1, 2607.5, 2645.6] median_ms=2469.1
+
+# ACC-29 write cost, perf DB at 20261001_0023 (after)
+insert 5000 jobs+specs+sessions ms: runs=[897.6, 910.1, 960.3, 1017.8, 1083.5]
+median_ms=960.3
+open_segments=40
+200 charge ticks ms: runs=[643.9, 842.6, 945.1, 1036.5, 1054.2] median_ms=945.1
+200 boundary rebuilds (close+insert) ms: runs=[2065.3, 2509.0, 2781.6, 2795.8, 2989.2] median_ms=2781.6

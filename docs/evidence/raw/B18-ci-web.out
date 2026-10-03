@@ -1,0 +1,52 @@
+# CI web replay: clean copy /tmp/b18-ci-web (164 files: web/ tracked + untracked non-ignored, docs/contracts/; no node_modules/dist), Node v24.21.0, pnpm 11.9.0, steps of .github/workflows/ci.yml job web
+index.html package.json playwright.config.ts pnpm-lock.yaml pnpm-workspace.yaml src tests tools tsconfig.app.json tsconfig.json tsconfig.node.json vite.config.ts vitest.config.ts 
+Scope: all 2 workspace projects
+✓ Lockfile passes supply-chain policies (verified 19h ago)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +85
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 85, reused 85, downloaded 0, added 85, done
+
+dependencies:
++ react 19.3.0
++ react-dom 19.3.0
++ react-router 8.4.0
+
+devDependencies:
++ @playwright/test 1.63.0
++ @types/node 24.19.0
++ @types/react 19.3.0
++ @types/react-dom 19.3.0
++ @vitejs/plugin-react 6.1.1
++ typescript 7.0.2
++ vite 8.3.0
++ vitest 5.0.2
+
+Done in 832ms using pnpm v11.9.0
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 172 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.48 kB │ gzip:   0.32 kB
+dist/assets/index-B-fVmwfX.css   12.62 kB │ gzip:   2.97 kB
+dist/assets/index-CYtK5Fb9.js   463.12 kB │ gzip: 133.77 kB
+
+✓ built in 444ms
+$ vitest run
+
+ RUN  v5.0.2 /private/tmp/b18-ci-web/web
+
+
+ Test Files  28 passed (28)
+      Tests  197 passed (197)
+   Start at  19:33:42
+   Duration  1.10s (transform 53%, import 24%, tests 18%, worker 5%)
+
+    Isolate  28 workers spawned · ~154ms startup each (spawn + environment, per file)
+             at least ~462ms faster with isolate: false — reuses workers across files instead of one per file
+
+EXIT=0

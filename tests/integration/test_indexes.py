@@ -12,6 +12,7 @@ EXPECTED_INDEXES = {
         "ix_jobs_oldest_eligible",
         "ix_jobs_retry_ready",
         "ix_jobs_tenant_created_keyset",
+        "ix_jobs_created_keyset",
     },
     "allocations": {"ix_allocations_unreleased_tenant", "ix_allocations_unreleased_worker"},
     "allocation_gpu_claims": {
@@ -29,6 +30,7 @@ EXPECTED_INDEXES = {
     "allocation_ledger_segments": {
         "ix_allocation_ledger_segments_open",
         "ix_allocation_ledger_segments_tenant_time",
+        "ix_allocation_ledger_segments_period",
     },
     "audit_records": {"ix_audit_records_created_action", "ix_audit_records_tenant_created"},
 }

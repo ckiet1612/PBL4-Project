@@ -1,4 +1,4 @@
-"""B17 real-stack harness for the Web UI Playwright suites (W1, W2).
+"""B17/B18 real-stack harness for the Web UI Playwright suites (W1, W2).
 
 W1: PostgreSQL (guarded NEXA_TEST_DATABASE_URL) + API process + Caddy TLS serving web/dist.
 W2: W1 + coordinator process + Docker worker container + CPU image built from this source.
@@ -8,6 +8,14 @@ W2: W1 + coordinator process + Docker worker container + CPU image built from th
     ... run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admission
                                   # own stack: ADMISSION_OFF cannot go back to NORMAL (B17-R18)
     ... run --tier w2 -- pnpm --dir web exec playwright test --project=w2
+    ... run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admin
+    ... run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admin-mode
+                                  # own stack: the mode change cannot be undone (B18-R05)
+    ... run --tier w1 --operational-mode WRITE_FROZEN -- \
+        pnpm --dir web exec playwright test --project=w1-admin-frozen
+                                  # WRITE_FROZEN is unreachable over the API (B18-R18): the
+                                  # harness writes it into the test DB after seeding (D6)
+    ... run --tier w2 -- pnpm --dir web exec playwright test --project=w2-admin
     ... up --tier w1              # keep the stack until Ctrl-C (manual checks)
     ... cleanup                   # remove leftovers of an interrupted run
 
@@ -71,6 +79,8 @@ USERS = {
     # limit (10 per minute per source and username) of the users with a stored session.
     "login": ("Login flows", False, {"a": "MEMBER"}),
     "mobile": ("Mobile flows", False, {"a": "MEMBER"}),
+    # B18: the second system administrator (two-admin 412 scenarios); no tenant membership.
+    "admin2": ("Second admin", True, {}),
 }
 TENANTS = {"a": "b17-tenant-a", "b": "b17-tenant-b", "q": "b17-tenant-quota"}
 
@@ -157,9 +167,10 @@ def reset_database(url: str) -> None:
 
 
 class Stack:
-    def __init__(self, tier: str, network: str) -> None:
+    def __init__(self, tier: str, network: str, operational_mode: str = "NORMAL") -> None:
         self.tier = tier
         self.network = network
+        self.operational_mode = operational_mode
         self.run_id = secrets.token_hex(4)
         self.state = Path(tempfile.mkdtemp(prefix=STATE_PREFIX))
         self.state.chmod(0o700)
@@ -204,6 +215,8 @@ class Stack:
         self._start_api()
         self._start_caddy()
         self._seed()
+        if self.operational_mode == "WRITE_FROZEN":
+            self._freeze_writes()
         if self.tier == "w2":
             self._start_coordinator()
             self._start_worker()
@@ -596,8 +609,46 @@ class Stack:
             "templates": templates,
             "artifacts": artifacts,
             "worker_id": self.worker_id,
+            "operational_mode": self.operational_mode,
         }
         log(f"seeded {len(tenants)} tenants, {len(users)} users, {len(templates)} templates")
+
+    def _freeze_writes(self) -> None:
+        """Test-only (B18 D6): the API refuses ADMISSION_OFF -> WRITE_FROZEN while the recovery
+        proof provider is fail-closed (B18-R18), so the UI's frozen state is reached by adding
+        the next policy version straight to this guarded test database once seeding is done.
+
+        This is not what the API's transition does (B18-RV09): it skips the transition rules
+        and proofs, writes no audit row or policy event, and does not charge the ledgers
+        before the freeze (`account_locked`). It only gives the UI a current WRITE_FROZEN
+        policy version to read; it runs on fresh test data with no allocation to charge."""
+        engine = create_engine(self.database_url)
+        try:
+            with engine.begin() as connection:
+                current = connection.execute(
+                    text(
+                        "SELECT policy_version, global_outstanding_limit FROM policy_versions"
+                        " WHERE is_current FOR UPDATE"
+                    )
+                ).one()
+                connection.execute(
+                    text("UPDATE policy_versions SET is_current = false WHERE is_current")
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO policy_versions (policy_version, global_outstanding_limit,"
+                        " operational_mode, created_by_user_id, created_at, is_current)"
+                        " VALUES (:version, :limit, 'WRITE_FROZEN', :user, now(), true)"
+                    ),
+                    {
+                        "version": current.policy_version + 1,
+                        "limit": current.global_outstanding_limit,
+                        "user": self.fixture["users"]["admin"]["user_id"],
+                    },
+                )
+        finally:
+            engine.dispose()
+        log(f"test DB set to WRITE_FROZEN at policy version {current.policy_version + 1}")
 
     def _register_templates(self) -> dict[str, str]:
         cpu_image = os.environ.get("NEXA_B17_CPU_IMAGE_REF", "")
@@ -738,6 +789,9 @@ def main(argv: list[str] | None = None) -> int:
             choices=("bridge", "host"),
             default="host" if platform.system() == "Linux" else "bridge",
         )
+        item.add_argument(
+            "--operational-mode", choices=("NORMAL", "WRITE_FROZEN"), default="NORMAL"
+        )
         if action == "run":
             item.add_argument("command", nargs=argparse.REMAINDER)
     sub.add_parser("cleanup")
@@ -748,7 +802,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "run" and not command_line:
         parser.error("run needs a command after --")
     with ExitStack() as stack_context:
-        stack = Stack(args.tier, args.network)
+        if args.tier == "w2" and args.operational_mode != "NORMAL":
+            parser.error("--operational-mode WRITE_FROZEN is a W1 (no worker) stack only")
+        stack = Stack(args.tier, args.network, args.operational_mode)
         stack_context.callback(stack.close)
         interrupted = []
 

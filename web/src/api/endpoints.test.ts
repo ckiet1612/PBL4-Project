@@ -11,7 +11,7 @@ function harness(status = 202, body: unknown = { job_id: JOB }) {
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ETag: '"v3"' } }),
   );
   const client = createApiClient(
-    { csrfToken: () => "csrf-value", refreshCsrf: async () => null, onAuthenticationRequired: () => {} },
+    { csrfToken: () => "csrf-value", sessionUser: () => "user-a", refreshCsrf: async () => null, onAuthenticationRequired: () => {} },
     fetchImpl as unknown as typeof fetch,
   );
   const sent = () => {
@@ -95,7 +95,7 @@ describe("endpoints", () => {
     );
     const api = createEndpoints(
       createApiClient(
-        { csrfToken: () => null, refreshCsrf: async () => null, onAuthenticationRequired },
+        { csrfToken: () => null, sessionUser: () => null, refreshCsrf: async () => null, onAuthenticationRequired },
         fetchImpl as unknown as typeof fetch,
       ),
     );

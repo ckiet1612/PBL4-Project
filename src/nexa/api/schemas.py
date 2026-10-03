@@ -377,15 +377,15 @@ JobState = Literal[
     "CANCELLED",
 ]
 DesiredState = Literal["RUNNING", "PAUSED", "CANCELLED"]
-WaitingReason = Literal[
+WaitingReasonValue = Literal[
     "waiting_for_worker",
     "waiting_for_capacity",
     "waiting_for_quota",
     "waiting_for_reservation",
     "waiting_for_retry",
     "waiting_for_compatibility",
-    None,
 ]
+WaitingReason = Literal[WaitingReasonValue, None]
 
 
 class PageInfo(BaseModel):
@@ -606,6 +606,27 @@ class JobPage(BaseModel):
 
     items: list[Job] = Field(max_length=100)
     page: PageInfo
+
+
+class FairnessBucket(BaseModel):
+    model_config = ConfigDict(title="FairnessBucket", extra="forbid")
+
+    tenant_id: UuidV7
+    start_at: datetime
+    end_at: datetime
+    weight: float = Field(gt=0)
+    dominant_resource_time_seconds: float = Field(ge=0)
+    normalized_service: float = Field(ge=0)
+    allocation_occupancy_seconds: float = Field(ge=0)
+
+
+class FairnessReport(BaseModel):
+    model_config = ConfigDict(title="FairnessReport", extra="forbid", populate_by_name=True)
+
+    from_at: datetime = Field(alias="from")
+    to_at: datetime = Field(alias="to")
+    bucket_seconds: int = Field(ge=1)
+    buckets: list[FairnessBucket] = Field(max_length=1000)
 
 
 class ControlRequest(StrictRequest):

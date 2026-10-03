@@ -151,6 +151,76 @@ p {
   border-radius: var(--radius);
 }
 
+/* Admin area (B18): frame on top, grouped nav as a sidebar on desktop, a wrapping bar on mobile. */
+.admin-area {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  grid-template-areas:
+    "frame frame"
+    "nav content";
+  gap: var(--space-3) var(--space-4);
+}
+
+.admin-frame {
+  grid-area: frame;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border);
+}
+
+.admin-frame p {
+  margin: 0;
+}
+
+.admin-title {
+  font-weight: 700;
+}
+
+.admin-nav {
+  grid-area: nav;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.admin-nav-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.admin-nav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-nav a {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.admin-nav a[aria-current="page"] {
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.admin-content {
+  grid-area: content;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 @media (max-width: 767px) {
   .app-header {
     padding: var(--space-2);
@@ -171,5 +241,39 @@ p {
 
   .col-optional {
     display: none;
+  }
+
+  .admin-area {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "frame"
+      "nav"
+      "content";
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .admin-nav-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .admin-nav-label {
+    margin-bottom: 0;
+  }
+
+  .admin-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .admin-nav a[aria-current="page"] {
+    box-shadow: inset 0 -3px 0 var(--color-accent);
   }
 }

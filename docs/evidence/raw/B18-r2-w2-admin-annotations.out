@@ -1,0 +1,18 @@
+# B18 round 2 W2-admin run3: Playwright JSON annotations (test-level), dist de4c3dbb3979
+[w2-admin] 14–15. worker inventory and capacity, a RUNNING job's HELD allocation, drain waits for it, enable dispatches the queued job :: status=passed retry=0 duration_ms=49805
+  - worker health while job A runs (API): STARTING
+  - Ngừng nhận job "b18 e2e drain" refusals before 202: []
+  - waiting_reason (job B while draining): waiting_for_worker
+  - Bật lại "b18 e2e enable after drain" refusals before 200: []
+[w2-admin] 16. disable fences a RUNNING job; enable is refused (409) while its allocation is QUARANTINED and the paused worker has not cleaned up; the job recovers :: status=passed retry=0 duration_ms=73468
+  - enable while QUARANTINED → 409 (first failing recheck): Quarantined allocations still await verified cleanup
+  - Bật lại "b18 e2e enable after cleanup" refusals before 200: ["409 state_conflict The latest worker heartbeat did not pass the READY checks","409 state_conflict The latest worker heartbeat did not pass the READY checks"]
+[w2-admin] 17. worker action 412: a second admin acts on a stale page and is told to re-check; a still valid action keeps its dialog and reason :: status=passed retry=0 duration_ms=32040
+  - unreleased allocations on the worker at the start: ["HELD"]
+  - Ngừng nhận job "b18 e2e drain by admin one" refusals before 202: []
+  - Bật lại "b18 e2e enable by admin one" refusals before 200: ["409 state_conflict The current worker incarnation is not reconciled","409 state_conflict The worker is not READY","412 version_conflict Worker version does not match If-Match"]
+  - Tắt worker "b18 e2e disable by admin two" refusals before 202: []
+  - Bật lại "b18 e2e enable by admin two" refusals before 200: []
+[w2-admin] 18. fairness with real allocations: tenants that ran have service > 0; the tenant filter narrows the report :: status=passed retry=0 duration_ms=1023
+[w2-admin-mobile] 19. mobile admin: nav, overview, worker detail and tenant policy form without horizontal scroll :: status=passed retry=0 duration_ms=1472
+# stats expected=5 unexpected=0 flaky=0 skipped=0

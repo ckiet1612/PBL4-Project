@@ -7,7 +7,9 @@ import { fixture, SESSION_USERS, storageState } from "./fixture";
 // GET /v1/auth/session into memory, exactly as after a page reload.
 export default async function globalSetup(): Promise<void> {
   const seed = fixture();
-  for (const user of SESSION_USERS) {
+  // WRITE_FROZEN admits only system administrators at login (B18 D6 stack).
+  const users = SESSION_USERS.filter((user) => seed.operational_mode !== "WRITE_FROZEN" || seed.users[user].system_admin);
+  for (const user of users) {
     const context = await request.newContext({
       baseURL: seed.base_url,
       ignoreHTTPSErrors: true,

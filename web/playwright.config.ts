@@ -57,6 +57,41 @@ export default defineConfig({
       },
     },
     {
+      // B18: the admin area on a W1 stack of its own (it creates tenants, users and policies).
+      name: "w1-admin",
+      testDir: "tests/e2e/admin",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      // Leaves the stack in ADMISSION_OFF (B18-R05): its own stack.
+      name: "w1-admin-mode",
+      testDir: "tests/e2e/admin-mode",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      // Stack started with --operational-mode WRITE_FROZEN (B18-R18, D6).
+      name: "w1-admin-frozen",
+      testDir: "tests/e2e/admin-frozen",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: "w2-admin",
+      testDir: "tests/e2e/w2-admin",
+      timeout: 600_000,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      // Runs after w2-admin on the same W2 stack: the worker detail needs a real worker.
+      name: "w2-admin-mobile",
+      testDir: "tests/e2e/admin-mobile",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
       name: "w2",
       testDir: "tests/e2e/w2",
       timeout: 300_000,

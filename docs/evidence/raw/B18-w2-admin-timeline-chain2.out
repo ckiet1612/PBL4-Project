@@ -1,0 +1,75 @@
+# B18 W2-admin chain2 run 50f6fee2: DB timeline (UTC, test DB nexa_b05_test_b18e2e, direct read; job ids truncated)
+# Captured by a poller once the audit reason 'b18 e2e enable by admin two' existed; rows after that are not included.
+      t       |                                    what                                     
+--------------+-----------------------------------------------------------------------------
+ 12:02:44.247 | event JOB_ACCEPTED Job accepted job=…63a52d
+ 12:02:44.637 | alloc HELD job=…63a52d
+ 12:02:44.637 | event JOB_DISPATCHING job=…63a52d
+ 12:02:53.469 | event ATTEMPT_STARTED attempt_started job=…63a52d
+ 12:02:55.649 | audit admin.worker.drain v6→v7 "b18 e2e drain"
+ 12:02:55.736 | event JOB_ACCEPTED Job accepted job=…bb692f
+ 12:03:24.056 | event RESULT_RECOGNIZED result_recognized job=…63a52d
+ 12:03:29.927 | alloc RELEASED (VERIFIED_CLEANUP) job=…63a52d
+ 12:03:37.126 | audit admin.worker.enable v9→v10 "b18 e2e enable after drain"
+ 12:03:37.466 | event JOB_DISPATCHING job=…bb692f
+ 12:03:37.466 | alloc HELD job=…bb692f
+ 12:03:39.008 | event ATTEMPT_STARTED attempt_started job=…bb692f
+ 12:03:44.353 | event RESULT_RECOGNIZED result_recognized job=…bb692f
+ 12:03:45.400 | event JOB_ACCEPTED Job accepted job=…3e5afc
+ 12:03:51.377 | alloc RELEASED (VERIFIED_CLEANUP) job=…bb692f
+ 12:03:51.519 | alloc HELD job=…3e5afc
+ 12:03:51.519 | event JOB_DISPATCHING job=…3e5afc
+ 12:03:53.187 | event ATTEMPT_STARTED attempt_started job=…3e5afc
+ 12:03:54.971 | audit admin.worker.disable v10→v11 "b18 e2e disable"
+ 12:03:54.980 | event ATTEMPT_FENCED WORKER_DISABLED job=…3e5afc
+ 12:03:54.980 | alloc QUARANTINED job=…3e5afc
+ 12:04:07.402 | alloc RELEASED (VERIFIED_CLEANUP) job=…3e5afc
+ 12:04:09.810 | event RETRY_READY BACKOFF_ELAPSED job=…3e5afc
+ 12:04:19.056 | audit admin.worker.enable v11→v12 "b18 e2e enable after cleanup"
+ 12:04:21.504 | alloc HELD job=…3e5afc
+ 12:04:21.504 | event JOB_DISPATCHING job=…3e5afc
+ 12:04:22.299 | event CHECKPOINT_FALLBACK_TO_INPUT CHECKPOINT_FALLBACK_TO_INPUT job=…3e5afc
+ 12:04:23.191 | event ATTEMPT_STARTED attempt_started job=…3e5afc
+ 12:05:03.559 | event CHECKPOINT_COMMITTED CHECKPOINT_COMMITTED job=…3e5afc
+ 12:05:10.446 | event RESULT_RECOGNIZED result_recognized job=…3e5afc
+ 12:05:14.921 | audit admin.worker.drain v15→v16 "b18 e2e drain by admin one"
+ 12:05:15.265 | audit admin.worker.enable v16→v17 "b18 e2e enable by admin two"
+(32 rows)
+
+  job   |   state   |    c     |    u     
+--------+-----------+----------+----------
+ 63a52d | SUCCEEDED | 12:02:44 | 12:03:29
+ bb692f | SUCCEEDED | 12:02:55 | 12:03:51
+ 3e5afc | SUCCEEDED | 12:03:45 | 12:05:10
+(3 rows)
+
+ admin_state | health | version 
+-------------+--------+---------
+ ENABLED     | READY  |      17
+(1 row)
+
+
+# admin.% audit rows at the end of the w2-admin + w2-admin-mobile run (refreshed until the suite exited)
+           action           | count 
+----------------------------+-------
+ admin.allocation.list      |    36
+ admin.audit.list           |     3
+ admin.fairness.query       |     3
+ admin.job.get              |     1
+ admin.membership.list      |     3
+ admin.membership.upsert    |     9
+ admin.policy.global.get    |     1
+ admin.policy.tenant.get    |     4
+ admin.policy.tenant.update |     3
+ admin.recovery_event.list  |     2
+ admin.tenant.create        |     3
+ admin.tenant.get           |     1
+ admin.tenant.list          |     1
+ admin.user.create          |     9
+ admin.worker.disable       |     1
+ admin.worker.drain         |     2
+ admin.worker.enable        |     3
+ admin.worker.get           |    17
+ admin.worker.list          |    28
+(19 rows)
+

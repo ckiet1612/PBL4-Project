@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import and_, insert, or_, select, update
 from sqlalchemy.orm import Session
 
+from nexa.application.admin_queries import AdminQueryMixin
 from nexa.application.admin_service import AdminService
 from nexa.application.errors import ApplicationError
 from nexa.application.idempotency import begin_idempotency, complete_idempotency
@@ -38,7 +39,7 @@ def _conflict(message: str) -> ApplicationError:
     return ApplicationError(code="state_conflict", status=409, message=message)
 
 
-class AdminWorkerService(AdminService):
+class AdminWorkerService(AdminQueryMixin, AdminService):
     # ---- views -------------------------------------------------------------
 
     @staticmethod

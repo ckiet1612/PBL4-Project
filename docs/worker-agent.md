@@ -52,7 +52,10 @@ the drain, which then claims, runs and completes as usual (SM:103, B15-R22). A
 other than the admin state, and enable requires the latest heartbeat to have
 passed (SM:98, B15-R07). A heartbeat that only moves `last_heartbeat_at` keeps
 the worker version (ETag); a change of health, inventory version or `ready_at`
-bumps it (contracts.md:100, B15-R08). Worker routes return timestamps with
+bumps it (contracts.md:100, B15-R08). The agent re-discovers inventory on every
+heartbeat; the inventory checksum excludes `discovered_at`, so only a change in the
+discovered content creates a new inventory version, and the admin `discovered_at`
+is the first observation of that content (B18-R22). Worker routes return timestamps with
 millisecond precision (B15-R29). Callbacks of one worker lock the worker row
 before inserting their receipt, so two concurrent callbacks cannot deadlock on
 a lock upgrade (B15-R27). A local Linux

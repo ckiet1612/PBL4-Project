@@ -46,6 +46,9 @@ SUPPORTED_CLI_ROUTES = {
     ("POST", "/v1/admin/workers/{worker_id}/enable"),
     ("GET", "/v1/admin/allocations"),
     ("GET", "/v1/admin/recovery-events"),
+    ("GET", "/v1/admin/jobs"),
+    ("GET", "/v1/admin/jobs/{job_id}"),
+    ("GET", "/v1/admin/fairness"),
     ("GET", "/v1/templates"),
     ("GET", "/v1/templates/{template_id}"),
     ("POST", "/v1/sweeps"),
@@ -55,8 +58,6 @@ SUPPORTED_CLI_ROUTES = {
 
 EXCLUDED_CLI_ROUTES = {
     "/v1/jobs/{job_id}/logs",
-    "/v1/admin/jobs",
-    "/v1/admin/fairness",
 }
 
 

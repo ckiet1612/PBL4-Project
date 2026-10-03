@@ -1,0 +1,313 @@
+$ B18_DB=nexa_b05_test_b18r4perf PYTHONPATH=src:. uv run --no-sync python scripts/b18_explain.py explain-fairness   (round 4, ms SQL, source fingerprint be03d8db4c150aa7, HEAD 3d00c23)
+2026-10-03T15:01:13Z
+server PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+jobs=100200 tenants_with_jobs=20
+ledger_segments=202010 open=40 span_days=61
+oldest_open_segment_age_days=43
+indexes: ix_allocation_ledger_segments_open, ix_allocation_ledger_segments_period, ix_allocation_ledger_segments_tenant_time, pk_allocation_ledger_segments, ix_jobs_b13_head, ix_jobs_b13_priority_age, ix_jobs_b13_submitter, ix_jobs_b13_submitter_age, ix_jobs_created_keyset, ix_jobs_oldest_eligible, ix_jobs_queue_head, ix_jobs_retry_ready, ix_jobs_tenant_created_keyset, pk_jobs, uq_jobs_tenant_job
+
+# 1h bucket=300s all tenants: rows=240 wall_ms=23.2
+=== adminQueryFairness 1h all tenants
+Limit  (cost=79729.78..94626.72 rows=1001 width=152) (actual time=2.432..6.223 rows=240 loops=1)
+  Buffers: shared hit=124
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.001..0.001 rows=1 loops=1)
+  ->  GroupAggregate  (cost=79729.77..139258.01 rows=4000 width=152) (actual time=2.431..6.203 rows=240 loops=1)
+        Group Key: k.k, seg.tenant_id
+        Buffers: shared hit=124
+        ->  Sort  (cost=79729.77..80290.60 rows=224333 width=102) (actual time=2.406..2.479 rows=935 loops=1)
+              Sort Key: k.k, seg.tenant_id, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: quicksort  Memory: 137kB
+              Buffers: shared hit=124
+              ->  Nested Loop  (cost=83.98..47520.85 rows=224333 width=102) (actual time=0.157..1.280 rows=935 loops=1)
+                    Buffers: shared hit=124
+                    ->  Nested Loop  (cost=83.94..3217.22 rows=673 width=94) (actual time=0.092..0.337 rows=149 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=124
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.004..0.005 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.003..0.003 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.001 rows=1 loops=1)
+                          ->  Bitmap Heap Scan on allocation_ledger_segments seg  (cost=83.94..3131.32 rows=2020 width=62) (actual time=0.082..0.230 rows=149 loops=1)
+                                Recheck Cond: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-03 14:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                Heap Blocks: exact=119
+                                Buffers: shared hit=124
+                                ->  Bitmap Index Scan on ix_allocation_ledger_segments_period  (cost=0.00..83.43 rows=2020 width=0) (actual time=0.065..0.068 rows=149 loops=1)
+                                      Index Cond: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-03 14:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                      Buffers: shared hit=5
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.002..0.005 rows=6 loops=149)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.465 ms
+Execution Time: 7.003 ms
+
+# 1h bucket=300s one tenant: rows=12 wall_ms=3.8
+=== adminQueryFairness 1h one tenant
+Limit  (cost=3694.05..6498.13 rows=200 width=152) (actual time=0.400..0.574 rows=12 loops=1)
+  Buffers: shared hit=106
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.000..0.001 rows=1 loops=1)
+  ->  GroupAggregate  (cost=3694.03..6498.12 rows=200 width=152) (actual time=0.400..0.572 rows=12 loops=1)
+        Group Key: k.k
+        Buffers: shared hit=106
+        ->  Sort  (cost=3694.03..3720.70 rows=10667 width=102) (actual time=0.371..0.375 rows=48 loops=1)
+              Sort Key: k.k, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: quicksort  Memory: 30kB
+              Buffers: shared hit=106
+              ->  Nested Loop  (cost=532.97..2980.37 rows=10667 width=102) (actual time=0.299..0.347 rows=48 loops=1)
+                    Buffers: shared hit=106
+                    ->  Nested Loop  (cost=532.92..873.76 rows=32 width=94) (actual time=0.289..0.296 rows=6 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=106
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.002..0.003 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.001..0.001 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+                          ->  Bitmap Heap Scan on allocation_ledger_segments seg  (cost=532.92..869.59 rows=97 width=62) (actual time=0.284..0.287 rows=6 loops=1)
+                                Recheck Cond: ((tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-03 14:01:15+00","2026-10-03 15:01:15+00")'::tstzrange) AND (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid))
+                                Heap Blocks: exact=6
+                                Buffers: shared hit=106
+                                ->  BitmapAnd  (cost=532.92..532.92 rows=97 width=0) (actual time=0.282..0.282 rows=0 loops=1)
+                                      Buffers: shared hit=100
+                                      ->  Bitmap Index Scan on ix_allocation_ledger_segments_period  (cost=0.00..83.43 rows=2020 width=0) (actual time=0.028..0.028 rows=149 loops=1)
+                                            Index Cond: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-03 14:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                            Buffers: shared hit=5
+                                      ->  Bitmap Index Scan on ix_allocation_ledger_segments_tenant_time  (cost=0.00..449.19 rows=9703 width=0) (actual time=0.250..0.250 rows=9530 loops=1)
+                                            Index Cond: (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid)
+                                            Buffers: shared hit=95
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.003..0.007 rows=8 loops=6)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.264 ms
+Execution Time: 0.631 ms
+
+# 24h bucket=3600s all tenants: rows=480 wall_ms=46.6
+=== adminQueryFairness 24h all tenants
+Limit  (cost=122428.72..145327.85 rows=1001 width=152) (actual time=19.306..43.938 rows=480 loops=1)
+  Buffers: shared hit=268
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.001..0.001 rows=1 loops=1)
+  ->  GroupAggregate  (cost=122428.71..213933.71 rows=4000 width=152) (actual time=19.305..43.901 rows=480 loops=1)
+        Group Key: k.k, seg.tenant_id
+        Buffers: shared hit=268
+        ->  Sort  (cost=122428.71..123291.21 rows=345000 width=102) (actual time=19.241..19.592 rows=7011 loops=1)
+              Sort Key: k.k, seg.tenant_id, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: quicksort  Memory: 1041kB
+              Buffers: shared hit=268
+              ->  Nested Loop  (cost=124.40..71826.70 rows=345000 width=102) (actual time=0.355..10.796 rows=7011 loops=1)
+                    Buffers: shared hit=268
+                    ->  Nested Loop  (cost=124.35..3692.61 rows=1035 width=94) (actual time=0.348..2.731 rows=3143 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=268
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.003..0.006 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.002..0.002 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.002 rows=1 loops=1)
+                          ->  Bitmap Heap Scan on allocation_ledger_segments seg  (cost=124.35..3560.55 rows=3106 width=62) (actual time=0.341..0.898 rows=3143 loops=1)
+                                Recheck Cond: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                Heap Blocks: exact=240
+                                Buffers: shared hit=268
+                                ->  Bitmap Index Scan on ix_allocation_ledger_segments_period  (cost=0.00..123.58 rows=3106 width=0) (actual time=0.321..0.321 rows=3143 loops=1)
+                                      Index Cond: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                      Buffers: shared hit=28
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.002 rows=2 loops=3143)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.304 ms
+Execution Time: 44.121 ms
+
+# 24h bucket=3600s one tenant: rows=24 wall_ms=5.1
+=== adminQueryFairness 24h one tenant
+Limit  (cost=5534.43..9913.52 rows=200 width=152) (actual time=1.395..2.670 rows=24 loops=1)
+  Buffers: shared hit=134
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.000..0.000 rows=1 loops=1)
+  ->  GroupAggregate  (cost=5534.42..9913.50 rows=200 width=152) (actual time=1.395..2.667 rows=24 loops=1)
+        Group Key: k.k
+        Buffers: shared hit=134
+        ->  Sort  (cost=5534.42..5576.08 rows=16667 width=102) (actual time=1.333..1.352 rows=360 loops=1)
+              Sort Key: k.k, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: quicksort  Memory: 68kB
+              Buffers: shared hit=134
+              ->  Nested Loop  (cost=573.14..4365.67 rows=16667 width=102) (actual time=0.686..1.194 rows=360 loops=1)
+                    Buffers: shared hit=134
+                    ->  Nested Loop  (cost=573.09..1074.12 rows=50 width=94) (actual time=0.680..0.791 rows=154 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=134
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.002..0.003 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.002..0.002 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+                          ->  Bitmap Heap Scan on allocation_ledger_segments seg  (cost=573.09..1067.74 rows=149 width=62) (actual time=0.672..0.695 rows=154 loops=1)
+                                Recheck Cond: ((tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange) AND (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid))
+                                Heap Blocks: exact=11
+                                Buffers: shared hit=134
+                                ->  BitmapAnd  (cost=573.09..573.09 rows=149 width=0) (actual time=0.668..0.668 rows=0 loops=1)
+                                      Buffers: shared hit=123
+                                      ->  Bitmap Index Scan on ix_allocation_ledger_segments_period  (cost=0.00..123.58 rows=3106 width=0) (actual time=0.231..0.231 rows=3143 loops=1)
+                                            Index Cond: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-10-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                            Buffers: shared hit=28
+                                      ->  Bitmap Index Scan on ix_allocation_ledger_segments_tenant_time  (cost=0.00..449.19 rows=9703 width=0) (actual time=0.427..0.427 rows=9530 loops=1)
+                                            Index Cond: (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid)
+                                            Buffers: shared hit=95
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.002 rows=2 loops=154)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.310 ms
+Execution Time: 2.716 ms
+
+# 31d bucket=86400s all tenants: rows=620 wall_ms=931.5
+=== adminQueryFairness 31d all tenants
+Limit  (cost=5353217.32..6093503.55 rows=1001 width=152) (actual time=378.461..770.558 rows=620 loops=1)
+  Buffers: shared hit=3312, temp read=1521 written=1524
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.001..0.001 rows=1 loops=1)
+  ->  GroupAggregate  (cost=5353217.30..8311404.06 rows=4000 width=152) (actual time=378.460..770.498 rows=620 loops=1)
+        Group Key: k.k, seg.tenant_id
+        Buffers: shared hit=3312, temp read=1521 written=1524
+        ->  Sort  (cost=5353217.30..5381123.97 rows=11162667 width=102) (actual time=377.879..392.637 rows=106795 loops=1)
+              Sort Key: k.k, seg.tenant_id, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: external merge  Disk: 12168kB
+              Buffers: shared hit=3312, temp read=1521 written=1524
+              ->  Nested Loop  (cost=0.05..2215127.05 rows=11162667 width=102) (actual time=0.077..272.377 rows=106795 loops=1)
+                    Buffers: shared hit=3312
+                    ->  Nested Loop  (cost=0.00..10611.96 rows=33488 width=94) (actual time=0.070..101.195 rows=101465 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=3312
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.004..0.007 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.003..0.003 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.001 rows=1 loops=1)
+                          ->  Seq Scan on allocation_ledger_segments seg  (cost=0.00..6342.15 rows=100465 width=62) (actual time=0.060..33.822 rows=101465 loops=1)
+                                Filter: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-09-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                Rows Removed by Filter: 100545
+                                Buffers: shared hit=3312
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.001 rows=1 loops=101465)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.336 ms
+Execution Time: 773.140 ms
+
+# 31d bucket=86400s one tenant: rows=31 wall_ms=31.3
+=== adminQueryFairness 31d one tenant
+Limit  (cost=219764.40..360555.81 rows=200 width=152) (actual time=14.921..31.053 rows=31 loops=1)
+  Buffers: shared hit=253
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.000..0.000 rows=1 loops=1)
+  ->  GroupAggregate  (cost=219764.38..360555.80 rows=200 width=152) (actual time=14.920..31.050 rows=31 loops=1)
+        Group Key: k.k
+        Buffers: shared hit=253
+        ->  Sort  (cost=219764.38..221105.22 rows=536333 width=102) (actual time=14.359..14.592 rows=4931 loops=1)
+              Sort Key: k.k, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: quicksort  Memory: 783kB
+              Buffers: shared hit=253
+              ->  Nested Loop  (cost=450.44..110057.87 rows=536333 width=102) (actual time=0.327..11.525 rows=4931 loops=1)
+                    Buffers: shared hit=253
+                    ->  Nested Loop  (cost=450.40..4137.36 rows=1609 width=94) (actual time=0.322..4.141 rows=4664 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=253
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.001..0.002 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.001..0.001 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+                          ->  Bitmap Heap Scan on allocation_ledger_segments seg  (cost=450.40..3932.20 rows=4826 width=62) (actual time=0.318..1.593 rows=4664 loops=1)
+                                Recheck Cond: (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid)
+                                Filter: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-09-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                Rows Removed by Filter: 4866
+                                Heap Blocks: exact=158
+                                Buffers: shared hit=253
+                                ->  Bitmap Index Scan on ix_allocation_ledger_segments_tenant_time  (cost=0.00..449.19 rows=9703 width=0) (actual time=0.275..0.275 rows=9530 loops=1)
+                                      Index Cond: (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid)
+                                      Buffers: shared hit=95
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.001 rows=1 loops=4664)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.242 ms
+Execution Time: 31.091 ms
+
+# 31d ending 29d ago bucket=86400s all tenants: rows=620 wall_ms=685.5
+=== adminQueryFairness 31d ending 29d ago all tenants
+Limit  (cost=5581968.68..6353445.63 rows=1001 width=152) (actual time=349.207..734.005 rows=620 loops=1)
+  Buffers: shared hit=3312, temp read=1553 written=1556
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.001..0.002 rows=1 loops=1)
+  ->  GroupAggregate  (cost=5581968.67..8664793.67 rows=4000 width=152) (actual time=349.205..733.946 rows=620 loops=1)
+        Group Key: k.k, seg.tenant_id
+        Buffers: shared hit=3312, temp read=1553 written=1556
+        ->  Sort  (cost=5581968.67..5611051.17 rows=11633000 width=102) (actual time=348.600..362.972 rows=109102 loops=1)
+              Sort Key: k.k, seg.tenant_id, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: external merge  Disk: 12424kB
+              Buffers: shared hit=3312, temp read=1553 written=1556
+              ->  Nested Loop  (cost=0.05..2308193.08 rows=11633000 width=102) (actual time=0.087..254.633 rows=109102 loops=1)
+                    Buffers: shared hit=3312
+                    ->  Nested Loop  (cost=0.00..10791.86 rows=34899 width=94) (actual time=0.080..89.353 rows=103837 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=3312
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.005..0.007 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.003..0.004 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.001 rows=1 loops=1)
+                          ->  Seq Scan on allocation_ledger_segments seg  (cost=0.00..6342.15 rows=104698 width=62) (actual time=0.069..31.465 rows=103837 loops=1)
+                                Filter: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-08-04 15:01:15+00","2026-09-04 15:01:15+00")'::tstzrange)
+                                Rows Removed by Filter: 98173
+                                Buffers: shared hit=3312
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.001 rows=1 loops=103837)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 1.061 ms
+Execution Time: 736.037 ms
+
+# 31d ending 29d ago bucket=86400s one tenant: rows=31 wall_ms=33.2
+=== adminQueryFairness 31d ending 29d ago one tenant
+Limit  (cost=228916.49..375570.58 rows=200 width=152) (actual time=15.730..32.865 rows=31 loops=1)
+  Buffers: shared hit=253
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.000..0.001 rows=1 loops=1)
+  ->  GroupAggregate  (cost=228916.48..375570.56 rows=200 width=152) (actual time=15.729..32.862 rows=31 loops=1)
+        Group Key: k.k
+        Buffers: shared hit=253
+        ->  Sort  (cost=228916.48..230313.14 rows=558667 width=102) (actual time=15.103..15.351 rows=5269 loops=1)
+              Sort Key: k.k, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: quicksort  Memory: 823kB
+              Buffers: shared hit=253
+              ->  Nested Loop  (cost=450.49..114477.16 rows=558667 width=102) (actual time=0.325..12.067 rows=5269 loops=1)
+                    Buffers: shared hit=253
+                    ->  Nested Loop  (cost=450.45..4146.03 rows=1676 width=94) (actual time=0.320..4.325 rows=5003 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=253
+                          ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.002..0.003 rows=1 loops=1)
+                                ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.001..0.001 rows=1 loops=1)
+                                ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+                          ->  Bitmap Heap Scan on allocation_ledger_segments seg  (cost=450.45..3932.25 rows=5029 width=62) (actual time=0.315..1.645 rows=5003 loops=1)
+                                Recheck Cond: (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid)
+                                Filter: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-08-04 15:01:15+00","2026-09-04 15:01:15+00")'::tstzrange)
+                                Rows Removed by Filter: 4527
+                                Heap Blocks: exact=158
+                                Buffers: shared hit=253
+                                ->  Bitmap Index Scan on ix_allocation_ledger_segments_tenant_time  (cost=0.00..449.19 rows=9703 width=0) (actual time=0.298..0.299 rows=9530 loops=1)
+                                      Index Cond: (tenant_id = '01a10240-3ee7-75d8-82c2-e853cc425384'::uuid)
+                                      Buffers: shared hit=95
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.001 rows=1 loops=5003)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.267 ms
+Execution Time: 32.900 ms
+
+# 31d all tenants enable_seqscan=off: rows=620 wall_ms=718.3
+=== adminQueryFairness 31d all tenants, enable_seqscan=off
+Limit  (cost=5357601.95..6097888.19 rows=1001 width=152) (actual time=407.249..786.270 rows=620 loops=1)
+  Buffers: shared hit=4862, temp read=1521 written=1524
+  CTE bounds
+    ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.001..0.001 rows=1 loops=1)
+  ->  GroupAggregate  (cost=5357601.94..8315788.69 rows=4000 width=152) (actual time=407.248..786.210 rows=620 loops=1)
+        Group Key: k.k, seg.tenant_id
+        Buffers: shared hit=4862, temp read=1521 written=1524
+        ->  Sort  (cost=5357601.94..5385508.61 rows=11162667 width=102) (actual time=406.632..421.372 rows=106795 loops=1)
+              Sort Key: k.k, seg.tenant_id, seg.started_at DESC, seg.segment_id DESC
+              Sort Method: external merge  Disk: 12168kB
+              Buffers: shared hit=4862, temp read=1521 written=1524
+              ->  Nested Loop  (cost=0.46..2219511.68 rows=11162667 width=102) (actual time=0.060..269.998 rows=106795 loops=1)
+                    Buffers: shared hit=4862
+                    ->  Nested Loop  (cost=0.42..14996.60 rows=33488 width=94) (actual time=0.054..112.206 rows=101465 loops=1)
+                          Join Filter: (LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms) > GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint))
+                          Buffers: shared hit=4862
+                          ->  Index Scan Backward using pk_allocation_ledger_segments on allocation_ledger_segments seg  (cost=0.42..10475.62 rows=100465 width=62) (actual time=0.043..39.282 rows=101465 loops=1)
+                                Filter: (tstzrange(started_at, ended_at, '[)'::text) && '["2026-09-02 15:01:15+00","2026-10-03 15:01:15+00")'::tstzrange)
+                                Rows Removed by Filter: 100545
+                                Buffers: shared hit=4862
+                          ->  Materialize  (cost=0.00..0.06 rows=1 width=32) (actual time=0.000..0.000 rows=1 loops=101465)
+                                ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.003..0.014 rows=1 loops=1)
+                                      ->  CTE Scan on bounds b_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.002..0.004 rows=1 loops=1)
+                                      ->  CTE Scan on bounds b  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.003 rows=1 loops=1)
+                    ->  Function Scan on generate_series k  (cost=0.05..62.55 rows=333 width=8) (actual time=0.001..0.001 rows=1 loops=101465)
+                          Filter: ((((LEAST(LEAST(((floor((EXTRACT(epoch FROM COALESCE(seg.ended_at, b_1.now_at)) * '1000'::numeric)))::bigint - b_1.from_ms), b_1.range_ms), ((k + 1) * b.bucket_ms)) - GREATEST(GREATEST(((floor((EXTRACT(epoch FROM seg.started_at) * '1000'::numeric)))::bigint - b_1.from_ms), '0'::bigint), (k * b.bucket_ms))))::numeric / '1000'::numeric) > '0'::numeric)
+Planning Time: 0.499 ms
+Execution Time: 788.648 ms
+
+EXIT=0
+2026-10-03T15:01:20Z

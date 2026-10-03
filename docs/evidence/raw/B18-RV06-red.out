@@ -1,0 +1,111 @@
+
+ RUN  v5.0.2 /Users/macbook/Documents/University Library/PBL4-Project/web
+
+ ❯ src/features/admin/policyForm.test.ts (17 tests | 8 failed) 11ms
+   ❯ server numbers round-trip through the form unchanged (B18-RV06) (10)
+     × an untouched 0.3333333333333333 is not a change and is not sent 3ms
+     × an untouched 0.6666666666666666 is not a change and is not sent 0ms
+     × an untouched 0.30000000000000004 is not a change and is not sent 0ms
+     × an untouched 1e-12 is not a change and is not sent 1ms
+     × an untouched 123.456789012345 is not a change and is not sent 1ms
+     × an untouched 5e-324 is not a change and is not sent 0ms
+     × an untouched 1e+21 is not a change and is not sent 0ms
+     × editing one field sends only that field, never a rounded weight 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 0.3333333333333333 is not a change and is not sent
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 0.6666666666666666 is not a change and is not sent
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 0.30000000000000004 is not a change and is not sent
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 123.456789012345 is not a change and is not sent
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/features/admin/policyForm.test.ts:104:30
+    102|       const result = policyUpdate(base, policyDraft(base));
+    103|       expect(result.errors).toEqual({});
+    104|       expect(result.changed).toBe(false);
+       |                              ^
+    105|       expect(result.update).toEqual({});
+    106|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 1e-12 is not a change and is not sent
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 5e-324 is not a change and is not sent
+AssertionError: expected { …(3) } to deeply equal {}
+
+- Expected
++ Received
+
+- {}
++ {
++   "submit_rate_per_second": "Số lớn hơn 0",
++   "user_submit_rate_per_second": "Số lớn hơn 0",
++   "weight": "Số lớn hơn 0 và không quá 1000",
++ }
+
+ ❯ src/features/admin/policyForm.test.ts:103:29
+    101|       const base = { ...BASE, weight: Math.min(value, 1000), submit_ra…
+    102|       const result = policyUpdate(base, policyDraft(base));
+    103|       expect(result.errors).toEqual({});
+       |                             ^
+    104|       expect(result.changed).toBe(false);
+    105|       expect(result.update).toEqual({});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > an untouched 1e+21 is not a change and is not sent
+AssertionError: expected { …(2) } to deeply equal {}
+
+- Expected
++ Received
+
+- {}
++ {
++   "submit_rate_per_second": "Số lớn hơn 0",
++   "user_submit_rate_per_second": "Số lớn hơn 0",
++ }
+
+ ❯ src/features/admin/policyForm.test.ts:103:29
+    101|       const base = { ...BASE, weight: Math.min(value, 1000), submit_ra…
+    102|       const result = policyUpdate(base, policyDraft(base));
+    103|       expect(result.errors).toEqual({});
+       |                             ^
+    104|       expect(result.changed).toBe(false);
+    105|       expect(result.update).toEqual({});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/features/admin/policyForm.test.ts > server numbers round-trip through the form unchanged (B18-RV06) > editing one field sends only that field, never a rounded weight
+AssertionError: expected { weight: 0.3333333333, …(1) } to deeply equal { user_submit_burst: 9 }
+
+- Expected
++ Received
+
+  {
+    "user_submit_burst": 9,
++   "weight": 0.3333333333,
+  }
+
+ ❯ src/features/admin/policyForm.test.ts:112:27
+    110|     const base = { ...BASE, weight: 1 / 3 };
+    111|     const result = policyUpdate(base, { ...policyDraft(base), user_sub…
+    112|     expect(result.update).toEqual({ user_submit_burst: 9 });
+       |                           ^
+    113|   });
+    114| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 9 passed (17)
+   Start at  19:20:25
+   Duration  156ms (transform 55%, tests 22%, import 17%, worker 5%)
+

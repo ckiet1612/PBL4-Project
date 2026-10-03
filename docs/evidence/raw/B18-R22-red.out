@@ -1,0 +1,4 @@
+>           assert after["version"] == before["version"]
+E           assert 7 == 4
+FAILED tests/integration/test_admin_workers_b15.py::test_rediscovered_inventory_keeps_the_worker_etag
+1 failed, 12 deselected, 2 warnings in 3.49s

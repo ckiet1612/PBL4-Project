@@ -56,7 +56,7 @@ def _admin(control, method, path, *, if_match="current", key=None, body=None, **
     return control.client.get(f"/v1/admin{path}", headers=headers, params=params)
 
 
-def _heartbeat(control):
+def _heartbeat(control, inventory=None):
     return control.worker_client.post(
         f"/v1/workers/{WORKER_ID}/heartbeat",
         headers={
@@ -67,7 +67,7 @@ def _heartbeat(control):
             "worker_incarnation_id": control.job.authority["worker_incarnation_id"],
             "observed_health": "READY",
             "reconcile_complete": True,
-            "inventory": _inventory(),
+            "inventory": inventory or _inventory(),
             "observed_containers": [],
         },
     )
@@ -286,6 +286,51 @@ def test_steady_heartbeats_keep_the_worker_etag(migrated_postgres_engine, tmp_pa
         version = _worker_row(engine)["version"]
         assert control.worker_client.app.state.services.worker.sweep_health() == 1
         assert _worker_row(engine)["version"] == version + 1
+
+
+def test_rediscovered_inventory_keeps_the_worker_etag(migrated_postgres_engine, tmp_path):
+    # B18-R22: the agent re-discovers its inventory on every heartbeat, so `discovered_at`
+    # always moves. That timestamp alone is not a visible change (contracts.md:100): no new
+    # inventory version and no new worker ETag, or every admin action from a page older
+    # than one heartbeat meets 412.
+    engine = migrated_postgres_engine
+    with Control(engine, tmp_path, label="b18-inventory-etag") as control:
+        control.login("admin")
+
+        def inventory(second: int, cpu_millis: int = 6_000) -> dict:
+            value = _inventory()
+            value["discovered_at"] = f"2026-10-01T00:00:{second:02d}.000Z"
+            value["allocatable"]["cpu_millis"] = cpu_millis
+            return value
+
+        assert _heartbeat(control, inventory(0)).status_code == 200
+        before = _worker_row(engine)
+
+        def inventory_rows() -> int:
+            with engine.connect() as connection:
+                return connection.execute(
+                    select(func.count()).select_from(s.worker_inventories)
+                ).scalar_one()
+
+        rows = inventory_rows()
+        for second in (5, 10, 15):
+            assert _heartbeat(control, inventory(second)).status_code == 200
+        after = _worker_row(engine)
+        assert after["version"] == before["version"]
+        assert after["current_inventory_version"] == before["current_inventory_version"]
+        assert inventory_rows() == rows
+        drained = _admin(
+            control, "post", f"/workers/{WORKER_ID}/drain", if_match=f'"v{before["version"]}"'
+        )
+        assert drained.status_code == 202, drained.text
+
+        # A changed inventory is still a new version and a visible change.
+        version = _worker_row(engine)["version"]
+        assert _heartbeat(control, inventory(20, cpu_millis=5_000)).status_code == 200
+        changed = _worker_row(engine)
+        assert changed["current_inventory_version"] == after["current_inventory_version"] + 1
+        assert changed["version"] == version + 1
+        assert inventory_rows() == rows + 1
 
 
 def test_enable_requires_a_fresh_reconciled_heartbeat(migrated_postgres_engine, tmp_path):

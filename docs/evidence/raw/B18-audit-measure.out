@@ -1,0 +1,62 @@
+# B18 audit rows per admin page and per worker transition: chain3 run 3aa2a217 (dist 9c9397bd5322), one-off measurement spec outside the repo
+[b17-stack] run 3aa2a217 tier=w2 network=bridge dist index=9c9397bd5322
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+INFO  [alembic.runtime.migration] Running upgrade 20260929_0022 -> 20261001_0023, Index the cross-tenant admin job list and the fairness ledger period (B18).
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 53515 (bind 127.0.0.1)
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:53516
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] coordinator started
+[b17-stack] worker READY: cpu image sha256:ec419c61c084, worker sha256:a2b0aace4881
+[b17-stack] running: pnpm --dir web exec playwright test -c /tmp/b18measure/pw.config.ts
+
+Running 2 tests using 1 worker
+
+  ✓  1 ../../../../../../private/tmp/b18measure/a-shots.spec.ts:7:1 › b18 screenshots (32.9s)
+B18-MEASURE
+page | /v1/admin requests (method path) | audit rows added
+Tổng quan | 5 (GET /v1/admin/policy, GET /v1/admin/workers, GET /v1/admin/allocations, GET /v1/admin/allocations, GET /v1/admin/recovery-events) | 5
+Worker | 1 (GET /v1/admin/workers) | 1
+Chi tiết worker | 3 (GET /v1/admin/workers/:id, GET /v1/admin/allocations, GET /v1/admin/allocations) | 3
+Hàng chờ | 2 (GET /v1/admin/tenants, GET /v1/admin/jobs) | 2
+Chi tiết job | 1 (GET /v1/admin/jobs/:id) | 1
+Tenant | 1 (GET /v1/admin/tenants) | 1
+Chi tiết tenant (Thông tin) | 1 (GET /v1/admin/tenants/:id) | 1
+Chi tiết tenant (Thành viên) | 2 (GET /v1/admin/tenants/:id, GET /v1/admin/tenants/:id/memberships) | 2
+Chi tiết tenant (Chính sách) | 2 (GET /v1/admin/tenants/:id, GET /v1/admin/tenants/:id/policy) | 2
+User | 1 (GET /v1/admin/users) | 1
+Chi tiết user | 1 (GET /v1/admin/users/:id) | 1
+Chính sách hệ thống | 1 (GET /v1/admin/policy) | 1
+Fairness | 2 (GET /v1/admin/tenants, GET /v1/admin/fairness) | 2
+Khôi phục | 1 (GET /v1/admin/recovery-events) | 1
+Audit | 1 (GET /v1/admin/audit) | 1
+transition Ngừng nhận job | 4 (POST /v1/admin/workers/:id/drain, GET /v1/admin/workers/:id, GET /v1/admin/allocations?state=HELD, GET /v1/admin/allocations?state=QUARANTINED) | 4
+transition Bật lại | 1 (POST /v1/admin/workers/:id/enable) | 1
+  ✓  2 ../../../../../../private/tmp/b18measure/b-measure.spec.ts:19:1 › b18 audit rows per admin page and per worker transition (34.7s)
+
+  2 passed (1.2m)
+[b17-stack] command exit=0 in 70.6s
+[b17-stack] cleaned up run 3aa2a217

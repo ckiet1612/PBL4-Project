@@ -17,7 +17,11 @@ function NoTenantPage() {
     <section className="page page-narrow">
       <h1>Chưa thuộc tenant nào</h1>
       <p>Tài khoản chưa thuộc tenant nào. Liên hệ quản trị viên để được thêm vào tenant.</p>
-      {isSystemAdmin(session) && <p>Khu quản trị hệ thống sẽ có ở bản sau.</p>}
+      {isSystemAdmin(session) && (
+        <p>
+          <Link to="/admin">Mở khu quản trị</Link>
+        </p>
+      )}
       <p>
         Token CLI và đăng xuất nằm trong menu <strong>Tài khoản</strong>.
       </p>

@@ -1,0 +1,418 @@
+$ NEXA_TEST_DATABASE_URL=<URL>/nexa_b05_test_b18 PYTHONPATH=src:. uv run --no-sync pytest --run-postgres -q -p no:cacheprovider
+2026-10-03T13:13:37Z
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 23%]
+........................................................................ [ 26%]
+..........ssssssssssssssssssssssss...................................... [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 35%]
+........................................................................ [ 38%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+...........F.................................................sss........ [ 47%]
+........................................................................ [ 50%]
+...........
+B16 100-child sweep latency over 5 runs (nearest rank): p50=4.174s p95=4.468s min=4.009s
+............................................................. [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+.......................................                                  [100%]
+=================================== FAILURES ===================================
+_________________ test_b18_admin_reads_can_use_the_new_indexes _________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x1191def90>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0x112db1580>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg'>>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x1189d4320>
+parameters = [{'from_at': datetime.datetime(2026, 9, 19, 23, 0, tzinfo=datetime.timezone.utc), 'to_at': datetime.datetime(2026, 9, 20, 0, 0, tzinfo=datetime.timezone.utc), 'bucket_us': 300000000, 'range_us': 3600000000}]
+execution_options = immutabledict({})
+args = (<sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x1189d4320>, [{'from_at': datetime.datetime(202... type_=NullType()), BindParameter('range_ms', None, type_=NullType()), BindParameter('to_at', None, type_=NullType())])
+kw = {'cache_hit': <CacheStats.CACHE_MISS: 1>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1417: in _init_compiled
+    compiled.construct_params(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x1189d4320>
+params = {'from_at': datetime.datetime(2026, 9, 19, 23, 0, tzinfo=datetime.timezone.utc), 'to_at': datetime.datetime(2026, 9, 20, 0, 0, tzinfo=datetime.timezone.utc), 'bucket_us': 300000000, 'range_us': 3600000000}
+extracted_parameters = [BindParameter('bucket_ms', None, type_=NullType()), BindParameter('from_at', None, type_=NullType()), BindParameter('..., type_=NullType()), BindParameter('range_ms', None, type_=NullType()), BindParameter('to_at', None, type_=NullType())]
+escape_names = False, _group_number = 0, _check = True, _no_postcompile = False
+
+    def construct_params(
+        self,
+        params: Optional[_CoreSingleExecuteParams] = None,
+        extracted_parameters: Optional[Sequence[BindParameter[Any]]] = None,
+        escape_names: bool = True,
+        _group_number: Optional[int] = None,
+        _check: bool = True,
+        _no_postcompile: bool = False,
+    ) -> _MutableCoreSingleExecuteParams:
+        """return a dictionary of bind parameter keys and values"""
+    
+        if self._render_postcompile and not _no_postcompile:
+            assert self._post_compile_expanded_state is not None
+            if not params:
+                return dict(self._post_compile_expanded_state.parameters)
+            else:
+                raise exc.InvalidRequestError(
+                    "can't construct new parameters when render_postcompile "
+                    "is used; the statement is hard-linked to the original "
+                    "parameters.  Use construct_expanded_state to generate a "
+                    "new statement and parameters."
+                )
+    
+        has_escaped_names = escape_names and bool(self.escaped_bind_names)
+    
+        if extracted_parameters:
+            # related the bound parameters collected in the original cache key
+            # to those collected in the incoming cache key.  They will not have
+            # matching names but they will line up positionally in the same
+            # way.   The parameters present in self.bind_names may be clones of
+            # these original cache key params in the case of DML but the .key
+            # will be guaranteed to match.
+            if self.cache_key is None:
+                raise exc.CompileError(
+                    "This compiled object has no original cache key; "
+                    "can't pass extracted_parameters to construct_params"
+                )
+            else:
+                orig_extracted = self.cache_key[1]
+    
+            ckbm_tuple = self._cache_key_bind_match
+            assert ckbm_tuple is not None
+            ckbm, _ = ckbm_tuple
+            resolved_extracted = {
+                bind: extracted
+                for b, extracted in zip(orig_extracted, extracted_parameters)
+                for bind in ckbm[b]
+            }
+        else:
+            resolved_extracted = None
+    
+        if params:
+            pd = {}
+            for bindparam, name in self.bind_names.items():
+                escaped_name = (
+                    self.escaped_bind_names.get(name, name)
+                    if has_escaped_names
+                    else name
+                )
+    
+                if bindparam.key in params:
+                    pd[escaped_name] = params[bindparam.key]
+                elif name in params:
+                    pd[escaped_name] = params[name]
+    
+                elif _check and bindparam.required:
+                    if _group_number:
+                        raise exc.InvalidRequestError(
+                            "A value is required for bind parameter %r, "
+                            "in parameter group %d"
+                            % (bindparam.key, _group_number),
+                            code="cd3x",
+                        )
+                    else:
+>                       raise exc.InvalidRequestError(
+                            "A value is required for bind parameter %r"
+                            % bindparam.key,
+                            code="cd3x",
+                        )
+E                       sqlalchemy.exc.InvalidRequestError: A value is required for bind parameter 'bucket_ms' (Background on this error at: https://sqlalche.me/e/20/cd3x)
+
+.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:1934: InvalidRequestError
+
+The above exception was the direct cause of the following exception:
+
+migrated_postgres_engine = Engine(postgresql+psycopg://postgres:<redacted>@127.0.0.1:15439/nexa_b05_test_b18)
+
+    def test_b18_admin_reads_can_use_the_new_indexes(migrated_postgres_engine) -> None:
+        engine = migrated_postgres_engine
+        to_at = datetime(2026, 9, 20, tzinfo=UTC)
+        from_at = to_at - timedelta(hours=1)
+        statement = admin_job_statement(
+            tenant_id=None,
+            user_id=None,
+            state=None,
+            waiting_reason=None,
+            created_after=None,
+            after=None,
+            limit=51,
+        )
+        with engine.begin() as connection:
+            connection.execute(text("SET LOCAL enable_seqscan = off"))
+            connection.execute(text("SET LOCAL enable_sort = off"))
+            compiled = statement.compile(dialect=engine.dialect)
+            jobs_plan = "\n".join(
+                connection.exec_driver_sql("EXPLAIN " + str(compiled), compiled.params).scalars()
+            )
+            connection.execute(FAIRNESS_SETTINGS)
+            fairness_plan = "\n".join(
+>               connection.execute(
+                    text("EXPLAIN " + _FAIRNESS_ALL.text),
+                    {
+                        "from_at": from_at,
+                        "to_at": to_at,
+                        "bucket_us": 300_000_000,
+                        "range_us": 3_600_000_000,
+                    },
+                ).scalars()
+            )
+
+tests/integration/test_migration_b18.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1417: in _init_compiled
+    compiled.construct_params(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x1189d4320>
+params = {'from_at': datetime.datetime(2026, 9, 19, 23, 0, tzinfo=datetime.timezone.utc), 'to_at': datetime.datetime(2026, 9, 20, 0, 0, tzinfo=datetime.timezone.utc), 'bucket_us': 300000000, 'range_us': 3600000000}
+extracted_parameters = [BindParameter('bucket_ms', None, type_=NullType()), BindParameter('from_at', None, type_=NullType()), BindParameter('..., type_=NullType()), BindParameter('range_ms', None, type_=NullType()), BindParameter('to_at', None, type_=NullType())]
+escape_names = False, _group_number = 0, _check = True, _no_postcompile = False
+
+    def construct_params(
+        self,
+        params: Optional[_CoreSingleExecuteParams] = None,
+        extracted_parameters: Optional[Sequence[BindParameter[Any]]] = None,
+        escape_names: bool = True,
+        _group_number: Optional[int] = None,
+        _check: bool = True,
+        _no_postcompile: bool = False,
+    ) -> _MutableCoreSingleExecuteParams:
+        """return a dictionary of bind parameter keys and values"""
+    
+        if self._render_postcompile and not _no_postcompile:
+            assert self._post_compile_expanded_state is not None
+            if not params:
+                return dict(self._post_compile_expanded_state.parameters)
+            else:
+                raise exc.InvalidRequestError(
+                    "can't construct new parameters when render_postcompile "
+                    "is used; the statement is hard-linked to the original "
+                    "parameters.  Use construct_expanded_state to generate a "
+                    "new statement and parameters."
+                )
+    
+        has_escaped_names = escape_names and bool(self.escaped_bind_names)
+    
+        if extracted_parameters:
+            # related the bound parameters collected in the original cache key
+            # to those collected in the incoming cache key.  They will not have
+            # matching names but they will line up positionally in the same
+            # way.   The parameters present in self.bind_names may be clones of
+            # these original cache key params in the case of DML but the .key
+            # will be guaranteed to match.
+            if self.cache_key is None:
+                raise exc.CompileError(
+                    "This compiled object has no original cache key; "
+                    "can't pass extracted_parameters to construct_params"
+                )
+            else:
+                orig_extracted = self.cache_key[1]
+    
+            ckbm_tuple = self._cache_key_bind_match
+            assert ckbm_tuple is not None
+            ckbm, _ = ckbm_tuple
+            resolved_extracted = {
+                bind: extracted
+                for b, extracted in zip(orig_extracted, extracted_parameters)
+                for bind in ckbm[b]
+            }
+        else:
+            resolved_extracted = None
+    
+        if params:
+            pd = {}
+            for bindparam, name in self.bind_names.items():
+                escaped_name = (
+                    self.escaped_bind_names.get(name, name)
+                    if has_escaped_names
+                    else name
+                )
+    
+                if bindparam.key in params:
+                    pd[escaped_name] = params[bindparam.key]
+                elif name in params:
+                    pd[escaped_name] = params[name]
+    
+                elif _check and bindparam.required:
+                    if _group_number:
+                        raise exc.InvalidRequestError(
+                            "A value is required for bind parameter %r, "
+                            "in parameter group %d"
+                            % (bindparam.key, _group_number),
+                            code="cd3x",
+                        )
+                    else:
+>                       raise exc.InvalidRequestError(
+                            "A value is required for bind parameter %r"
+                            % bindparam.key,
+                            code="cd3x",
+                        )
+E                       sqlalchemy.exc.StatementError: (sqlalchemy.exc.InvalidRequestError) A value is required for bind parameter 'bucket_ms'
+E                       [SQL: EXPLAIN 
+E                       WITH bounds AS (
+E                           SELECT CAST(%(bucket_ms)s AS bigint) AS bucket_ms,
+E                                  CAST(%(from_ms)s AS bigint) AS from_ms,
+E                                  CAST(%(range_ms)s AS bigint) AS range_ms,
+E                                  pg_catalog.statement_timestamp() AS now_at
+E                       ),
+E                       segments AS (
+E                           SELECT seg.segment_id,
+E                                  seg.tenant_id,
+E                                  seg.started_at,
+E                                  (CASE WHEN pg_catalog.split_part(seg.dominant_share, ':', 1) = '1' THEN -1 ELSE 1 END * CAST(pg_catalog.concat(pg_catalog.split_part(seg.dominant_share, ':', 2), 'e', pg_catalog.split_part(seg.dominant_share, ':', 3)) AS pg_catalog.numeric)) AS share,
+E                                  (CASE WHEN pg_catalog.split_part(seg.weight, ':', 1) = '1' THEN -1 ELSE 1 END * CAST(pg_catalog.concat(pg_catalog.split_part(seg.weight, ':', 2), 'e', pg_catalog.split_part(seg.weight, ':', 3)) AS pg_catalog.numeric)) AS weight,
+E                                  GREATEST(
+E                                      CAST(pg_catalog.floor(EXTRACT(EPOCH FROM seg.started_at) * 1000) AS bigint)
+E                                      - b.from_ms,
+E                                      0
+E                                  ) AS start_ms,
+E                                  LEAST(
+E                                      CAST(
+E                                          pg_catalog.floor(EXTRACT(EPOCH FROM COALESCE(seg.ended_at, b.now_at)) * 1000)
+E                                          AS bigint
+E                                      )
+E                                      - b.from_ms,
+E                                      b.range_ms
+E                                  ) AS end_ms
+E                           FROM allocation_ledger_segments AS seg CROSS JOIN bounds AS b
+E                           WHERE pg_catalog.tstzrange(seg.started_at, seg.ended_at, '[)') OPERATOR(pg_catalog.&&) pg_catalog.tstzrange(%(from_at)s, %(to_at)s, '[)')
+E                             
+E                       ),
+E                       pieces AS (
+E                           SELECT seg.segment_id,
+E                                  seg.tenant_id,
+E                                  seg.started_at,
+E                                  seg.share,
+E                                  seg.weight,
+E                                  k AS bucket_index,
+E                                  CAST(
+E                                      LEAST(seg.end_ms, (k + 1) * b.bucket_ms) - GREATEST(seg.start_ms, k * b.bucket_ms)
+E                                      AS pg_catalog.numeric
+E                                  ) / 1000 AS seconds
+E                           FROM segments AS seg
+E                           CROSS JOIN bounds AS b
+E                           CROSS JOIN LATERAL pg_catalog.generate_series(
+E                               seg.start_ms / b.bucket_ms,
+E                               (seg.end_ms + b.bucket_ms - 1) / b.bucket_ms - 1
+E                           ) AS k
+E                           WHERE seg.end_ms > seg.start_ms
+E                       )
+E                       SELECT bucket_index,
+E                              tenant_id,
+E                              pg_catalog.sum(share * seconds) AS dominant_resource_time,
+E                              pg_catalog.sum(share * seconds / weight) AS normalized_service,
+E                              pg_catalog.sum(seconds) AS occupancy,
+E                              (pg_catalog.array_agg(weight ORDER BY started_at DESC, segment_id DESC))[1] AS latest_weight
+E                       FROM pieces
+E                       WHERE seconds > 0
+E                       GROUP BY bucket_index, tenant_id
+E                       ORDER BY bucket_index, tenant_id
+E                       LIMIT 1001
+E                       ]
+E                       [parameters: [{'from_at': datetime.datetime(2026, 9, 19, 23, 0, tzinfo=datetime.timezone.utc), 'to_at': datetime.datetime(2026, 9, 20, 0, 0, tzinfo=datetime.timezone.utc), 'bucket_us': 300000000, 'range_us': 3600000000}]]
+E                       (Background on this error at: https://sqlalche.me/e/20/cd3x)
+
+.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:1934: StatementError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+INFO  [alembic.runtime.migration] Running upgrade 20260929_0022 -> 20261001_0023, Index the cross-tenant admin job list and the fairness ledger period (B18).
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/University Library/PBL4-Project/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+.venv/lib/python3.12/site-packages/starlette/testclient.py:53
+  /Users/macbook/Documents/University Library/PBL4-Project/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_migration_b18.py::test_b18_admin_reads_can_use_the_new_indexes
+1 failed, 2387 passed, 28 skipped, 2 warnings in 975.24s (0:16:15)
+EXIT=1
+2026-10-03T13:29:55Z

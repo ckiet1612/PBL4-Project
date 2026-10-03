@@ -10,7 +10,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 01/10/2026
+## Trạng thái ghi nhận ngày 03/10/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
@@ -53,17 +53,26 @@ Hãy hình dung dự án như xây một ngôi nhà:
   - tạo token cho CLI.
 
   Trang web gọi cùng API với CLI, và backend vẫn là nơi kiểm quyền. Bấm hai lần hay gửi lại khi mất mạng không tạo việc trùng. Trang không báo "đã dừng" trước khi hệ thống xác nhận. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac: 23 test không có worker, 1 test chế độ tạm ngừng nhận việc, và 4 test có worker chạy việc thật đến khi có kết quả. Task Review vòng 1 không duyệt vì hai lỗi chặn; vòng 2 đã sửa hết. Trang quản trị (B18) và xem log của công việc chưa có. Chi tiết ở [B17 evidence](docs/evidence/B17-web-ui-user.md), [hướng dẫn Web UI](docs/web-ui.md) và mục Bàn giao B17 bên dưới.
+- **B18 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 03/10/2026.** Người quản trị hệ thống giờ có khu quản trị trong cùng trang web để:
+  - xem tổng quan và từng máy chạy (worker); ngừng giao việc mới (drain), tắt (disable) và bật lại (enable) một worker;
+  - xem hàng chờ của mọi nhóm, lọc theo nhóm, trạng thái và lý do đang chờ;
+  - quản lý nhóm (tenant), thành viên và người dùng;
+  - sửa giới hạn được phép của hệ thống và của từng nhóm, và chuyển chế độ vận hành;
+  - xem cách chia tài nguyên (fairness) theo khoảng thời gian, các sự kiện phục hồi và lịch sử thao tác (audit).
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), [B17 evidence](docs/evidence/B17-web-ui-user.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation, ngày 01/10/2026 đã duyệt B17. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B17 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+  Trang web gọi cùng API với CLI; CLI cũng có thêm lệnh xem hàng chờ và fairness cho admin. Mỗi lần admin xem dữ liệu đều được ghi lịch sử, nên trang không tự tải lại danh sách; chỉ trang chi tiết worker tự cập nhật trong lúc worker đang chuyển trạng thái. Hai admin sửa cùng lúc thì người sau được báo xung đột và thấy giá trị mới, không ghi đè nhau. Trang không báo "đã xong" trước khi hệ thống xác nhận. Có thêm hai chỉ mục (index) để danh sách công việc và báo cáo fairness đọc nhanh: danh sách công việc từ 307 ms xuống 0,234 ms, báo cáo 31 ngày dưới 1 giây với khoảng 200.000 bản ghi. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac: 20 test khu quản trị không có worker, 2 test chế độ vận hành, 5 test có worker chạy việc thật (gồm màn hình điện thoại), và chạy lại đủ 28 test của B17. Task Review không duyệt ba vòng đầu: vòng 1 có ba lỗi chặn, vòng 2 thiếu lượt chạy kiểm thử vì Docker bị nghẽn, vòng 3 thiếu lượt đo tốc độ trên cách tính mới. Vòng 4 được duyệt. Bật lại nhận việc từ chế độ tạm ngừng vẫn bị hệ thống từ chối, chờ B19 hoặc một task phục hồi riêng. Chi tiết ở [B18 evidence](docs/evidence/B18-web-ui-admin.md), [hướng dẫn Web UI](docs/web-ui.md#khu-quản-trị-b18) và mục Bàn giao B18 bên dưới.
 
-Các chặng tiếp theo là **B18 — Web UI cho admin** và **B19 — Metrics, audit, storage limits**. Cả hai đã đủ điều kiện (cần B15) và có thể làm song song. B18 dùng lại khung trang, menu và bộ gọi API của B17. Khi B18 và B19 xong, có thể làm B20 và B21. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), [B17 evidence](docs/evidence/B17-web-ui-user.md), [B18 evidence](docs/evidence/B18-web-ui-admin.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation, ngày 01/10/2026 đã duyệt B17, ngày 03/10/2026 đã duyệt B18. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B18 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+
+Chặng tiếp theo là **B19 — Metrics, audit, storage limits**; B19 đã đủ điều kiện (cần B15). Phần "bằng chứng phục hồi" để bật lại nhận việc từ chế độ tạm ngừng (B18-R05/R18) được chuyển cho B19 hoặc một task phục hồi riêng. Vì B17 và B18 đã xong, khi B19 xong có thể làm B20 và B21. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
 
 Owner còn các việc sau:
 
 - chọn phương án cho OD-1, OD-2 và OD-3;
 - giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường;
 - quyết định có xử lý CI-R01 hay không;
-- dừng hoặc khởi động lại `nexa_b10_smoke3-caddy-1` trước các lượt kiểm thử container dài. Container này vẫn rò tiến trình: lúc chạy B17 vòng 2 nó đã giữ 5158 tiến trình.
+- dừng hoặc khởi động lại `nexa_b10_smoke3-caddy-1` trước các lượt kiểm thử container dài. Container này vẫn rò tiến trình: lúc chạy B17 vòng 2 nó giữ 5158 tiến trình; ở B18 vòng 2 nó lên tới 31.286 tiến trình và chặn Docker, cho đến khi owner giải phóng (còn 14 tiến trình ngày 03/10/2026);
+- dọn stack kiểm thử `nexa_b17_caddy_ec2189ce` (chạy từ 01/10/2026, không thuộc B18) và các DB test `nexa_b05_test_b18`, `nexa_b05_test_b18e2e`, `nexa_b05_test_b18r2e2e` khi không còn cần chạy lại.
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -133,7 +142,7 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B15 | Cancel, pause/resume, retry, recovery | Đã hoàn thành và được duyệt: hủy, tạm dừng, chạy tiếp và thử lại công việc qua API/CLI; tự thu hồi quyền khi worker mất liên lạc và khôi phục từ điểm lưu; chỉ cấp lại tài nguyên khi lần chạy cũ đã thực sự dừng; admin drain/disable/enable worker. Đã kiểm thử với container thật trên Docker Desktop Linux VM. | B12, B13, B14 |
 | B16 | PyTorch, sweep, chunk inference | Đã hoàn thành và được duyệt: thêm các mẫu việc AI được cho phép, gồm dạy một mô hình nhỏ trên CPU, thử tối đa 100 bộ cài đặt và dùng mô hình xử lý dữ liệu từng phần. Việc dạy mô hình chạy tiếp đúng sau lỗi trong ngưỡng sai số đã khóa trước; việc xử lý từng phần không tạo phần trùng. Đã kiểm thử với container thật trên VPS1 (Linux thật, không GPU). | B15 |
 | B17 | Web UI cho user | Đã hoàn thành và được duyệt: trang web để người dùng đăng nhập, chuẩn bị dữ liệu, gửi việc, xem tiến độ, hủy hoặc tạm dừng/chạy tiếp, chạy lại và tải kết quả, dùng chung API với CLI. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac, gồm cả việc chạy thật trong container. Xem log của công việc chưa có. | B12, B16 |
-| B18 | Web UI cho admin | Tạo trang quản trị để quản lý người dùng, giới hạn được phép, máy chạy, hàng chờ; xem cách chia tài nguyên, sự cố và lịch sử thao tác. | B15 |
+| B18 | Web UI cho admin | Đã hoàn thành và được duyệt: khu quản trị trong cùng trang web để quản lý nhóm, người dùng, giới hạn được phép, máy chạy và hàng chờ; xem cách chia tài nguyên, sự kiện phục hồi và lịch sử thao tác, dùng chung API với CLI. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac, gồm cả worker chạy việc thật trong container. Bật lại nhận việc từ chế độ tạm ngừng còn chờ B19 hoặc một task phục hồi riêng. | B15 |
 | B19 | Metrics, audit, storage limits | Ghi số liệu và nhật ký cần thiết, giới hạn dung lượng và giúp biết hệ thống đang khỏe hay gặp vấn đề. | B15 |
 | B20 | Security và race tests | Kiểm tra người dùng không xem dữ liệu trái quyền và không vượt giới hạn. Thử các tình huống như hủy công việc đúng lúc kết quả vừa gửi về để tìm và sửa lỗi. | B17, B18, B19 |
 | B21 | Compose, clean install, portability, backup/restore | Cài cùng bản phần mềm trên hai cấu hình Linux, mỗi máy hoạt động độc lập. Kiểm tra sao lưu, khôi phục và chuyển sang máy khác có dừng hệ thống. | B17, B18, B19 |
@@ -217,6 +226,7 @@ Có thể tra phần này khi gặp một từ lạ; không cần học thuộc 
 - **Artifact / artifact store / upload:** artifact là tệp công việc sử dụng hoặc tạo ra; artifact store là nơi quản lý các tệp đó; upload là tải tệp lên hệ thống.
 - **Submit / durable queue:** submit là gửi công việc; durable queue là hàng chờ được lưu bền vững, còn giữ được sau khi chương trình khởi động lại.
 - **Idempotency:** gửi lại yêu cầu với cùng mã chống trùng và cùng nội dung thì hệ thống nhận ra yêu cầu cũ, không tạo thêm một công việc nữa.
+- **Index / EXPLAIN:** index là mục lục giúp cơ sở dữ liệu tìm nhanh dòng cần đọc thay vì đọc cả bảng; EXPLAIN là lệnh cho xem cơ sở dữ liệu định đọc dữ liệu theo cách nào và mất bao lâu.
 - **Quota / ledger / production:** quota là giới hạn mỗi nhóm được phép dùng; ledger là sổ ghi tài nguyên đã cấp và thời gian giữ; production ở B13 nghĩa là đưa cách chia vào hệ thống chạy thật.
 
 ### Chạy công việc và phục hồi
@@ -505,3 +515,38 @@ B17 — Web UI cho user đã được Task Review duyệt theo xác nhận của
 - **Chưa chạy:** VPS1 và kịch bản quan sát phục hồi qua trang web.
 
 Task này không thay các chặng B18–B25. Các gate nghiệm thu chỉ đạt phần thuộc B17 và vẫn ghi `specified`. Bước tiếp theo là B18 và B19.
+
+## Bàn giao B18
+
+B18 — Web UI cho admin đã được Task Review duyệt theo xác nhận của user ngày 03/10/2026. Ba vòng đầu không duyệt, vòng 4 được duyệt. [B18 evidence](docs/evidence/B18-web-ui-admin.md) ghi cách làm, số đo và kết quả; [hướng dẫn Web UI](docs/web-ui.md#khu-quản-trị-b18) ghi cách tổ chức khu quản trị, các bảng thao tác worker và chế độ vận hành, và cách chạy thử.
+
+- **Đã thêm:**
+  - khu quản trị tiếng Việt trong cùng trang web của B17, chỉ người quản trị hệ thống vào được, dùng được trên điện thoại. Menu phụ có 4 nhóm: Vận hành (Tổng quan, Worker, Hàng chờ, Khôi phục), Tổ chức (Tenant, User), Chính sách (Hệ thống), Giám sát (Fairness, Audit);
+  - link `Quản trị` hiện cả khi admin không thuộc nhóm nào;
+  - mọi thao tác đều hỏi xác nhận, nêu hậu quả và cách hoàn tác; mọi thao tác đi qua cùng API với CLI;
+  - ba API và lệnh CLI mới cho admin: xem hàng chờ của mọi nhóm, xem một công việc, và xem báo cáo fairness. Báo cáo tính cùng cách với sổ ghi tài nguyên của coordinator, đến từng mili giây;
+  - một migration chỉ thêm hai chỉ mục (index) để hai loại truy vấn này đọc nhanh;
+  - sửa thêm khung của B17: trang lỗi chung tự hết khi chuyển trang; khi phiên đổi sang người khác, thao tác đang gửi dở không bị gửi lại dưới tên người mới;
+  - sửa lỗi worker đổi phiên bản mỗi lần quét lại phần cứng dù không có gì thay đổi, làm admin luôn gặp báo xung đột.
+- **Kết quả kiểm thử trên Mac:**
+  - kiểm thử trình duyệt trên hệ thống thật: 20 test khu quản trị không có worker; 1 test chế độ vận hành và 1 test chế độ chỉ đọc (WRITE_FROZEN), mỗi test chạy trên hệ thống riêng; 5 test có worker chạy việc thật trong container, gồm drain/disable/enable, xung đột giữa hai admin, fairness và màn hình điện thoại; chạy lại 28 test của B17 đều pass;
+  - Vitest 217 test; kiểm thử Python 1796 passed, kiểm thử với PostgreSQL 2388 passed;
+  - đo tốc độ với 100.200 công việc và khoảng 200.000 bản ghi sổ tài nguyên: danh sách công việc từ 307 ms xuống 0,234 ms nhờ index mới; báo cáo fairness 1 giờ 7 ms, 24 giờ 44 ms, 31 ngày cho mọi nhóm 773 ms;
+  - mỗi lần admin mở một trang ghi đúng số dòng lịch sử bằng số yêu cầu gửi lên, nên trang không tự tải lại danh sách;
+  - Task Review tự build lại và được bản giống từng byte, chạy lại typecheck, Vitest, Ruff và kiểm thử Python mặc định đều sạch; các vòng trước Task Review còn chạy lại kiểm thử PostgreSQL và đo tốc độ riêng.
+- **Các lỗi đã sửa qua bốn vòng** (đều là lỗi chặn, trừ lỗi đồng hồ):
+  - báo cáo fairness tính thời gian chi tiết hơn sổ ghi tài nguyên nên lệch nhẹ; test chỉ pass vì đã làm tròn dữ liệu trước → giờ cả hai cùng tính đến mili giây, test chạy trên dữ liệu thật;
+  - kiểm tra "trình duyệt không lưu gì" chạy sau khi cửa sổ đã đóng nên không kiểm gì → giờ kiểm trước khi đóng, có test đối chứng;
+  - khi hai thao tác đang gửi đúng lúc đổi người dùng, thao tác thứ hai có thể bị gửi lại dưới tên người mới → đã chặn;
+  - test so đồng hồ máy Mac với đồng hồ cơ sở dữ liệu nên thỉnh thoảng fail → giờ chỉ dùng đồng hồ cơ sở dữ liệu;
+  - script đo tốc độ còn dùng tham số cũ và số đo chưa chạy lại trên cách tính mới → đã sửa và đo lại.
+- **Còn mở, không chặn:**
+  - hộp "Thêm thành viên" sau khi báo xung đột vẫn giữ người dùng đã bị ẩn khỏi danh sách; bấm xác nhận sẽ đổi vai trò của người đó (B18-RV12, nên sửa sớm);
+  - mật khẩu đã gửi chỉ bị xóa khỏi bộ nhớ trang khi mở lại hộp thoại hoặc rời trang (B18-RV14); một hàm hỗ trợ kiểm thử đọc phản hồi quá sớm (B18-RV15);
+  - bật lại nhận việc từ chế độ tạm ngừng và rời chế độ chỉ đọc vẫn bị từ chối, vì hệ thống chưa có bằng chứng phục hồi thật (B18-R05/R18), chuyển sang B19 hoặc task phục hồi;
+  - API còn thiếu tổng tài nguyên đang giữ, số việc trong hàng chờ và danh sách nhóm của một người dùng; một vài giới hạn của server lệch contract (độ dài tên nhóm, số GPU của nhóm); người không phải admin đăng nhập khi hệ thống chỉ đọc nhận lỗi chung thay vì thông báo rõ;
+  - lịch sử ghi việc worker tải tệp lên như là của một người dùng (B18-R24), thuộc B20;
+  - kiểm thử trình duyệt chưa chạy trên GitHub CI (B18-R11).
+- **Chưa chạy:** VPS1 (Linux thật).
+
+Task này không thay các chặng B19–B25. Các gate nghiệm thu chỉ đạt phần thuộc B18 và vẫn ghi `specified`. Bước tiếp theo là B19.

@@ -1,0 +1,40 @@
+
+ RUN  v5.0.2 /Users/macbook/Documents/University Library/PBL4-Project/web
+
+ ❯ src/features/admin/intent.test.ts (7 tests | 2 failed) 11ms
+   ❯ intent slots outlive their dialog (B18-RV10) (2)
+     × cancel and reopen after an unknown outcome restores the sent values and resends the same key 2ms
+     × nothing is restored before a send, after success, after a definitive error or for another slot 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin/intent.test.ts > intent slots outlive their dialog (B18-RV10) > cancel and reopen after an unknown outcome restores the sent values and resends the same key
+TypeError: IntentSlots is not a constructor
+ ❯ src/features/admin/intent.test.ts:84:19
+     82| describe("intent slots outlive their dialog (B18-RV10)", () => {
+     83|   it("cancel and reopen after an unknown outcome restores the sent val…
+     84|     const slots = new IntentSlots<{ reason: string }>();
+       |                   ^
+     85|     const { calls, send } = recorder([apiError("network_error", 0), "o…
+     86|     const first = slots.slot("drain");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/admin/intent.test.ts > intent slots outlive their dialog (B18-RV10) > nothing is restored before a send, after success, after a definitive error or for another slot
+TypeError: IntentSlots is not a constructor
+ ❯ src/features/admin/intent.test.ts:98:19
+     96|
+     97|   it("nothing is restored before a send, after success, after a defini…
+     98|     const slots = new IntentSlots<{ reason: string }>();
+       |                   ^
+     99|     const { send } = recorder(["ok", apiError("version_conflict", 412)…
+    100|     expect(slots.slot("drain").reopen).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  19:13:46
+   Duration  226ms (transform 65%, tests 16%, import 14%, worker 6%)
+

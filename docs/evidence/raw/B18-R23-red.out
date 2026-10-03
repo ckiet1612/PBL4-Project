@@ -1,0 +1,38 @@
+
+ RUN  v5.0.2 /Users/macbook/Documents/University Library/PBL4-Project/web
+
+ ❯ src/features/admin/actions.test.ts (12 tests | 1 failed) 8ms
+   ❯ transition status: only what the API shows (6)
+     × lists read before the action never prove drain or disable finished 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/admin/actions.test.ts > transition status: only what the API shows > lists read before the action never prove drain or disable finished
+AssertionError: expected { phase: 'done', …(1) } to deeply equal { phase: 'waiting', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "phase": "waiting",
+-   "text": "Đang kiểm tra lại phân bổ sau thao tác",
++   "phase": "done",
++   "text": "Đã ngừng nhận job; không còn job đang chạy",
+  }
+
+ ❯ src/features/admin/actions.test.ts:118:87
+    116|   it("lists read before the action never prove drain or disable finish…
+    117|     const checking = { phase: "waiting", text: "Đang kiểm tra lại phân…
+    118|     expect(transitionStatus(worker("DRAINING", "READY"), none, none, "…
+       |                                                                                       ^
+    119|     expect(transitionStatus(worker("DISABLED", "UNAVAILABLE"), none, n…
+    120|     expect(transitionStatus(worker("DRAINING", "READY"), some(2), none…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+   Start at  19:12:12
+   Duration  158ms (transform 67%, import 14%, tests 13%, worker 5%)
+

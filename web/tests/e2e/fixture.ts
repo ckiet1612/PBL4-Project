@@ -30,6 +30,8 @@ export interface Fixture {
   templates: Record<string, string>;
   artifacts: Record<string, SeedArtifact>;
   worker_id: string;
+  /** B18 D6: WRITE_FROZEN only on the stack started with --operational-mode WRITE_FROZEN. */
+  operational_mode: "NORMAL" | "WRITE_FROZEN";
 }
 
 export type UserKey =
@@ -41,7 +43,8 @@ export type UserKey =
   | "multi"
   | "quota"
   | "login"
-  | "mobile";
+  | "mobile"
+  | "admin2";
 
 /** Users that get a stored browser session; `login` always signs in through the form. */
 export const SESSION_USERS: readonly UserKey[] = [
@@ -53,6 +56,7 @@ export const SESSION_USERS: readonly UserKey[] = [
   "multi",
   "quota",
   "mobile",
+  "admin2",
 ];
 
 let cached: Fixture | undefined;

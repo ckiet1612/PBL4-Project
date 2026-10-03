@@ -99,6 +99,8 @@ EXPECTED_B16_OPERATIONS = {
 
 EXPECTED_B17_OPERATIONS = {"getJobProgress"}
 
+EXPECTED_B18_OPERATIONS = {"adminListJobs", "adminGetJob", "adminQueryFairness"}
+
 _DUMMY_ID = "018f05c4-a922-7d0d-9f55-f9084a72d0f9"
 ADMIN_OPERATION_CASES = (
     ("GET", "/v1/admin/tenants", None, 200, 403),
@@ -165,6 +167,15 @@ ADMIN_OPERATION_CASES = (
         200,
         403,
     ),
+    ("GET", "/v1/admin/jobs", None, 200, 403),
+    ("GET", f"/v1/admin/jobs/{_DUMMY_ID}", None, 404, 403),
+    (
+        "GET",
+        "/v1/admin/fairness?from=2026-09-20T00:00:00Z&to=2026-09-20T01:00:00Z&bucket_seconds=60",
+        None,
+        200,
+        403,
+    ),
 )
 
 
@@ -186,6 +197,7 @@ def test_b06_through_b11_operation_ids_are_registered(migrated_postgres_engine, 
         | EXPECTED_B15_OPERATIONS
         | EXPECTED_B16_OPERATIONS
         | EXPECTED_B17_OPERATIONS
+        | EXPECTED_B18_OPERATIONS
     )
 
 

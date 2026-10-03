@@ -1,5 +1,5 @@
 // Every API error on screen goes through describeError: Vietnamese text, request_id, no stack.
-import { describeError } from "../api/errors";
+import { describeError, type ErrorView } from "../api/errors";
 import { CopyButton } from "./bits";
 
 interface ErrorPanelProps {
@@ -8,10 +8,12 @@ interface ErrorPanelProps {
   onRetry?(): void;
   /** Replaces the mapped title where the page knows better (e.g. permission on a list). */
   title?: string;
+  /** Area-specific mapping on top of describeError (admin: adminErrorView). */
+  describe?(error: unknown): ErrorView;
 }
 
-export function ErrorPanel({ error, onRetry, title }: ErrorPanelProps) {
-  const view = describeError(error);
+export function ErrorPanel({ error, onRetry, title, describe = describeError }: ErrorPanelProps) {
+  const view = describe(error);
   return (
     <div className="error-panel" role="alert">
       <p className="error-title">{title ?? view.title}</p>

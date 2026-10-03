@@ -1,0 +1,5 @@
+$ ruff check . ; ruff format --check .
+All checks passed!
+519 files already formatted
+$ env -u NEXA_TEST_DATABASE_URL pytest -q (default)
+1796 passed, 620 skipped, 2 warnings in 61.62s (0:01:01)

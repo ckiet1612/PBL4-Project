@@ -1,0 +1,257 @@
+server PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+jobs=100200 tenants_with_jobs=20
+ledger_segments=202010 open=40 span_days=61
+oldest_open_segment_age_days=43
+indexes: ix_allocation_ledger_segments_open, ix_allocation_ledger_segments_tenant_time, pk_allocation_ledger_segments, ix_jobs_b13_head, ix_jobs_b13_priority_age, ix_jobs_b13_submitter, ix_jobs_b13_submitter_age, ix_jobs_oldest_eligible, ix_jobs_queue_head, ix_jobs_retry_ready, ix_jobs_tenant_created_keyset, pk_jobs, uq_jobs_tenant_job
+
+=== adminListJobs no filter
+Limit  (cost=12930.89..12936.76 rows=51 width=261) (actual time=124.784..128.900 rows=51 loops=1)
+  Buffers: shared hit=6591
+  ->  Gather Merge  (cost=12930.89..19709.11 rows=58941 width=261) (actual time=124.782..128.895 rows=51 loops=1)
+        Workers Planned: 1
+        Workers Launched: 1
+        Buffers: shared hit=6591
+        ->  Sort  (cost=11930.88..12078.23 rows=58941 width=261) (actual time=121.287..121.293 rows=51 loops=2)
+              Sort Key: jobs.created_at DESC, jobs.job_id DESC
+              Sort Method: top-N heapsort  Memory: 55kB
+              Buffers: shared hit=6591
+              Worker 0:  Sort Method: top-N heapsort  Memory: 56kB
+              ->  Parallel Hash Join  (cost=6678.90..9964.49 rows=58941 width=261) (actual time=72.643..110.330 rows=50100 loops=2)
+                    Hash Cond: ((job_specs.job_id = logical_sessions.job_id) AND (jobs.tenant_id = logical_sessions.tenant_id))
+                    Buffers: shared hit=6546
+                    ->  Parallel Hash Join  (cost=4172.38..7148.52 rows=58941 width=261) (actual time=35.608..59.549 rows=50100 loops=2)
+                          Hash Cond: (jobs.job_id = job_specs.job_id)
+                          Buffers: shared hit=5465
+                          ->  Parallel Seq Scan on jobs  (cost=0.00..2821.41 rows=58941 width=148) (actual time=0.009..5.907 rows=50100 loops=2)
+                                Buffers: shared hit=2232
+                          ->  Parallel Hash  (cost=3650.50..3650.50 rows=41750 width=113) (actual time=31.290..31.290 rows=50100 loops=2)
+                                Buckets: 131072  Batches: 1  Memory Usage: 15968kB
+                                Buffers: shared hit=3233
+                                ->  Parallel Seq Scan on job_specs  (cost=0.00..3650.50 rows=41750 width=113) (actual time=0.010..13.009 rows=50100 loops=2)
+                                      Buffers: shared hit=3233
+                    ->  Parallel Hash  (cost=1622.41..1622.41 rows=58941 width=48) (actual time=34.098..34.098 rows=50100 loops=2)
+                          Buckets: 131072  Batches: 1  Memory Usage: 8896kB
+                          Buffers: shared hit=1033
+                          ->  Parallel Seq Scan on logical_sessions  (cost=0.00..1622.41 rows=58941 width=48) (actual time=0.011..7.952 rows=50100 loops=2)
+                                Buffers: shared hit=1033
+Planning:
+  Buffers: shared hit=65
+Planning Time: 0.541 ms
+Execution Time: 128.943 ms
+
+=== adminListJobs tenant_id
+Limit  (cost=1.25..223.30 rows=51 width=261) (actual time=0.179..1.819 rows=51 loops=1)
+  Buffers: shared hit=374 read=28
+  ->  Nested Loop  (cost=1.25..21697.03 rows=4983 width=261) (actual time=0.178..1.813 rows=51 loops=1)
+        Buffers: shared hit=374 read=28
+        ->  Nested Loop  (cost=0.83..19331.83 rows=5023 width=261) (actual time=0.141..0.376 rows=51 loops=1)
+              Buffers: shared hit=246 read=2
+              ->  Index Scan using ix_jobs_tenant_created_keyset on jobs  (cost=0.42..4286.82 rows=5023 width=148) (actual time=0.131..0.177 rows=51 loops=1)
+                    Index Cond: (tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid)
+                    Buffers: shared hit=42 read=2
+              ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..3.00 rows=1 width=113) (actual time=0.003..0.003 rows=1 loops=51)
+                    Index Cond: (job_id = jobs.job_id)
+                    Buffers: shared hit=204
+        ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.47 rows=1 width=48) (actual time=0.028..0.028 rows=1 loops=51)
+              Index Cond: ((tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid) AND (job_id = job_specs.job_id))
+              Heap Fetches: 0
+              Buffers: shared hit=128 read=26
+Planning:
+  Buffers: shared hit=65
+Planning Time: 0.408 ms
+Execution Time: 1.837 ms
+
+=== adminListJobs state=QUEUED
+Limit  (cost=3870.83..3953.90 rows=51 width=261) (actual time=6.589..9.601 rows=51 loops=1)
+  Buffers: shared hit=2587 read=43
+  ->  Nested Loop  (cost=3870.83..15092.86 rows=6890 width=261) (actual time=6.589..9.594 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=2587 read=43
+        ->  Nested Loop  (cost=3870.42..11013.63 rows=6890 width=180) (actual time=6.576..9.181 rows=51 loops=1)
+              Buffers: shared hit=2383 read=43
+              ->  Gather Merge  (cost=3870.00..4655.26 rows=6890 width=148) (actual time=6.544..8.441 rows=51 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=2272
+                    ->  Sort  (cost=2869.99..2880.12 rows=4053 width=148) (actual time=3.837..3.854 rows=218 loops=2)
+                          Sort Key: jobs.created_at DESC, jobs.job_id DESC
+                          Sort Method: quicksort  Memory: 1144kB
+                          Buffers: shared hit=2272
+                          Worker 0:  Sort Method: quicksort  Memory: 175kB
+                          ->  Parallel Bitmap Heap Scan on jobs  (cost=344.46..2627.12 rows=4053 width=148) (actual time=0.672..2.455 rows=3525 loops=2)
+                                Recheck Cond: ((state)::text = 'QUEUED'::text)
+                                Heap Blocks: exact=1855
+                                Buffers: shared hit=2227
+                                ->  Bitmap Index Scan on ix_jobs_b13_head  (cost=0.00..342.73 rows=6890 width=0) (actual time=1.092..1.092 rows=7050 loops=1)
+                                      Buffers: shared hit=76
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.92 rows=1 width=48) (actual time=0.014..0.014 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=111 read=43
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.58 rows=1 width=113) (actual time=0.007..0.007 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=204
+Planning:
+  Buffers: shared hit=87
+Planning Time: 0.439 ms
+Execution Time: 9.709 ms
+
+=== adminListJobs waiting_reason=waiting_for_quota
+Limit  (cost=4036.55..4172.34 rows=51 width=261) (actual time=6.045..8.037 rows=51 loops=1)
+  Buffers: shared hit=2613 read=22
+  ->  Nested Loop  (cost=4036.55..9896.61 rows=2201 width=261) (actual time=6.044..8.030 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=2613 read=22
+        ->  Nested Loop  (cost=4036.14..8593.51 rows=2201 width=180) (actual time=6.035..7.731 rows=51 loops=1)
+              Buffers: shared hit=2409 read=22
+              ->  Gather Merge  (cost=4035.72..4286.57 rows=2201 width=148) (actual time=6.015..7.315 rows=51 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=2277
+                    ->  Sort  (cost=3035.71..3038.95 rows=1295 width=148) (actual time=4.207..4.220 rows=208 loops=2)
+                          Sort Key: jobs.created_at DESC, jobs.job_id DESC
+                          Sort Method: quicksort  Memory: 355kB
+                          Buffers: shared hit=2277
+                          Worker 0:  Sort Method: quicksort  Memory: 83kB
+                          ->  Parallel Seq Scan on jobs  (cost=0.00..2968.76 rows=1295 width=148) (actual time=0.007..3.822 rows=1168 loops=2)
+                                Filter: ((waiting_reason)::text = 'waiting_for_quota'::text)
+                                Rows Removed by Filter: 48932
+                                Buffers: shared hit=2232
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..1.96 rows=1 width=48) (actual time=0.008..0.008 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=132 read=22
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.58 rows=1 width=113) (actual time=0.005..0.005 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=204
+Planning:
+  Buffers: shared hit=65
+Planning Time: 0.340 ms
+Execution Time: 8.060 ms
+
+=== adminListJobs user_id
+Limit  (cost=4139.95..4232.21 rows=51 width=261) (actual time=5.990..7.816 rows=51 loops=1)
+  Buffers: shared hit=2635
+  ->  Nested Loop  (cost=4139.95..13227.02 rows=5023 width=261) (actual time=5.989..7.811 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=2635
+        ->  Nested Loop  (cost=4139.53..10253.15 rows=5023 width=180) (actual time=5.981..7.601 rows=51 loops=1)
+              Buffers: shared hit=2431
+              ->  Gather Merge  (cost=4139.11..4711.59 rows=5023 width=148) (actual time=5.957..7.452 rows=51 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=2277
+                    ->  Sort  (cost=3139.10..3146.49 rows=2955 width=148) (actual time=4.508..4.514 rows=26 loops=2)
+                          Sort Key: jobs.created_at DESC, jobs.job_id DESC
+                          Sort Method: quicksort  Memory: 898kB
+                          Buffers: shared hit=2277
+                          Worker 0:  Sort Method: quicksort  Memory: 26kB
+                          ->  Parallel Seq Scan on jobs  (cost=0.00..2968.76 rows=2955 width=148) (actual time=1.560..3.766 rows=2505 loops=2)
+                                Filter: (submitter_user_id = '01a0f694-5351-7df1-a9a2-e64376be0c06'::uuid)
+                                Rows Removed by Filter: 47595
+                                Buffers: shared hit=2232
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..1.10 rows=1 width=48) (actual time=0.002..0.002 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=154
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.58 rows=1 width=113) (actual time=0.004..0.004 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=204
+Planning:
+  Buffers: shared hit=65
+Planning Time: 0.354 ms
+Execution Time: 7.887 ms
+
+=== adminListJobs created_after=now-7d
+Limit  (cost=4419.37..4491.94 rows=51 width=261) (actual time=10.988..12.984 rows=51 loops=1)
+  Buffers: shared hit=2635
+  ->  Nested Loop  (cost=4419.37..21443.63 rows=11964 width=261) (actual time=10.986..12.979 rows=51 loops=1)
+        Join Filter: (job_specs.job_id = jobs.job_id)
+        Buffers: shared hit=2635
+        ->  Nested Loop  (cost=4418.95..14360.33 rows=11964 width=180) (actual time=10.974..12.918 rows=51 loops=1)
+              Buffers: shared hit=2431
+              ->  Gather Merge  (cost=4418.54..5782.08 rows=11964 width=148) (actual time=10.947..12.808 rows=51 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=2277
+                    ->  Sort  (cost=3418.53..3436.12 rows=7038 width=148) (actual time=8.490..8.506 rows=235 loops=2)
+                          Sort Key: jobs.created_at DESC, jobs.job_id DESC
+                          Sort Method: quicksort  Memory: 1574kB
+                          Buffers: shared hit=2277
+                          Worker 0:  Sort Method: quicksort  Memory: 574kB
+                          ->  Parallel Seq Scan on jobs  (cost=0.00..2968.76 rows=7038 width=148) (actual time=0.008..6.189 rows=5912 loops=2)
+                                Filter: (created_at >= '2026-09-24 08:38:07.659775+00'::timestamp with time zone)
+                                Rows Removed by Filter: 44188
+                                Buffers: shared hit=2232
+              ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.72 rows=1 width=48) (actual time=0.002..0.002 rows=1 loops=51)
+                    Index Cond: ((tenant_id = jobs.tenant_id) AND (job_id = jobs.job_id))
+                    Heap Fetches: 0
+                    Buffers: shared hit=154
+        ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..0.58 rows=1 width=113) (actual time=0.001..0.001 rows=1 loops=51)
+              Index Cond: (job_id = logical_sessions.job_id)
+              Buffers: shared hit=204
+Planning:
+  Buffers: shared hit=68
+Planning Time: 0.430 ms
+Execution Time: 13.032 ms
+
+=== adminListJobs page 2 (no filter, keyset after row 50)
+Limit  (cost=13372.70..13378.57 rows=51 width=261) (actual time=106.120..110.926 rows=51 loops=1)
+  Buffers: shared hit=6591
+  ->  Gather Merge  (cost=13372.70..20150.23 rows=58935 width=261) (actual time=106.119..110.920 rows=51 loops=1)
+        Workers Planned: 1
+        Workers Launched: 1
+        Buffers: shared hit=6591
+        ->  Sort  (cost=12372.69..12520.03 rows=58935 width=261) (actual time=103.507..103.512 rows=38 loops=2)
+              Sort Key: jobs.created_at DESC, jobs.job_id DESC
+              Sort Method: top-N heapsort  Memory: 56kB
+              Buffers: shared hit=6591
+              Worker 0:  Sort Method: top-N heapsort  Memory: 55kB
+              ->  Parallel Hash Join  (cost=6678.90..10406.50 rows=58935 width=261) (actual time=58.372..92.983 rows=50075 loops=2)
+                    Hash Cond: ((job_specs.job_id = logical_sessions.job_id) AND (jobs.tenant_id = logical_sessions.tenant_id))
+                    Buffers: shared hit=6546
+                    ->  Parallel Hash Join  (cost=4172.38..7590.56 rows=58935 width=261) (actual time=41.835..62.983 rows=50075 loops=2)
+                          Hash Cond: (jobs.job_id = job_specs.job_id)
+                          Buffers: shared hit=5465
+                          ->  Parallel Seq Scan on jobs  (cost=0.00..3263.47 rows=58935 width=148) (actual time=0.007..6.798 rows=50075 loops=2)
+                                Filter: ((created_at < '2026-10-01 08:36:53.986591+00'::timestamp with time zone) OR ((created_at = '2026-10-01 08:36:53.986591+00'::timestamp with time zone) AND (job_id < '01a0f69c-0062-79a2-bfea-4a85565b966c'::uuid)))
+                                Rows Removed by Filter: 25
+                                Buffers: shared hit=2232
+                          ->  Parallel Hash  (cost=3650.50..3650.50 rows=41750 width=113) (actual time=41.315..41.316 rows=50100 loops=2)
+                                Buckets: 131072  Batches: 1  Memory Usage: 15968kB
+                                Buffers: shared hit=3233
+                                ->  Parallel Seq Scan on job_specs  (cost=0.00..3650.50 rows=41750 width=113) (actual time=0.008..7.942 rows=50100 loops=2)
+                                      Buffers: shared hit=3233
+                    ->  Parallel Hash  (cost=1622.41..1622.41 rows=58941 width=48) (actual time=15.979..15.979 rows=50100 loops=2)
+                          Buckets: 131072  Batches: 1  Memory Usage: 8896kB
+                          Buffers: shared hit=1033
+                          ->  Parallel Seq Scan on logical_sessions  (cost=0.00..1622.41 rows=58941 width=48) (actual time=0.007..5.540 rows=50100 loops=2)
+                                Buffers: shared hit=1033
+Planning:
+  Buffers: shared hit=69
+Planning Time: 0.364 ms
+Execution Time: 110.961 ms
+
+=== adminListJobs page 2 with tenant_id
+Limit  (cost=1.25..223.69 rows=51 width=261) (actual time=0.020..0.279 rows=51 loops=1)
+  Buffers: shared hit=402
+  ->  Nested Loop  (cost=1.25..21734.70 rows=4983 width=261) (actual time=0.020..0.273 rows=51 loops=1)
+        Buffers: shared hit=402
+        ->  Nested Loop  (cost=0.83..19369.50 rows=5023 width=261) (actual time=0.013..0.158 rows=51 loops=1)
+              Buffers: shared hit=248
+              ->  Index Scan using ix_jobs_tenant_created_keyset on jobs  (cost=0.42..4324.50 rows=5023 width=148) (actual time=0.009..0.048 rows=51 loops=1)
+                    Index Cond: (tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid)
+                    Filter: ((created_at < '2026-10-01 08:36:53.986591+00'::timestamp with time zone) OR ((created_at = '2026-10-01 08:36:53.986591+00'::timestamp with time zone) AND (job_id < '01a0f69c-0062-79a2-bfea-4a85565b966c'::uuid)))
+                    Buffers: shared hit=44
+              ->  Index Scan using pk_job_specs on job_specs  (cost=0.42..3.00 rows=1 width=113) (actual time=0.002..0.002 rows=1 loops=51)
+                    Index Cond: (job_id = jobs.job_id)
+                    Buffers: shared hit=204
+        ->  Index Only Scan using uq_logical_sessions_tenant_job_session on logical_sessions  (cost=0.42..0.47 rows=1 width=48) (actual time=0.002..0.002 rows=1 loops=51)
+              Index Cond: ((tenant_id = '01a0f694-5351-7df1-a9a2-e64376be0c05'::uuid) AND (job_id = job_specs.job_id))
+              Heap Fetches: 0
+              Buffers: shared hit=154
+Planning:
+  Buffers: shared hit=69
+Planning Time: 0.368 ms
+Execution Time: 0.296 ms
+

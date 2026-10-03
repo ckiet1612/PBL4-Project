@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "./client";
-import { IDEMPOTENCY_KEY_PATTERN, IntentTracker, newIdempotencyKey, withInProgressRetry } from "./idempotency";
+import { IDEMPOTENCY_KEY_PATTERN, IntentTracker, newIdempotencyKey, outcomeUnknown, withInProgressRetry } from "./idempotency";
 
 function error(code: string, retryAfterSeconds: number | null = null) {
   return new ApiError({
@@ -125,5 +125,16 @@ describe("withInProgressRetry", () => {
     const send = vi.fn<() => Promise<string>>().mockRejectedValue(error("idempotency_conflict"));
     await expect(withInProgressRetry(send)).rejects.toMatchObject({ code: "idempotency_conflict" });
     expect(send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("outcomeUnknown", () => {
+  it("is true exactly when the same intent may be resent", () => {
+    expect(outcomeUnknown(error("network_error"))).toBe(true);
+    expect(outcomeUnknown(error("timeout"))).toBe(true);
+    expect(outcomeUnknown(withStatus(502, "unexpected_response"))).toBe(true);
+    expect(outcomeUnknown(withStatus(422, "validation_failed"))).toBe(false);
+    expect(outcomeUnknown(withStatus(412, "version_conflict"))).toBe(false);
+    expect(outcomeUnknown(new Error("render"))).toBe(false);
   });
 });

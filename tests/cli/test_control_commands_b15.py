@@ -265,7 +265,8 @@ def test_admin_recovery_events_passes_the_window_unchanged(monkeypatch):
 
 
 def test_unrouted_admin_groups_stay_hidden():
-    for group in ("job", "fairness", "allocation", "recovery"):
+    # B18 wired `admin job` and `admin fairness`; see test_admin_commands.py.
+    for group in ("allocation", "recovery"):
         result = CliRunner().invoke(app, ["admin", group, "list"])
         assert result.exit_code == 2
         assert "No such command" in result.stderr

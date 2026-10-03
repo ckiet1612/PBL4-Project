@@ -52,17 +52,114 @@ def test_admin_update_tenant_forwards_exact_etag_and_key(monkeypatch):
     assert json.loads(requests[0].content) == {"display_name": "New"}
 
 
-def test_unwired_admin_job_group_is_not_exposed():
+JOB_ID = "01890a5d-ac96-7000-8000-000000000002"
+TENANT_ID = "01890a5d-ac96-7000-8000-000000000001"
+
+
+def _recording(monkeypatch, status=200, body=None):
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(status, json=body if body is not None else {}, request=request)
+
+    _patch_client(monkeypatch, respond)
+    return requests
+
+
+def test_admin_job_list_forwards_filters_without_tenant_header(monkeypatch):
+    requests = _recording(monkeypatch, body={"items": [], "page": {"page_size": 25}})
     result = CliRunner().invoke(
         app,
         [
+            "--output",
+            "json",
             "admin",
             "job",
             "list",
+            "--tenant-id",
+            TENANT_ID,
+            "--state",
+            "QUEUED",
+            "--waiting-reason",
+            "waiting_for_quota",
+            "--created-after",
+            "2026-09-30T00:00:00Z",
+            "--page-size",
+            "25",
+            "--cursor",
+            "a+/=",
         ],
     )
-    assert result.exit_code == 2
-    assert "No such command" in result.stderr
+    assert result.exit_code == 0, result.stdout + result.stderr
+    request = requests[0]
+    assert (request.method, request.url.path) == ("GET", "/v1/admin/jobs")
+    assert dict(request.url.params) == {
+        "tenant_id": TENANT_ID,
+        "state": "QUEUED",
+        "waiting_reason": "waiting_for_quota",
+        "created_after": "2026-09-30T00:00:00Z",
+        "page_size": "25",
+        "cursor": "a+/=",
+    }
+    assert "x-nexa-tenant-id" not in request.headers
+    assert "idempotency-key" not in request.headers
+
+
+def test_admin_job_get_reads_one_job(monkeypatch):
+    requests = _recording(monkeypatch, body={"job_id": JOB_ID, "version": 3})
+    result = CliRunner().invoke(app, ["--output", "json", "admin", "job", "get", JOB_ID])
+    assert result.exit_code == 0, result.stdout + result.stderr
+    assert (requests[0].method, requests[0].url.path) == ("GET", f"/v1/admin/jobs/{JOB_ID}")
+
+
+def test_admin_fairness_query_forwards_the_window(monkeypatch):
+    requests = _recording(monkeypatch, body={"buckets": []})
+    result = CliRunner().invoke(
+        app,
+        [
+            "--output",
+            "json",
+            "admin",
+            "fairness",
+            "query",
+            "--from",
+            "2026-09-30T00:00:00Z",
+            "--to",
+            "2026-09-30T01:00:00+07:00",
+            "--bucket-seconds",
+            "300",
+            "--tenant-id",
+            TENANT_ID,
+        ],
+    )
+    assert result.exit_code == 0, result.stdout + result.stderr
+    assert requests[0].url.path == "/v1/admin/fairness"
+    assert dict(requests[0].url.params) == {
+        "from": "2026-09-30T00:00:00Z",
+        "to": "2026-09-30T01:00:00+07:00",
+        "bucket_seconds": "300",
+        "tenant_id": TENANT_ID,
+    }
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["admin", "fairness", "query", "--to", "2026-09-30T01:00:00Z", "--bucket-seconds", "60"],
+        ["admin", "fairness", "query", "--from", "2026-09-30T00:00:00Z", "--bucket-seconds", "60"],
+        ["admin", "fairness", "query", "--from", "2026-09-30T00:00:00Z", "--to", "2026-09-30T01Z"],
+        ["admin", "fairness", "query", "--from", "a", "--to", "b", "--bucket-seconds", "x"],
+        ["admin", "job", "get"],
+        ["admin", "job", "list", "--page-size", "0"],
+        ["admin", "job", "list", "--page-size", "101"],
+    ],
+)
+def test_admin_read_commands_reject_bad_input_before_transport(monkeypatch, args):
+    requests = _recording(monkeypatch)
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 2, result.stdout + result.stderr
+    assert requests == []
 
 
 def test_admin_user_create_reads_password_from_stdin_and_defaults_system_roles(

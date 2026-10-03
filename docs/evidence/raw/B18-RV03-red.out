@@ -1,0 +1,87 @@
+
+ RUN  v5.0.2 /Users/macbook/Documents/University Library/PBL4-Project/web
+
+ ❯ src/auth/csrfRefresh.test.ts (5 tests | 4 failed) 25ms
+   ❯ CSRF refresh is bound to the user a request was sent as (B18-RV03) (5)
+     × two concurrent mutations of A are not resent when the session now belongs to B 22ms
+     × a mutation sent with no known user is never resent 1ms
+     × the same user gets the new token and both mutations are resent once 1ms
+     × no session (expired) resolves to null; a switch observed twice notifies once 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/auth/csrfRefresh.test.ts > CSRF refresh is bound to the user a request was sent as (B18-RV03) > two concurrent mutations of A are not resent when the session now belongs to B
+AssertionError: expected [ { …(2) }, …(2) ] to have a length of 2 but got 3
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ src/auth/csrfRefresh.test.ts:71:20
+     69|     const errors = (await Promise.all([first, second])) as ApiError[];
+     70|     expect(errors.map((error) => error.code)).toEqual(["invalid_csrf",…
+     71|     expect(t.sent).toHaveLength(2);
+       |                    ^
+     72|     expect(t.sent.every((call) => call.csrf === "csrf-old")).toBe(true…
+     73|     expect(t.readSession).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/auth/csrfRefresh.test.ts > CSRF refresh is bound to the user a request was sent as (B18-RV03) > a mutation sent with no known user is never resent
+AssertionError: expected [ { …(2) }, { …(2) } ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/auth/csrfRefresh.test.ts:84:20
+     82|     t.release();
+     83|     expect(((await pending) as ApiError).code).toBe("invalid_csrf");
+     84|     expect(t.sent).toHaveLength(1);
+       |                    ^
+     85|     expect(t.onAuthenticationRequired).not.toHaveBeenCalled();
+     86|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/auth/csrfRefresh.test.ts > CSRF refresh is bound to the user a request was sent as (B18-RV03) > the same user gets the new token and both mutations are resent once
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ src/auth/csrfRefresh.test.ts:97:27
+     95|     expect(t.sent).toHaveLength(4);
+     96|     expect(t.sent.slice(2).map((call) => call.csrf)).toEqual(["csrf-a2…
+     97|     expect(t.readSession).toHaveBeenCalledTimes(1);
+       |                           ^
+     98|     expect(t.switched).not.toHaveBeenCalled();
+     99|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/auth/csrfRefresh.test.ts > CSRF refresh is bound to the user a request was sent as (B18-RV03) > no session (expired) resolves to null; a switch observed twice notifies once
+AssertionError: expected 'csrf-b' to be Symbol(session-switched) // Object.is equality
+
+- Expected:
+Symbol(session-switched)
+
++ Received:
+"csrf-b"
+
+ ❯ src/auth/csrfRefresh.test.ts:134:37
+    132|     });
+    133|     expect(await refresh("user-a")).toBe(SESSION_SWITCHED);
+    134|     expect(await refresh("user-a")).toBe(SESSION_SWITCHED);
+       |                                     ^
+    135|     expect(switched).toHaveBeenCalledTimes(1);
+    136|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+   Start at  19:08:08
+   Duration  155ms (transform 45%, tests 40%, import 12%, worker 4%)
+

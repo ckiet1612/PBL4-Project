@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, createApiClient, isAbortError, parseRetryAfter, type ClientHooks } from "./client";
+import {
+  ApiError,
+  SESSION_SWITCHED,
+  createApiClient,
+  isAbortError,
+  parseRetryAfter,
+  type ClientHooks,
+} from "./client";
 
 interface Recorded {
   url: string;
@@ -43,6 +50,7 @@ function setup(responses: Array<Response | (() => Promise<Response>)>, hooks: Pa
   });
   const fullHooks: ClientHooks = {
     csrfToken: () => "csrf-in-memory",
+    sessionUser: () => "user-a",
     refreshCsrf: async () => "csrf-refreshed",
     onAuthenticationRequired: vi.fn(),
     ...hooks,
@@ -176,10 +184,11 @@ describe("api client errors", () => {
   });
 
   it("invalid_csrf refreshes the session once and resends the same key and body", async () => {
-    const { client, calls, hooks } = setup([
-      jsonResponse(403, envelope("invalid_csrf")),
-      jsonResponse(202, { ok: true }),
-    ]);
+    const refreshCsrf = vi.fn(async () => "csrf-refreshed");
+    const { client, calls, hooks } = setup(
+      [jsonResponse(403, envelope("invalid_csrf")), jsonResponse(202, { ok: true })],
+      { refreshCsrf },
+    );
     const response = await client.request({
       method: "POST",
       path: "/jobs",
@@ -192,6 +201,8 @@ describe("api client errors", () => {
     expect(calls[1].headers.get("X-CSRF-Token")).toBe("csrf-refreshed");
     expect(calls[1].headers.get("Idempotency-Key")).toBe("web-0123456789abcdef");
     expect(calls[1].body).toBe(calls[0].body);
+    // The refresh is asked for the user the request was sent as (B18-RV03).
+    expect(refreshCsrf).toHaveBeenCalledWith("user-a");
     expect(hooks.onAuthenticationRequired).not.toHaveBeenCalled();
   });
 
@@ -209,6 +220,20 @@ describe("api client errors", () => {
   });
 });
 
+describe("api client when the refreshed session belongs to another user (B18-R14)", () => {
+  it("does not resend the mutation and does not send the new user to login", async () => {
+    const { client, calls, hooks } = setup([jsonResponse(403, envelope("invalid_csrf"))], {
+      refreshCsrf: async () => SESSION_SWITCHED,
+    });
+    const error = (await client
+      .request({ method: "POST", path: "/admin/tenants", json: { slug: "x" }, idempotencyKey: "web-0123456789abcdef" })
+      .catch((caught: unknown) => caught)) as ApiError;
+    expect(error.code).toBe("invalid_csrf");
+    expect(calls).toHaveLength(1);
+    expect(hooks.onAuthenticationRequired).not.toHaveBeenCalled();
+  });
+});
+
 describe("api client timeouts and aborts", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -222,7 +247,7 @@ describe("api client timeouts and aborts", () => {
 
   it("times out with a timeout error", async () => {
     const client = createApiClient(
-      { csrfToken: () => null, refreshCsrf: async () => null, onAuthenticationRequired: () => undefined },
+      { csrfToken: () => null, sessionUser: () => null, refreshCsrf: async () => null, onAuthenticationRequired: () => undefined },
       hangingFetch() as typeof fetch,
     );
     const pending = client.request({ path: "/jobs", tenantId: "t", timeoutMs: 1000 }).catch((caught: unknown) => caught);
@@ -234,7 +259,7 @@ describe("api client timeouts and aborts", () => {
 
   it("a caller abort rejects with an AbortError, not an ApiError", async () => {
     const client = createApiClient(
-      { csrfToken: () => null, refreshCsrf: async () => null, onAuthenticationRequired: () => undefined },
+      { csrfToken: () => null, sessionUser: () => null, refreshCsrf: async () => null, onAuthenticationRequired: () => undefined },
       hangingFetch() as typeof fetch,
     );
     const controller = new AbortController();

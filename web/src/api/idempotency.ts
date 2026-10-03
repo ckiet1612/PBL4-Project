@@ -25,10 +25,20 @@ export class IntentTracker {
     return this.pending.key;
   }
 
+  /** A key was sent and its outcome is still unknown: the same body must reuse it. */
+  get unsettled(): boolean {
+    return this.pending !== null;
+  }
+
   settle(error?: unknown): void {
-    if (error instanceof ApiError && (RESEND_SAME_KEY.has(error.code) || isProxyFailure(error))) return;
+    if (outcomeUnknown(error)) return;
     this.pending = null;
   }
+}
+
+/** The server may not have decided: the intent stays open (same key, same form values). */
+export function outcomeUnknown(error: unknown): boolean {
+  return error instanceof ApiError && (RESEND_SAME_KEY.has(error.code) || isProxyFailure(error));
 }
 
 /**

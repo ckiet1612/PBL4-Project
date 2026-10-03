@@ -1,22 +1,30 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Request, Response
 from fastapi.responses import JSONResponse
+from pydantic import UUID7, AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from nexa.api.dependencies import parse_json_request, resolve_principal, services
-from nexa.api.http import strong_etag
+from nexa.api.http import strong_etag, wire_response
 from nexa.api.schemas import (
     AdminReasonRequest,
+    ErrorResponse,
+    FairnessReport,
     GlobalPolicyUpdate,
+    Job,
+    JobPage,
+    JobState,
     MembershipWriteRequest,
     TenantCreateRequest,
     TenantPolicyUpdate,
     TenantUpdateRequest,
     UserCreateRequest,
     UserUpdateRequest,
+    UuidV7,
+    WaitingReasonValue,
 )
 from nexa.application.errors import ApplicationError
 from nexa.application.json_codec import jcs_request_hash
@@ -415,3 +423,122 @@ def admin_list_recovery_events(
             principal, page_size=page_size, cursor=cursor, from_at=from_at, to_at=to_at
         )
     )
+
+
+_READ_SECURITY = [{"browserCookie": []}, {"cliBearer": []}]
+
+
+def _error_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    return {status: {"model": ErrorResponse} for status in statuses}
+
+
+def _aware(value: datetime | None, name: str) -> datetime | None:
+    if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+        raise ApplicationError(
+            code="validation_failed",
+            status=400,
+            message=f"The {name} timestamp must include a timezone",
+        )
+    return value
+
+
+@router.get(
+    "/jobs",
+    operation_id="adminListJobs",
+    response_model=JobPage,
+    responses=_error_responses(400, 401, 403, 500, 503),
+    openapi_extra={"security": _READ_SECURITY},
+)
+def admin_list_jobs(
+    request: Request,
+    cursor: Annotated[str | None, Query(min_length=16, max_length=2048)] = None,
+    page_size: int = Query(default=50, ge=1, le=100),
+    tenant_id: Annotated[UuidV7 | None, Query()] = None,
+    user_id: Annotated[UuidV7 | None, Query()] = None,
+    state: Annotated[JobState | None, Query()] = None,
+    waiting_reason: Annotated[WaitingReasonValue | None, Query()] = None,
+    created_after: Annotated[datetime | None, Query()] = None,
+) -> Response:
+    principal = resolve_principal(request, mutation=False)
+    result = services(request).admin.list_jobs(
+        principal,
+        page_size=page_size,
+        cursor=cursor,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        state=state,
+        waiting_reason=waiting_reason,
+        created_after=_aware(created_after, "created_after"),
+    )
+    return wire_response(JobPage, result)
+
+
+@router.get(
+    "/jobs/{job_id}",
+    operation_id="adminGetJob",
+    response_model=Job,
+    responses=_error_responses(400, 401, 403, 404, 500, 503),
+    openapi_extra={"security": _READ_SECURITY},
+)
+def admin_get_job(request: Request, job_id: UuidV7) -> Response:
+    principal = resolve_principal(request, mutation=False)
+    body = services(request).admin.get_job(principal, job_id=job_id)
+    return wire_response(Job, body, headers={"ETag": strong_etag(int(body["version"]))})
+
+
+class _FairnessQuery(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    from_at: AwareDatetime = Field(alias="from")
+    to_at: AwareDatetime = Field(alias="to")
+    bucket_seconds: int = Field(ge=1, le=86_400)
+    tenant_id: UUID7 | None = None
+
+
+_TIMESTAMP_SCHEMA = {"$ref": "#/components/schemas/Timestamp"}
+_FAIRNESS_PARAMETERS = [
+    {"name": "from", "in": "query", "required": True, "schema": _TIMESTAMP_SCHEMA},
+    {"name": "to", "in": "query", "required": True, "schema": _TIMESTAMP_SCHEMA},
+    {
+        "name": "bucket_seconds",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 1, "maximum": 86400},
+    },
+    {
+        "name": "tenant_id",
+        "in": "query",
+        "required": False,
+        "schema": {"$ref": "#/components/schemas/UuidV7"},
+    },
+]
+
+
+# Parameters are parsed here rather than declared, so every violation is a 400 and the
+# operation documents no 422 (contract adminQueryFairness, B18-R07).
+@router.get(
+    "/fairness",
+    operation_id="adminQueryFairness",
+    response_model=FairnessReport,
+    responses=_error_responses(400, 401, 403, 500, 503),
+    openapi_extra={"parameters": _FAIRNESS_PARAMETERS, "security": _READ_SECURITY},
+)
+def admin_query_fairness(request: Request) -> Response:
+    try:
+        query = _FairnessQuery.model_validate(dict(request.query_params))
+    except ValidationError as error:
+        names = sorted({str(item["loc"][0]) for item in error.errors() if item["loc"]})
+        raise ApplicationError(
+            code="validation_failed",
+            status=400,
+            message=f"Invalid fairness query parameter: {', '.join(names) or 'query'}",
+        ) from None
+    principal = resolve_principal(request, mutation=False)
+    report = services(request).admin.query_fairness(
+        principal,
+        from_at=query.from_at,
+        to_at=query.to_at,
+        bucket_seconds=query.bucket_seconds,
+        tenant_id=query.tenant_id,
+    )
+    return wire_response(FairnessReport, report)

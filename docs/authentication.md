@@ -130,6 +130,13 @@ và CLI token của user trong cùng workflow transaction; re-enable không hồ
   `adminGetTenantPolicy`, `adminUpdateTenantPolicy`, `adminListAuditRecords`.
 - Bootstrap: `bootstrapInitialAdmin`, `bootstrapLocalWorker`.
 
+B18 wire thêm ba admin read: `adminListJobs`, `adminGetJob` (hàng chờ/job xuyên tenant)
+và `adminQueryFairness`. Cả ba thuộc hàng "admin reads" ở bảng trên (browser cookie của
+SYSTEM_ADMIN active hoặc CLI exact `admin:read`), không đọc tenant header và ghi audit
+`admin.job.list`, `admin.job.get` (kèm tenant của job), `admin.fairness.query` cùng
+transaction. Cursor `adminListJobs` bind actor, operation và mọi filter. Đọc job xuyên
+tenant không cấp quyền điều khiển: cancel/pause/resume/retry vẫn cần live membership.
+
 TENANT_ADMIN không được gọi `/v1/admin` trong v1. SYSTEM_ADMIN không tự có membership vào
 mọi tenant và không impersonate user. B07/B08 phải dùng principal + tenant context + live
 membership guard cho resource route, thay vì suy quyền từ global role.

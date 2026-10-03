@@ -72,7 +72,9 @@ nexa admin membership list|upsert|delete
 nexa admin policy get|update
 nexa admin tenant-policy get|update
 nexa admin worker list|get|drain|disable|enable
+nexa admin job list|get
 nexa admin allocations
+nexa admin fairness query
 nexa admin recovery-events
 nexa admin audit list
 ```
@@ -87,9 +89,23 @@ read. API còn kiểm tra active user, tenant role/membership, ownership và
 B15 đăng ký control job `cancel`, `pause`, `resume`, `retry` (scope
 `jobs:write`), `job attempts` (scope `jobs:read`) và admin
 `worker`/`allocations`/`recovery-events` sau khi route và API integration
-evidence tồn tại. Logs, admin job và admin fairness vẫn chưa được đăng ký vì
-FastAPI snapshot chưa có route/service tương ứng; retention sweep là tác vụ
-coordinator, không có lệnh CLI.
+evidence tồn tại. Chỉ logs còn chưa được đăng ký vì FastAPI snapshot chưa có
+route/service tương ứng; retention sweep là tác vụ coordinator, không có lệnh CLI.
+
+B18 đăng ký `admin job list|get` (`adminListJobs`, `adminGetJob`) và `admin
+fairness query` (`adminQueryFairness`), cùng scope `admin:read`; API không dùng tenant
+header cho các operation này. `admin job list` nhận `--tenant-id`, `--user-id`, `--state`,
+`--waiting-reason`, `--created-after`, `--cursor`, `--page-size` (1–100, mặc định 50);
+cursor gắn với admin và bộ lọc đã tạo ra nó. Hai lệnh chỉ đọc: điều khiển job vẫn
+cần membership của tenant qua `nexa job cancel|pause|resume|retry`. Fairness bắt
+buộc `--from`, `--to` (RFC 3339 có múi giờ) và `--bucket-seconds` (1–86400); API trả
+400 khi `to <= from`, khoảng dài hơn 31 ngày hoặc vượt 1000 bucket:
+
+```sh
+nexa admin job list --state QUEUED --waiting-reason waiting_for_quota --page-size 25
+nexa admin fairness query --from 2026-09-30T00:00:00Z --to 2026-10-01T00:00:00Z \
+  --bucket-seconds 3600 [--tenant-id TENANT_ID]
+```
 
 B17 đăng ký `job progress JOB_ID [--tenant T]` (`getJobProgress`, scope
 `jobs:read`). Output là `ProgressRecord`: `{"available": false}` khi attempt mới
@@ -203,7 +219,7 @@ request CLI kiểm tra cục bộ và trả exit 2 nếu: reason ngoài 1–256 
 page size ngoài 1–100 (`job attempts`, admin worker/allocations/recovery-events
 từ chối, không kẹp). Admin worker action áp cùng quy tắc reason/If-Match.
 ETag của worker chỉ đổi khi field hiển thị đổi (health, inventory version,
-`ready_at`, admin state); heartbeat đều đặn không làm ETag cũ (B15-R08), nên
+`ready_at`, admin state); heartbeat đều đặn (kể cả `discovered_at` mới của inventory, B18-R22) không làm ETag cũ (B15-R08), nên
 `nexa admin worker get` rồi drain/disable/enable không bị `412` chỉ vì heartbeat.
 `--from`/`--to` là bắt buộc theo contract và được truyền nguyên văn.
 

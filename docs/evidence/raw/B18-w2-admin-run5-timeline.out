@@ -1,0 +1,36 @@
+# Run 5 DB timeline (nexa_b05_test_b18e2e, UTC): worker actions (audit), allocations, job events
+      t       |                                    what                                     
+--------------+-----------------------------------------------------------------------------
+ 11:33:47.924 | event JOB_ACCEPTED Job accepted job=…42d254
+ 11:33:48.278 | alloc HELD job=…42d254
+ 11:33:48.278 | event JOB_DISPATCHING job=…42d254
+ 11:33:50.118 | event ATTEMPT_STARTED attempt_started job=…42d254
+ 11:33:51.578 | audit admin.worker.drain v5→v6 "b18 e2e drain"
+ 11:33:51.626 | event JOB_ACCEPTED Job accepted job=…f93167
+ 11:34:19.883 | event RESULT_RECOGNIZED result_recognized job=…42d254
+ 11:34:25.622 | alloc RELEASED (VERIFIED_CLEANUP) job=…42d254
+ 11:34:33.343 | audit admin.worker.enable v9→v10 "b18 e2e enable after drain"
+ 11:34:33.517 | event JOB_DISPATCHING job=…f93167
+ 11:34:33.517 | alloc HELD job=…f93167
+ 11:34:35.362 | event ATTEMPT_STARTED attempt_started job=…f93167
+ 11:34:38.925 | event RESULT_RECOGNIZED result_recognized job=…f93167
+ 11:34:40.189 | event JOB_ACCEPTED Job accepted job=…5096be
+ 11:34:44.708 | alloc RELEASED (VERIFIED_CLEANUP) job=…f93167
+ 11:34:44.921 | event JOB_DISPATCHING job=…5096be
+ 11:34:44.921 | alloc HELD job=…5096be
+ 11:34:45.649 | event ATTEMPT_STARTED attempt_started job=…5096be
+ 11:34:48.391 | audit admin.worker.disable v13→v14 "b18 e2e disable"
+ 11:34:48.399 | alloc QUARANTINED job=…5096be
+ 11:34:48.399 | event ATTEMPT_FENCED WORKER_DISABLED job=…5096be
+ 11:35:00.925 | alloc RELEASED (VERIFIED_CLEANUP) job=…5096be
+ 11:35:02.722 | event RETRY_READY BACKOFF_ELAPSED job=…5096be
+ 11:35:11.912 | audit admin.worker.enable v14→v15 "b18 e2e enable after cleanup"
+ 11:35:14.633 | event JOB_DISPATCHING job=…5096be
+ 11:35:14.633 | alloc HELD job=…5096be
+ 11:35:15.346 | event CHECKPOINT_FALLBACK_TO_INPUT CHECKPOINT_FALLBACK_TO_INPUT job=…5096be
+ 11:35:15.996 | event ATTEMPT_STARTED attempt_started job=…5096be
+ 11:35:44.216 | event RESULT_RECOGNIZED result_recognized job=…5096be
+ 11:35:46.759 | audit admin.worker.drain v16→v17 "b18 e2e drain by admin one"
+ 11:35:47.090 | audit admin.worker.enable v17→v18 "b18 e2e enable by admin two"
+(31 rows)
+

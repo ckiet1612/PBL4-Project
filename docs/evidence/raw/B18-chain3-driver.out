@@ -1,0 +1,20 @@
+# chain3 driver log (leftover checks: harness processes, DB sessions on nexa_b05_test_b18e2e, nexa_b17_* containers)
+start 12:13:34 caddy_pids=10875
+  12:13:36 leftover: processes=0 db_sessions=0 containers=0
+b17-w1 exit=0
+  12:14:30 leftover: processes=0 db_sessions=0 containers=0
+b17-admission exit=0
+  12:14:42 leftover: processes=0 db_sessions=0 containers=0
+w1-admin exit=0
+  12:15:41 leftover: processes=0 db_sessions=0 containers=0
+w1-admin-mode exit=0
+  12:15:57 leftover: processes=0 db_sessions=0 containers=0
+w1-admin-frozen exit=0
+  12:16:13 leftover: processes=0 db_sessions=0 containers=0
+b17-w2 exit=0
+  12:18:23 leftover: processes=0 db_sessions=0 containers=0
+w2-admin exit=0
+  12:21:09 leftover: processes=0 db_sessions=0 containers=0
+shots-measure exit=0
+  12:22:35 leftover: processes=0 db_sessions=0 containers=0
+end 12:22:35 caddy_pids=10979

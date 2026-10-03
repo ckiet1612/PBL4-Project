@@ -1,29 +1,52 @@
-// Typed wrappers for the /v1 routes the user UI calls. No admin routes.
+// Typed wrappers for the /v1 routes the UI calls. Admin routes (B18) are under `admin` and never
+// send a tenant header.
 import type { ApiClient, ApiResponse } from "./client";
 import { PAGE_SIZE, TRANSFER_TIMEOUT_MS } from "./limits";
 import type {
+  AllocationPage,
+  AllocationState,
   Artifact,
   ArtifactKind,
   ArtifactPage,
   AttemptPage,
+  AuditPage,
   BrowserSession,
   CheckpointPage,
   ControlRequest,
   EventPage,
+  FairnessReport,
+  GlobalPolicy,
+  GlobalPolicyUpdate,
   Job,
   JobPage,
   JobSpec,
   JobState,
+  Membership,
+  MembershipPage,
+  MembershipWriteRequest,
   ProgressRecord,
   ResultRecord,
   RetryRequest,
   Sweep,
   SweepSubmitRequest,
   Template,
+  Tenant,
+  TenantCreateRequest,
+  TenantPage,
+  TenantPolicy,
+  TenantPolicyUpdate,
+  TenantUpdateRequest,
   TokenCreateRequest,
   TokenCreated,
   TokenPage,
+  User,
   UserArtifactKind,
+  UserCreateRequest,
+  UserPage,
+  UserUpdateRequest,
+  WaitingReason,
+  Worker,
+  WorkerPage,
 } from "./types";
 
 export interface MutationOptions {
@@ -51,9 +74,125 @@ export interface UploadMetadata {
   checksum: string;
 }
 
+export interface AdminJobFilters {
+  tenant_id: string | null;
+  user_id: string | null;
+  state: JobState | null;
+  waiting_reason: NonNullable<WaitingReason> | null;
+  created_after: string | null;
+  cursor: string | null;
+}
+
+export interface FairnessQuery {
+  from: string;
+  to: string;
+  bucket_seconds: number;
+  tenant_id: string | null;
+}
+
+export interface RangeQuery {
+  from: string;
+  to: string;
+  cursor: string | null;
+}
+
+export type WorkerActionName = "drain" | "disable" | "enable";
+
 function requireIfMatch(ifMatch: string): string {
-  if (!ifMatch) throw new Error("If-Match is required for job controls");
+  if (!ifMatch) throw new Error("If-Match is required for guarded mutations");
   return ifMatch;
+}
+
+/** Guarded write: If-Match checked before anything is sent (no 428 from the UI). */
+function guarded<T>(client: ApiClient, request: Parameters<ApiClient["request"]>[0], options: GuardedMutationOptions) {
+  return Promise.resolve().then(() =>
+    client.request<T>({ ...request, ...options, ifMatch: requireIfMatch(options.ifMatch) }),
+  );
+}
+
+const id = encodeURIComponent;
+
+/** /v1/admin/*: SYSTEM_ADMIN only; every request, reads included, writes an audit row. */
+function createAdminEndpoints(client: ApiClient) {
+  return {
+    getPolicy: (signal?: AbortSignal) => client.request<GlobalPolicy>({ path: "/admin/policy", signal }),
+    updatePolicy: (body: GlobalPolicyUpdate, options: GuardedMutationOptions) =>
+      guarded<GlobalPolicy>(client, { method: "PATCH", path: "/admin/policy", json: body }, options),
+
+    listWorkers: (cursor: string | null, signal?: AbortSignal, pageSize: number = PAGE_SIZE.admin) =>
+      client.request<WorkerPage>({ path: "/admin/workers", query: { page_size: pageSize, cursor }, signal }),
+    getWorker: (workerId: string, signal?: AbortSignal) =>
+      client.request<Worker>({ path: `/admin/workers/${id(workerId)}`, signal }),
+    workerAction: (
+      workerId: string,
+      action: WorkerActionName,
+      body: { reason: string },
+      options: GuardedMutationOptions,
+    ): Promise<ApiResponse<Worker>> =>
+      guarded<Worker>(client, { method: "POST", path: `/admin/workers/${id(workerId)}/${action}`, json: body }, options),
+    listAllocations: (state: AllocationState, signal?: AbortSignal) =>
+      client.request<AllocationPage>({
+        path: "/admin/allocations",
+        query: { page_size: PAGE_SIZE.allocations, state },
+        signal,
+      }),
+
+    listJobs: (filters: AdminJobFilters, signal?: AbortSignal) =>
+      client.request<JobPage>({ path: "/admin/jobs", query: { page_size: PAGE_SIZE.admin, ...filters }, signal }),
+    getJob: (jobId: string, signal?: AbortSignal) => client.request<Job>({ path: `/admin/jobs/${id(jobId)}`, signal }),
+
+    listTenants: (cursor: string | null, signal?: AbortSignal, pageSize: number = PAGE_SIZE.admin) =>
+      client.request<TenantPage>({ path: "/admin/tenants", query: { page_size: pageSize, cursor }, signal }),
+    getTenant: (tenantId: string, signal?: AbortSignal) =>
+      client.request<Tenant>({ path: `/admin/tenants/${id(tenantId)}`, signal }),
+    createTenant: (body: TenantCreateRequest, options: MutationOptions) =>
+      client.request<Tenant>({ method: "POST", path: "/admin/tenants", json: body, ...options }),
+    updateTenant: (tenantId: string, body: TenantUpdateRequest, options: GuardedMutationOptions) =>
+      guarded<Tenant>(client, { method: "PATCH", path: `/admin/tenants/${id(tenantId)}`, json: body }, options),
+    getTenantPolicy: (tenantId: string, signal?: AbortSignal) =>
+      client.request<TenantPolicy>({ path: `/admin/tenants/${id(tenantId)}/policy`, signal }),
+    updateTenantPolicy: (tenantId: string, body: TenantPolicyUpdate, options: GuardedMutationOptions) =>
+      guarded<TenantPolicy>(
+        client,
+        { method: "PATCH", path: `/admin/tenants/${id(tenantId)}/policy`, json: body },
+        options,
+      ),
+
+    /** ETag = MembershipSet version of the tenant: the If-Match for add/change/remove. */
+    listMemberships: (tenantId: string, cursor: string | null, signal?: AbortSignal) =>
+      client.request<MembershipPage>({
+        path: `/admin/tenants/${id(tenantId)}/memberships`,
+        query: { page_size: PAGE_SIZE.admin, cursor },
+        signal,
+      }),
+    upsertMembership: (tenantId: string, body: MembershipWriteRequest, options: GuardedMutationOptions) =>
+      guarded<Membership>(
+        client,
+        { method: "POST", path: `/admin/tenants/${id(tenantId)}/memberships`, json: body },
+        options,
+      ),
+    deleteMembership: (tenantId: string, userId: string, options: GuardedMutationOptions) =>
+      guarded<null>(
+        client,
+        { method: "DELETE", path: `/admin/tenants/${id(tenantId)}/memberships/${id(userId)}` },
+        options,
+      ),
+
+    listUsers: (cursor: string | null, signal?: AbortSignal, pageSize: number = PAGE_SIZE.admin) =>
+      client.request<UserPage>({ path: "/admin/users", query: { page_size: pageSize, cursor }, signal }),
+    getUser: (userId: string, signal?: AbortSignal) => client.request<User>({ path: `/admin/users/${id(userId)}`, signal }),
+    createUser: (body: UserCreateRequest, options: MutationOptions) =>
+      client.request<User>({ method: "POST", path: "/admin/users", json: body, ...options }),
+    updateUser: (userId: string, body: UserUpdateRequest, options: GuardedMutationOptions) =>
+      guarded<User>(client, { method: "PATCH", path: `/admin/users/${id(userId)}`, json: body }, options),
+
+    queryFairness: (query: FairnessQuery, signal?: AbortSignal) =>
+      client.request<FairnessReport>({ path: "/admin/fairness", query: { ...query }, signal }),
+    listRecoveryEvents: (query: RangeQuery, signal?: AbortSignal, pageSize: number = PAGE_SIZE.admin) =>
+      client.request<EventPage>({ path: "/admin/recovery-events", query: { page_size: pageSize, ...query }, signal }),
+    listAudit: (query: RangeQuery & { action: string | null }, signal?: AbortSignal) =>
+      client.request<AuditPage>({ path: "/admin/audit", query: { page_size: PAGE_SIZE.admin, ...query }, signal }),
+  };
 }
 
 export function createEndpoints(client: ApiClient) {
@@ -186,6 +325,8 @@ export function createEndpoints(client: ApiClient) {
         query: { page_size: PAGE_SIZE.sweepChildren, cursor },
         signal,
       }),
+
+    admin: createAdminEndpoints(client),
   };
 }
 

@@ -1,0 +1,26 @@
+# B18 round 2 gates 2026-10-03T12:25:51Z
+$ uv run --no-sync ruff check .
+All checks passed!
+$ uv run --no-sync ruff format --check .
+519 files already formatted
+$ pytest -q (default)
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1796 passed, 620 skipped, 2 warnings in 52.93s
+$ pnpm --dir web run typecheck
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+$ pnpm --dir web run build
+✓ 173 modules transformed.
+dist/index.html                   0.48 kB │ gzip:   0.31 kB
+dist/assets/index-B-fVmwfX.css   12.62 kB │ gzip:   2.97 kB
+dist/assets/index-CgsJn8hd.js   465.53 kB │ gzip: 134.73 kB
+✓ built in 144ms
+$ shasum -a 256 web/dist/index.html
+de4c3dbb3979fa1400ad66e30d1dc2e337b00944ef3bc0e23456d3f6bf9f23c3  web/dist/index.html
+$ pnpm --dir web run test
+ Test Files  29 passed (29)
+      Tests  217 passed (217)
+$ docker stats smoke3 / exec probe
+nexa_b10_smoke3-caddy-1 PIDs=31286
+OCI runtime exec failed: exec failed: unable to start container process: procReady not received

@@ -1,0 +1,11 @@
+# without NEXA_TEST_PG_CLIENT_PREFIX
+......sss                                                                [100%]
+=========================== short test summary info ============================
+SKIPPED [3] tests/integration/test_rem_b13_r12_search_path.py:446: pg_dump/pg_restore unavailable; set NEXA_TEST_PG_CLIENT_PREFIX
+6 passed, 3 skipped in 19.30s
+EXIT=0
+
+# with NEXA_TEST_PG_CLIENT_PREFIX="docker exec -i nexa_b13_pg"
+.........                                                                [100%]
+9 passed in 19.73s
+EXIT=0

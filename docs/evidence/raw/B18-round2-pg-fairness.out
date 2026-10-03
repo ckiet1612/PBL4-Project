@@ -1,0 +1,8 @@
+$ NEXA_TEST_DATABASE_URL=<URL>/nexa_b05_test_b18 pytest --run-postgres -q -v tests/integration/test_admin_fairness_b18.py tests/application/test_fairness_report_b18.py
+# run 1 before the fix: 1 failed (test_open_segment_is_measured_to_the_statement_time: 30.179654 <= 30.146, host vs DB clock skew), 18 passed
+## run 1 after DB-clock bounds
+======================= 19 passed, 2 warnings in 13.29s ========================
+## run 2 after DB-clock bounds
+======================= 19 passed, 2 warnings in 25.61s ========================
+## run 3 after DB-clock bounds
+======================= 19 passed, 2 warnings in 20.70s ========================

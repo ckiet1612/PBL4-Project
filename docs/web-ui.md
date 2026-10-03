@@ -1,11 +1,12 @@
-# Nexa Web UI cho user (B17)
+# Nexa Web UI cho user (B17) và quản trị (B18)
 
-Trạng thái: **B17 đã triển khai, chờ Task Review độc lập**. Tài liệu này mô tả
-bộ khung UX chức năng (low-fidelity) cho người dùng tenant (`MEMBER`,
-`TENANT_ADMIN`) trong `web/`. UI chỉ là client của REST `/v1` chung với CLI:
-authorization, state machine, quota và scheduler thuộc backend. Admin UI thuộc
-B18, log pipeline thuộc B17-R01 (chưa có), GPU thuộc B23, Compose/UI image sản
-phẩm thuộc B21/B25.
+Trạng thái: **B17 đã được Task Review duyệt; B18 (khu quản trị) đã triển khai,
+chờ Task Review độc lập**. Tài liệu này mô tả bộ khung UX chức năng
+(low-fidelity) trong `web/` cho người dùng tenant (`MEMBER`, `TENANT_ADMIN`) và,
+ở mục "Khu quản trị (B18)", cho `SYSTEM_ADMIN`. UI chỉ là client của REST `/v1`
+chung với CLI: authorization, state machine, quota và scheduler thuộc backend.
+Log pipeline thuộc B17-R01 (chưa có), GPU thuộc B23, Compose/UI image sản phẩm
+thuộc B21/B25.
 
 Thứ tự ưu tiên khi thiết kế: Rõ ràng > Mật độ thông tin > Tiện lợi > Hình thức.
 
@@ -47,7 +48,7 @@ Thứ tự ưu tiên khi thiết kế: Rõ ràng > Mật độ thông tin > Ti�
 | Menu tài khoản | Nút `Tài khoản` → vai trò trong tenant hiện tại, user ID rút gọn, `Token CLI`, `Đăng xuất` | Menu thả xuống, đóng bằng Esc. |
 | Breadcrumb | `Jobs › Tạo job`, `Jobs › Job <id>`, `Jobs › Sweep <id>`, `Tài khoản › Token CLI` | Chỉ ở trang con. |
 | Contextual action | `Tạo job` (primary, trang Jobs), `Tải lên tệp` (primary, trang Dữ liệu), control trên header chi tiết job | Không đặt control trên dòng danh sách. |
-| Khu quản trị (B18) | Chỗ trống sau `Dữ liệu` trong global nav (component `GlobalNav` có một slot cuối) | B17 không render link hay trang giữ chỗ nào. |
+| Khu quản trị (B18) | Link `Quản trị` cuối global nav, chỉ khi session có `SYSTEM_ADMIN` | Chi tiết ở mục "Khu quản trị (B18)". |
 
 Dưới 768 px: global nav thành một thanh ngang ngay dưới header (tự xuống dòng),
 bộ chọn tenant và menu tài khoản xuống dòng thứ hai của header. Không dùng
@@ -67,7 +68,11 @@ sao chép được, nút `Thử lại` khi thao tác đọc) và trạng thái `
 - Trạng thái: loading (nút khóa, "Đang đăng nhập…"); lỗi chung "Tên đăng nhập
   hoặc mật khẩu không đúng" (không tiết lộ user tồn tại); 429 đếm ngược theo
   Retry-After, nút khóa đến hết; 403 khi WRITE_FROZEN "Hệ thống đang ở chế độ
-  chỉ đọc; chỉ quản trị viên hệ thống được đăng nhập"; phiên hết hạn hoặc bị thu
+  chỉ đọc; chỉ quản trị viên hệ thống được đăng nhập" — **thực tế không xảy ra**:
+  server trả 401 "Invalid credentials" cho user không phải admin trước khi kiểm
+  tra mật khẩu (không lộ user tồn tại, không ghi rate metadata), nên trang hiện
+  thông báo sai thông tin đăng nhập chung (B18-R21, Playwright W1-admin-frozen
+  quan sát được); phiên hết hạn hoặc bị thu
   hồi → thông báo "Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục".
 - Bước tiếp theo: về `next` (chỉ path nội bộ) hoặc Jobs của tenant mặc định.
   `next` bị bỏ nếu path **sau chuẩn hóa** bắt đầu bằng `//` (ví dụ `/.//x`,
@@ -76,8 +81,7 @@ sao chép được, nút `Thử lại` khi thao tác đọc) và trạng thái `
 #### 3.2 Không có tenant (`/` khi memberships rỗng)
 - Mục đích: giải thích cho user (kể cả `SYSTEM_ADMIN`) chưa thuộc tenant nào.
 - Thông tin: "Tài khoản chưa thuộc tenant nào. Liên hệ quản trị viên để được
-  thêm vào tenant." Với `SYSTEM_ADMIN`: thêm câu "Khu quản trị hệ thống sẽ có ở
-  bản sau." (B18).
+  thêm vào tenant." Với `SYSTEM_ADMIN`: thêm link `Mở khu quản trị` (B18).
 - Primary: không; Secondary: `Token CLI`, `Đăng xuất` (trong menu tài khoản).
 
 #### 3.3 Jobs (`/t/:tenantId/jobs`)
@@ -214,7 +218,7 @@ Chỉ gồm component dùng ≥ 2 chỗ hoặc có hành vi phức tạp.
 
 | Component | Dùng ở | Hành vi |
 |---|---|---|
-| `AppLayout` (header, `GlobalNav`, `TenantPicker`, `AccountMenu`) | mọi trang sau đăng nhập | slot quản trị cho B18 không render |
+| `AppLayout` (header, `GlobalNav`, `TenantPicker`, `AccountMenu`) | mọi trang sau đăng nhập | link `Quản trị` khi session có `SYSTEM_ADMIN` (B18-R13) |
 | `StatusBadge` | Jobs, chi tiết, sweep | nhãn chữ từ `labels.ts`, class theo nhóm ngữ nghĩa |
 | `ErrorPanel` | mọi trang/khu vực | thông điệp ánh xạ, request_id sao chép, `Thử lại` |
 | `EmptyState` | Jobs, Dữ liệu, Token, Kết quả | tiêu đề + hướng dẫn + action |
@@ -250,8 +254,9 @@ Chỉ gồm component dùng ≥ 2 chỗ hoặc có hành vi phức tạp.
 TENANT_ADMIN dùng cùng các trang với MEMBER. Khác biệt duy nhất: trên chi tiết
 job của thành viên khác, control hiện như với job của chính mình (W-12). Nhãn
 `Người tạo` cho biết job của ai; dialog xác nhận ghi thêm "Job này do người
-khác tạo". Quản trị user/tenant/quota/worker/fairness thuộc B18; B17 không hiện
-link quản trị nào.
+khác tạo". TENANT_ADMIN không có link quản trị: quản trị user/tenant/quota/
+worker/fairness ở khu `/admin` chỉ dành cho `SYSTEM_ADMIN` (B18); vào thẳng URL
+thì thấy "Cần quyền quản trị hệ thống" và không có request `/v1/admin` nào.
 
 ### 7. Chức năng được gộp và không lên navigation
 
@@ -320,6 +325,239 @@ hiện dòng "Chỉ người tạo job hoặc quản trị viên tenant được
 Khi phân vân, chọn phương án ít gây nhầm lẫn nhất, ít bước nhất, dễ học, dễ
 scan, khớp workflow và dễ redesign.
 
+## Khu quản trị (B18)
+
+Khu quản trị dành cho `SYSTEM_ADMIN`, nằm trong cùng web app và gọi cùng REST
+`/v1/admin/*` mà CLI `nexa admin` dùng. Backend quyết định authorization, state
+machine và scheduler; UI chỉ hiện/ẩn và giải thích. Admin lần đầu phải trả lời
+được: hệ thống có khỏe không, cần chú ý gì, làm được gì ở đây, mỗi thao tác có
+hậu quả gì và hoàn tác được không.
+
+**Mọi request `/v1/admin/*` (kể cả GET) ghi một dòng audit** cùng transaction.
+Vì vậy trang quản trị tải dữ liệu một lần khi mở, có nút `Làm mới` và dòng
+"Cập nhật lúc …"; không polling danh sách hay tổng quan (B18-R02). Ngoại lệ duy
+nhất là chi tiết worker trong lúc chuyển trạng thái (mục 6).
+
+### A1. Sitemap
+
+```text
+/admin                                  Tổng quan
+/admin/workers                          Worker (danh sách)
+/admin/workers/:workerId                Chi tiết worker: sức khỏe, inventory, sức chứa, thao tác
+/admin/jobs                             Hàng chờ toàn hệ thống (chỉ xem)
+                                        ?tenant_id=&user_id=&state=&waiting_reason=&created_after=&cursor=
+/admin/jobs/:jobId                      Chi tiết job (chỉ xem, không control)
+/admin/tenants                          Tenant ?cursor=
+/admin/tenants/:tenantId                Chi tiết tenant ?tab=info|members|policy
+/admin/users                            User ?cursor=
+/admin/users/:userId                    Chi tiết user
+/admin/policy                           Chính sách hệ thống: giới hạn toàn cục, chế độ vận hành
+/admin/fairness                         Fairness ?from=&to=&bucket=&tenant_id=
+/admin/recovery                         Sự kiện khôi phục ?from=&to=&cursor=
+/admin/audit                            Audit ?from=&to=&action=&cursor=
+/admin/*                                "Không tìm thấy trang" trong khung quản trị
+```
+
+- Filter, khoảng thời gian, tab và cursor nằm trên URL (chia sẻ link, nút Back
+  đúng). Cursor hỏng hoặc đổi filter → về trang đầu kèm thông báo.
+- Không có `/admin/memberships`: membership thuộc tenant (tab `Thành viên`).
+  Không có API membership theo user (B18-R10).
+- Tenant policy là tab `Chính sách` của tenant, không phải trang riêng.
+
+### A2. Navigation
+
+| Vùng | Nội dung | Ghi chú |
+|---|---|---|
+| Global nav (header) | `Jobs`, `Dữ liệu` khi có tenant gần nhất; `Quản trị` khi session có `SYSTEM_ADMIN` | `Quản trị` hiện cả khi admin không có membership (B18-R13): global nav không còn phụ thuộc tenant. |
+| Khung quản trị | Tiêu đề "Quản trị hệ thống"; dòng cố định "Mọi thao tác và lượt xem trong khu này đều được ghi audit"; nút `Về khu tenant` khi user có membership | Nút về tenant gần nhất (memory) hoặc tenant mặc định. |
+| Secondary nav | **Vận hành**: Tổng quan, Worker, Hàng chờ, Khôi phục · **Tổ chức**: Tenant, User · **Chính sách**: Hệ thống · **Giám sát**: Fairness, Audit | Nhóm là nhãn chữ nhỏ; mục đang mở có `aria-current="page"`. |
+| Breadcrumb | `Worker › <id>`, `Hàng chờ › Job <id>`, `Tenant › <slug>`, `User › <username>` | Chỉ ở trang chi tiết. |
+| Banner chế độ | Khi lần đọc global policy gần nhất có `operational_mode ≠ NORMAL`: "Hệ thống đang ở chế độ …" + link `Chính sách hệ thống` | Lấy từ lần đọc gần nhất (Tổng quan hoặc Chính sách), không gọi thêm API. |
+
+Dưới 768 px: secondary nav là một thanh ngang tự xuống dòng ngay dưới tiêu đề,
+nhóm vẫn có nhãn; không hamburger (như UX-A11). Bảng rộng nằm trong
+`.table-wrap` cuộn ngang riêng; trang không cuộn ngang.
+
+Route guard: khu `/admin` chỉ render khi `session.system_roles` có
+`SYSTEM_ADMIN`; ngược lại hiện "Cần quyền quản trị hệ thống" và **không gửi**
+request `/v1/admin/*` nào. Đây chỉ là hiển thị; backend vẫn trả 403.
+
+### A3. Danh sách trang
+
+Trạng thái chung mọi trang: `Đang tải…`; `ErrorPanel` (thông điệp tiếng Việt,
+request_id, `Thử lại`); quyền bị từ chối → "Cần quyền quản trị hệ thống"; 503 có
+Retry-After → "Thử lại sau khoảng N giây"; WRITE_FROZEN → banner chế độ, trang
+đọc vẫn chạy, mutation hiện lý do 409 của server. "Admin lần đầu" = hệ thống mới
+chỉ có tenant/user seed: mỗi danh sách trống có hướng dẫn bước tiếp theo.
+
+Cột "Audit khi mở" = số request `/v1/admin/*` (= số dòng audit) khi mở trang
+với tham số mặc định; `Làm mới` tốn đúng số đó lần nữa.
+
+| Trang | Mục đích / việc chính | Primary · secondary action | Trạng thái riêng | Audit khi mở | Bước tiếp theo |
+|---|---|---|---|---|---|
+| Tổng quan `/admin` | Hệ thống khỏe không, cần chú ý gì | `Làm mới` · link tới Worker/Khôi phục/Chính sách | Chưa có worker: "Chưa có worker nào đăng ký; khởi động worker cục bộ"; mục "Cần chú ý": worker không READY, worker không ENABLED, có QUARANTINED, chế độ ≠ NORMAL, có sự kiện khôi phục 24 h | 5 (policy, workers, allocations HELD, allocations QUARANTINED, recovery 24 h) | Mở worker / sự kiện |
+| Worker `/admin/workers` | Danh sách worker (single-node: thường 1) | Mở chi tiết · `Làm mới` | Trống: như trên | 1 | Chi tiết worker |
+| Chi tiết worker | Sức khỏe, heartbeat, inventory, sức chứa, allocation đang giữ; drain/disable/enable | Thao tác theo ma trận mục A6 · `Làm mới` | Inventory null: "Worker chưa gửi inventory"; danh sách allocation trên 100: "chưa đầy đủ"; đang chuyển trạng thái: tự cập nhật | 3 (worker, HELD, QUARANTINED); mỗi lần tự cập nhật 3 | Chờ hoàn tất; Hàng chờ |
+| Hàng chờ `/admin/jobs` | Xem job mọi tenant, lọc | Lọc · trang sau/trước/đầu · mở chi tiết | Trống: "Chưa có job nào"; không khớp filter: "Không có job khớp bộ lọc" + `Xóa bộ lọc` | 2 (jobs, tenants trang đầu ≤ 100 để hiện slug) | Chi tiết job |
+| Chi tiết job | Thông tin job chỉ xem | `Mở trong khu tenant` (khi admin là thành viên tenant) | 404: "Không tìm thấy job"; ghi chú "Khu quản trị chỉ xem. Điều khiển job cần là thành viên của tenant" | 1 | Khu tenant |
+| Tenant `/admin/tenants` | Danh sách, tạo tenant | `Tạo tenant` · mở chi tiết | Trống: "Chưa có tenant nào. Tạo tenant đầu tiên" | 1 | Chi tiết tenant |
+| Chi tiết tenant | Thông tin, thành viên, chính sách | Info: `Đổi tên`, `Tắt`/`Bật` (một PATCH tenant tại một thời điểm: khi một nút đang gửi, nút kia disabled, B18-RV04) · Thành viên: `Thêm thành viên`, đổi vai trò, `Xóa` · Chính sách: `Lưu thay đổi` | Tenant tắt: nhãn "Đã tắt"; không có thành viên: hướng dẫn thêm; hạn mức tài nguyên = 0: cảnh báo | info 1; thành viên 2 (+1 users khi mở dialog thêm); chính sách 2 | Thêm thành viên → chính sách |
+| User `/admin/users` | Danh sách, tạo user | `Tạo user` · mở chi tiết | Trống hiếm (luôn có admin) | 1 | Chi tiết user / thêm vào tenant |
+| Chi tiết user | Đổi tên, đặt lại mật khẩu, bật/tắt, quyền hệ thống | Từng form riêng, mỗi form một xác nhận | User là admin cuối: server trả 409, hiện lý do | 1 | Tenant (membership quản lý ở tenant) |
+| Chính sách hệ thống `/admin/policy` | Giới hạn job tồn đọng toàn cục, chế độ vận hành | `Lưu giới hạn` · `Chuyển chế độ` | WRITE_FROZEN: ô giới hạn bị khóa kèm lý do | 1 | Tổng quan |
+| Fairness `/admin/fairness` | Thời gian tài nguyên trội theo tenant và bucket | `Xem báo cáo` | Kiểm tra trước khi gửi (mục A7); không có dữ liệu: "Không có phân bổ nào trong khoảng này" | 2 (fairness với khoảng mặc định 24 h/1 h, tenants trang đầu) | Tenant |
+| Khôi phục `/admin/recovery` | Sự kiện khôi phục/fence/quarantine/checkpoint | Lọc khoảng · trang | Trống: "Không có sự kiện khôi phục trong khoảng này" | 1 | Chi tiết job (admin) |
+| Audit `/admin/audit` | Ai làm gì, khi nào | Lọc khoảng + action · trang | Ghi chú "Danh sách gồm cả lượt xem của quản trị viên"; trống | 1 | – |
+
+### A4. Component mới hoặc mở rộng
+
+| Component | Mới/mở rộng | Hành vi |
+|---|---|---|
+| `GlobalNav` / `AppLayout` | mở rộng | Render khi có tenant **hoặc** là admin; slot `Quản trị` (B18-R13) |
+| `AppErrorBoundary` | mới | Lỗi render bất kỳ → "Đã xảy ra lỗi hiển thị" + `Tải lại trang`; không lộ stack (B18-R15). Một boundary ngoài cùng và một boundary quanh trang trong layout (khóa theo `pathname`): navigation vẫn hiện, chuyển route khác thì xóa lỗi (B18-RV10) |
+| `refreshCsrf` (`auth/csrfRefresh.ts`) | mở rộng | Gắn với user mà request **đã được gửi dưới tên**: các refresh đồng thời dùng chung một lần `GET /v1/auth/session`; chỉ gửi lại khi phiên đọc được thuộc đúng user đó; request gửi khi chưa biết user, hoặc phiên thuộc user khác → không gửi lại (`SESSION_SWITCHED`), người chờ đầu tiên xóa state, về `/`, "Phiên đăng nhập đã đổi sang tài khoản khác" (B18-R14, B18-RV03) |
+| `IntentSlot` (`features/admin/intent.ts`) | mới | Intent + giá trị đã gửi sống ở trang, không ở dialog: hủy rồi mở lại dialog khi kết quả còn chưa chắc (mạng/timeout/5xx proxy) → điền lại giá trị và gửi lại cùng Idempotency-Key, cùng `If-Match` đầu; kết quả chắc chắn (thành công/412/409) → bỏ giá trị (kể cả mật khẩu) (B18-RV10) |
+| `NoTenantPage` | mở rộng | Admin không membership: link `Mở khu quản trị` |
+| `AdminGuard` | mới | Kiểm `SYSTEM_ADMIN` trước khi render khu quản trị |
+| `AdminLayout` | mới | Tiêu đề, ghi chú audit, secondary nav, `Về khu tenant`, banner chế độ |
+| `RefreshBar` | mới | "Cập nhật lúc …" + `Làm mới` (+ trạng thái tự cập nhật ở worker) |
+| `RangeFields` | mới | from/to theo giờ địa phương (`datetime-local`), gửi RFC3339 UTC; preset 1 giờ/24 giờ/7 ngày; khoảng mặc định được ghi lên URL (`replace`) một lần khi mở Audit/Khôi phục/Fairness, nên tải lại và trang sau giữ đúng cận (`useUrlRange`, B18-RV10) |
+| `CapacityTable` | mới | Allocatable (inventory) · đang giữ (HELD + QUARANTINED) · còn trống ước tính; cờ "chưa đầy đủ" |
+| `WorkerActions` + `TransitionStatus` | mới | Ma trận A6, dialog có lý do, chữ chờ/hoàn tất theo dữ liệu API |
+| `ConflictCompare` | mới | 412 ở form chính sách: giá trị server cạnh giá trị đang sửa |
+| `DecimalInput` (hàm `parseDecimal`) | mới | Nhận `0,5` hoặc `0.5`; lỗi gắn vào field |
+| `ConfirmDialog`, `ErrorPanel`, `Pager`, `ShortId`, `Time`, `StatusBadge`, `Tabs`, `Notice`, `EmptyState` | dùng lại | Như B17 |
+
+### A5. Workflow quản trị (bước → trang → API)
+
+| ID | Bước | Trang | API |
+|---|---|---|---|
+| A-01 | Đăng nhập; admin có membership vào tenant như B17 và thấy `Quản trị`; admin không membership thấy `Mở khu quản trị` (trang không tenant) và `Quản trị` trên nav | `/` → `/admin` | `GET /v1/auth/session` |
+| A-02 | Xem tổng quan: chế độ, giới hạn, worker, sức chứa, cần chú ý, sự kiện 24 h | `/admin` | `GET /v1/admin/policy`, `/workers?page_size=10`, `/allocations?state=HELD&page_size=100`, `/allocations?state=QUARANTINED&page_size=100`, `/recovery-events?from&to&page_size=10` |
+| A-03 | Drain: chi tiết worker → `Ngừng nhận job` → lý do → xác nhận → chờ "không còn job đang chạy" → `Bật lại` | chi tiết worker | `POST /v1/admin/workers/{id}/drain` (If-Match, Idempotency-Key, `{reason}`) → tự cập nhật `GET /workers/{id}` + allocations → `POST …/enable` |
+| A-04 | Disable: `Tắt worker` → lý do → chờ worker xác nhận dọn dẹp → `Bật lại` (409 nếu còn QUARANTINED) | chi tiết worker | `POST …/disable` → tự cập nhật → `POST …/enable` |
+| A-05 | Lọc hàng chờ theo tenant/user/trạng thái/lý do chờ/thời điểm → trang sau → chi tiết | `/admin/jobs` → chi tiết | `GET /v1/admin/jobs?…`, `GET /v1/admin/tenants?page_size=100`, `GET /v1/admin/jobs/{id}` |
+| A-06 | Tạo tenant (slug, tên) → chi tiết → đổi tên / tắt / bật | Tenant → chi tiết | `POST /v1/admin/tenants`, `GET/PATCH /v1/admin/tenants/{id}` |
+| A-07 | Tạo user (tên đăng nhập, tên, mật khẩu ×2, quyền hệ thống) → chi tiết: đổi tên, đặt lại mật khẩu, bật/tắt, quyền | User → chi tiết | `POST /v1/admin/users`, `GET/PATCH /v1/admin/users/{id}` |
+| A-08 | Thêm thành viên (chọn user hoặc dán user ID, vai trò) → đổi vai trò → xóa; 412 → tải lại, giải thích trong dialog, giữ user/vai trò đã chọn (membership đích đã mất khi đổi vai trò/xóa → đóng dialog, báo trên trang) | tenant `?tab=members` | `GET /memberships` (ETag = MembershipSet), `POST /memberships`, `DELETE /memberships/{user_id}`; `GET /v1/admin/users?page_size=100` khi mở dialog |
+| A-09 | Sửa trọng số/hạn mức → lưu (chỉ field đổi) → 412: so sánh; 409: lý do server + gợi ý | tenant `?tab=policy` | `GET/PATCH /v1/admin/tenants/{id}/policy` |
+| A-10 | Sửa giới hạn toàn cục; chuyển chế độ theo ma trận A7 | `/admin/policy` | `GET/PATCH /v1/admin/policy` |
+| A-11 | Chọn khoảng, bucket, tenant → xem bảng + tổng theo tenant | `/admin/fairness` | `GET /v1/admin/fairness?from&to&bucket_seconds[&tenant_id]` |
+| A-12 | Xem sự kiện khôi phục theo khoảng → trang → mở job | `/admin/recovery` | `GET /v1/admin/recovery-events?from&to&cursor` |
+| A-13 | Lọc audit theo khoảng + action → trang | `/admin/audit` | `GET /v1/admin/audit?from&to&action&cursor` |
+| A-14 | Lỗi: 403, 409, 412, 503/Retry-After, WRITE_FROZEN, cursor hỏng | tại chỗ | mục "Ánh xạ lỗi" (phần quản trị) |
+
+### A6. Ma trận thao tác worker
+
+UI chỉ hiện/ẩn; server quyết định (`src/nexa/application/admin_workers.py`).
+Mọi thao tác có ô lý do bắt buộc (1–256 ký tự), `If-Match` = ETag của lần
+`GET worker` gần nhất, một Idempotency-Key cho mỗi lần xác nhận.
+
+| admin_state | `Ngừng nhận job` (drain) | `Tắt worker` (disable) | `Bật lại` (enable) |
+|---|---|---|---|
+| ENABLED | hiện | hiện | ẩn |
+| DRAINING | ẩn | hiện | hiện |
+| DISABLED | ẩn | ẩn | hiện |
+
+| Thao tác | Hậu quả (chữ trong dialog) | Hoàn tác | Chữ đang chờ | Chữ hoàn tất (chỉ khi API cho thấy) |
+|---|---|---|---|---|
+| Drain | "Worker ngừng nhận job mới. Job đang chạy tiếp tục tới khi kết thúc. Không dừng job nào. Hoàn tác bằng Bật lại." | `Bật lại` | "Đang chờ n job đang chạy kết thúc" | không còn allocation HELD → "Đã ngừng nhận job; không còn job đang chạy" |
+| Disable | "Worker ngừng nhận job mới. Mọi lần chạy đang có quyền bị thu hồi (fence) và được yêu cầu dừng. Tài nguyên giữ ở trạng thái QUARANTINED, vẫn tính vào hạn mức, cho tới khi worker xác nhận dọn dẹp. Job sẽ được khôi phục ở lần chạy mới theo checkpoint nếu có." | `Bật lại` sau khi dọn xong | "Đang chờ worker xác nhận dọn dẹp" (còn n QUARANTINED) | không còn QUARANTINED → "Worker đã xác nhận dọn dẹp xong" |
+| Enable | "Chỉ bật được khi worker có heartbeat mới đạt READY, đã reconcile và không còn phân bổ QUARANTINED." | Drain/Tắt | "Đã bật; đang chờ worker báo READY" | `health = READY` → "Worker sẵn sàng nhận job" |
+
+- DISABLED và trang đầu có QUARANTINED: ghi chú "Còn n phân bổ chờ worker xác
+  nhận dọn dẹp; máy chủ sẽ từ chối bật lại cho tới khi dọn xong". Nút `Bật lại`
+  vẫn bấm được; 409 hiện lý do server.
+- Không suy trạng thái từ 202 hay từ thời gian trôi qua.
+- Trang HELD/QUARANTINED đọc **trước** thao tác không chứng minh drain/disable
+  đã xong (job có thể vừa được đặt lên worker): sau drain/disable trang hiện
+  "Đang kiểm tra lại phân bổ sau thao tác" và chỉ hiện chữ hoàn tất từ lần đọc
+  sau thao tác (B18-R23).
+- **Tự cập nhật khi chuyển trạng thái**: sau thao tác (hoặc khi mở trang thấy
+  DRAINING còn HELD, DISABLED còn QUARANTINED, ENABLED chưa READY) đọc lại worker
+  + HELD + QUARANTINED (3 dòng audit mỗi lần): bắt đầu 5 s, ×1,5, trần 60 s;
+  dừng khi đạt chữ hoàn tất, khi rời trang, hoặc sau 10 phút ("Đã dừng tự cập
+  nhật, bấm Làm mới"); tạm dừng khi tab ẩn; tôn trọng Retry-After.
+- Sức chứa: allocatable lấy từ `inventory.allocatable`; đang giữ = tổng trang
+  đầu HELD + trang đầu QUARANTINED (page_size 100 mỗi loại); có trang sau → "chưa
+  đầy đủ" + link; "còn trống" ghi "ước tính trên giao diện; scheduler dùng dữ
+  liệu của server". Allocation không lọc được theo worker (single-node).
+- Sau mỗi thay đổi allocation (job bắt đầu, dọn dẹp xong) worker reconcile lại
+  và heartbeat kế tiếp mới đạt READY (vòng 5 s). Trong khoảng đó server từ chối
+  `Bật lại` với 409 "The latest worker heartbeat did not pass the READY checks"
+  hoặc "The current worker incarnation is not reconciled"; dialog hiện lý do,
+  admin bấm lại sau vài giây. Heartbeat làm đổi `health` hoặc `ready_at` (ví dụ
+  STARTING → READY ở trên) cũng tăng `version`, nên thao tác gửi từ trang đọc
+  trước đó có thể gặp 412: trang đọc lại worker, báo "Đối tượng vừa được thay
+  đổi (vA → vB). Kiểm tra rồi gửi lại."; thao tác còn áp dụng với trạng thái mới
+  → dialog **giữ nguyên** cùng lý do đã nhập và hiện câu đó trong dialog; không
+  còn áp dụng (nút đã biến mất) → đóng dialog, câu đó hiện trên trang; không tự
+  gửi lại (B18-RV05). Heartbeat đều đặn không đổi
+  `version`: trước B18, `discovered_at` mới của inventory ở mỗi heartbeat tạo
+  inventory version mới và tăng ETag mỗi 5 s; backend đã sửa để checksum
+  inventory bỏ `discovered_at` (B18-R22, phát hiện ở Playwright W2-admin, có
+  test PostgreSQL).
+
+### A7. Ma trận chế độ vận hành và quy tắc form chính sách
+
+Lựa chọn hiển thị theo `validate_mode_transition` (`src/nexa/domain/policy.py`);
+server quyết định. Bản hiện tại dùng `FailClosedRecoveryProofProvider`: mọi bằng
+chứng (freeze/restore/readiness) là `False`.
+
+| Chế độ hiện tại | Lựa chọn | Hậu quả (dialog) | Kết quả thật ở bản hiện tại |
+|---|---|---|---|
+| NORMAL | ADMISSION_OFF | "Ngừng nhận job mới từ mọi tenant; job đã nhận vẫn chạy." | 200 |
+| ADMISSION_OFF | NORMAL | "Nhận job trở lại. Cần bằng chứng sẵn sàng và worker đã reconcile." | 409 "Readiness and worker reconciliation are required" (B18-R05) |
+| ADMISSION_OFF | WRITE_FROZEN | "Khóa mọi thay đổi quản trị và nhận job. Cần mọi container đã dừng và allocation đã reconcile." | 409 "Freeze requires stopped containers and reconciled unreleased allocations" (B18-R18) |
+| WRITE_FROZEN | ADMISSION_OFF | "Mở lại thay đổi quản trị sau khi khôi phục đã được xác minh." | 409 "Restore verification is required before leaving frozen mode" (B18-R05) |
+
+- Mọi lựa chọn rời ADMISSION_OFF/WRITE_FROZEN kèm cảnh báo cố định "Bản hiện tại
+  chưa mở lại được chế độ qua API (cần bằng chứng khôi phục, B18-R05)". Dialog
+  NORMAL → ADMISSION_OFF nói rõ: **"Trong bản hiện tại không quay lại NORMAL qua
+  API được."**
+- Giới hạn toàn cục: số nguyên 1–1.000.000; dưới số job đang tồn đọng → server
+  409; WRITE_FROZEN → ô khóa kèm lý do. Giới hạn và chế độ là hai form, hai
+  intent.
+- Chính sách tenant: mọi field của `TenantPolicy`; `resource_limit` hiện và nhập
+  bằng core/GiB/GPU, gửi millicore/byte/số nguyên; trọng số và tốc độ gửi nhận
+  `0,5` hoặc `0.5`, gửi số JSON; ô hiển thị số ở dạng thập phân ngắn nhất đọc lại
+  đúng giá trị (không làm tròn `toFixed`), nên field không sửa không bao giờ bị
+  tính là đã đổi (B18-RV06); PATCH chỉ gồm field đã đổi (không đổi gì → nút
+  lưu disabled); hạn mức tài nguyên có thành phần CPU hoặc RAM bằng 0 → cảnh báo
+  "Tenant chưa chạy được job nào vì hạn mức tài nguyên bằng 0"; 412 →
+  `ConflictCompare`; 409 → lý do server + "Hãy ngừng nhận job (drain) hoặc chờ
+  job đang chạy kết thúc rồi thử lại".
+
+### A8. Chức năng được gộp và không lên navigation
+
+| Chức năng | Cách gộp / vào | Lý do |
+|---|---|---|
+| Membership | Tab `Thành viên` của tenant | MembershipSet có version theo tenant; không có API theo user (B18-R10) |
+| Tenant policy | Tab `Chính sách` của tenant | Quota thuộc tenant |
+| Allocation | Bảng trong chi tiết worker + số liệu tổng quan | Single-node; allocation chỉ có nghĩa cạnh sức chứa |
+| Global policy + chế độ | Một trang `Hệ thống` | Cùng object, cùng ETag |
+| Chi tiết job admin | Không lên nav; vào từ hàng chờ/khôi phục | Chỉ xem |
+| Template | Không có trong UI | Đăng ký template qua CLI/maintenance; không có REST admin template |
+| Log, metrics, storage, GC | Không có | B17-R01, B19 |
+
+### A9. Giả định UX (tiếp theo UX-A15)
+
+| ID | Giả định | Lý do | Cách đổi |
+|---|---|---|---|
+| UX-A16 | Khu quản trị ở `/admin/*`, không cần tenant trên URL | API admin không có tenant header; admin có thể không có membership | Bảng route `App.tsx` |
+| UX-A17 | Trang quản trị tải một lần + `Làm mới`; chỉ chi tiết worker tự cập nhật khi chuyển trạng thái | Mọi GET admin ghi audit (B18-R02) | `features/admin/transitionPoll.ts`, `TRANSITION_POLL` |
+| UX-A18 | Page size 25 cho bảng quản trị; 100 cho allocation (sức chứa), danh sách tenant/user dùng để hiện tên | Đủ mật độ; tên chỉ từ trang đã tải (B18-R09) | `PAGE_SIZE` trong `api/limits.ts` |
+| UX-A19 | Khoảng mặc định 24 giờ cho fairness/khôi phục/audit, theo phút tròn (ô `datetime-local`), điểm cuối làm tròn **lên** phút kế tiếp để không mất dữ liệu của phút hiện tại; bucket mặc định 1 giờ | Câu hỏi thường gặp nhất là "hôm nay"; 24 bucket dễ đọc | `features/admin/fairness.ts`, `ranges.ts` (`defaultRange`) |
+| UX-A20 | Tên tenant/user chỉ lấy từ danh sách đã tải trong memory; không có thì hiện ID rút gọn | Không có API tra tên hàng loạt; mỗi lần tra là một dòng audit | Thay `ShortId` khi contract có tên |
+| UX-A21 | CPU nhập bằng core (tối đa 3 chữ số thập phân), RAM bằng GiB (làm tròn tới byte), GPU số nguyên; chấp nhận `,` và `.` | Admin nghĩ theo core/GiB; API dùng millicore/byte | `features/admin/units.ts` |
+| UX-A22 | Chỉ thao tác worker có ô lý do (bắt buộc) | Contract chỉ worker action nhận `reason`; các mutation khác không có trường lý do để gửi | Khi contract thêm `reason`, thêm vào dialog |
+| UX-A23 | Giới hạn toàn cục và chế độ là hai form, hai lần xác nhận | Hậu quả khác nhau, tránh gửi nhầm cả hai | `features/admin/policy/` |
+| UX-A24 | Chi tiết job admin chỉ hiện object Job (không tiến trình/sự kiện/lần chạy) | Các route đó cần tenant header và membership | Thêm khi có API admin tương ứng |
+| UX-A25 | Thêm thành viên: chọn trong 100 user đầu hoặc dán user ID | Không có tìm kiếm user | Khi có API tìm kiếm, thay ô chọn |
+| UX-A26 | Admin có membership vào khu tenant như B17 (link `Quản trị` trên nav); admin không membership thấy `Mở khu quản trị` ở `/` | Không đổi trang chủ của admin đang dùng tenant | `HomeRedirect` / `NoTenantPage` |
+| UX-A27 | Mật khẩu nhập hai lần, chỉ sống trong state của form, xóa ngay sau intent (thành công hay lỗi chắc chắn) | Không để mật khẩu ở URL/log/storage | `features/admin/users/` |
+| UX-A28 | Fairness tự chạy khi mở với tham số trên URL (mặc định 24 h/1 h) | Một dòng audit, admin thấy ngay dữ liệu | Bỏ `autoRun` trong `FairnessPage` |
+
 ## Ánh xạ lỗi
 
 Mọi lỗi đi qua `describeError()` (`web/src/api/errors.ts`): tiêu đề tiếng Việt
@@ -345,6 +583,18 @@ lỗi lập trình không bao giờ lộ message/stack.
 | `checksum_mismatch`, `payload_too_large`, `storage_unavailable` | Upload | Thông điệp riêng; tệp > 256 MiB bị chặn trước khi đọc, kèm lệnh CLI |
 | `one_time_secret_unavailable` (409) | Token | Giải thích, gợi ý thu hồi rồi tạo mới |
 | mạng/timeout/phản hồi sai định dạng | client chung | "Không kết nối được máy chủ" / "Máy chủ không phản hồi kịp" / "…không đúng định dạng"; form/control giữ Idempotency-Key cho lỗi mạng, timeout và 5xx không có envelope (do proxy sinh, ví dụ 502 rỗng khi API chết sau commit), nên gửi lại replay kết quả đã commit thay vì tạo trùng; 5xx có envelope là câu trả lời server đã lưu theo key → intent mới |
+
+Phần quản trị (`web/src/features/admin/errors.ts`, `AdminErrorPanel`): dùng
+chung bảng trên, khác ở các dòng sau.
+
+| code (HTTP) | Nơi xử lý | Hành vi |
+|---|---|---|
+| `permission_denied` (403) | mọi trang `/admin` | "Cần quyền quản trị hệ thống", không gợi ý; route guard chặn trước khi gửi `/v1/admin` nếu session không có `SYSTEM_ADMIN` |
+| `validation_failed` (400/422) | form tenant/user/chính sách | Gắn câu của server vào field nếu nhận ra tên field (`validationField`); không nhận ra → ErrorPanel với "Chi tiết từ máy chủ" |
+| `version_conflict` (412) | tenant, user, membership, chính sách, worker | Đọc lại đối tượng, "Đối tượng vừa được thay đổi (vA → vB). Kiểm tra rồi gửi lại."; dialog membership/worker giữ nguyên giá trị đã nhập và hiện câu đó tại chỗ; chính sách hiện bảng so sánh giá trị đã nhập với giá trị server; lần gửi sau là intent mới với ETag mới; không tự gửi lại |
+| `state_conflict` (409) | mọi thao tác quản trị | ErrorPanel tại form/dialog với "Chi tiết từ máy chủ: <lý do>" (ví dụ "Administrative mutations are disabled while writes are frozen", "The latest worker heartbeat did not pass the READY checks", "Restore verification is required before leaving frozen mode"); chính sách tenant thêm gợi ý drain |
+| `invalid_cursor` (400) | Hàng chờ, Audit, Khôi phục, Tenant, User | Như B17: về trang đầu cùng bộ lọc, "Vị trí trang không còn hợp lệ, đã quay về trang đầu" |
+| Khoảng thời gian sai (> 31 ngày, from > to) | Fairness, Khôi phục, Audit | Chặn trong form trước khi gửi; URL sai → "Không gửi báo cáo: …"; server vẫn trả 400 nếu gọi thẳng |
 
 ## Polling
 
@@ -411,9 +661,15 @@ web/
     features/submit/        SubmitPage, SweepPage, ArtifactPicker, params.ts, spec.ts, sweep.ts, defaults.ts
     features/data/          DataPage, UploadPanel, files.ts
     features/account/       TokensPage
+    features/admin/         B18: AdminLayout (guard, nav, banner chế độ), OverviewPage, workers/,
+                            jobs/ (chỉ xem), tenants/, users/, policy/, monitor/ (fairness,
+                            khôi phục, audit); logic thuần có test: actions.ts (ma trận worker),
+                            modes.ts, policyForm.ts, forms.ts, ranges.ts, fairness.ts, intent.ts,
+                            transitionPoll.ts, errors.ts, labels.ts, units.ts, overview.ts
     styles/                 tokens.css, layout.css, components.css
-  tests/e2e/                fixture.ts, global-setup.ts, support.ts;
-                            w1/ (desktop), admission/, mobile/, w2/
+  tests/e2e/                fixture.ts, global-setup.ts, support.ts, admin-support.ts;
+                            w1/ (desktop), admission/, mobile/, w2/; B18: admin/, admin-mode/,
+                            admin-frozen/, w2-admin/, admin-mobile/
 ```
 
 Unit test (`*.test.ts`) nằm cạnh mã. Không có UI kit, CSS framework, CSS-in-JS,
@@ -454,6 +710,12 @@ $S run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admission
 # W2: thêm coordinator + worker Docker + image cpu-iterative build từ source hiện tại
 NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:<digest> NEXA_B17_WORKER_IMAGE=<worker image> \
   $S run --tier w2 -- pnpm --dir web exec playwright test --project=w2
+# B18 khu quản trị — mỗi lệnh một stack riêng:
+$S run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admin
+$S run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admin-mode   # để lại ADMISSION_OFF
+$S run --tier w1 --operational-mode WRITE_FROZEN -- pnpm --dir web exec playwright test --project=w1-admin-frozen
+NEXA_B17_CPU_IMAGE_REF=… NEXA_B17_WORKER_IMAGE=… \
+  $S run --tier w2 -- pnpm --dir web exec playwright test --project=w2-admin --project=w2-admin-mobile
 # Dọn phần còn lại sau khi bị ngắt giữa chừng
 $S cleanup
 ```
@@ -484,5 +746,30 @@ commit; storageState nằm trong thư mục state của harness.
   luôn có vì đọc từ `retry_of_job_id`.
 - Không có tên user/tenant (B17-R05), không liệt kê sweep (B17-R10), sweep child
   không có giá trị tham số (B17-R16).
-- Admin UI (B18), GPU (B23), Compose/UI image sản phẩm (B21/B25), Playwright
-  trong CI (B17-R14) chưa thuộc B17.
+- GPU (B23), Compose/UI image sản phẩm (B21/B25), Playwright trong CI (B17-R14)
+  chưa có. Giới hạn riêng của khu quản trị ở cuối mục này.
+
+Khu quản trị:
+
+- Không có API tổng sức chứa hay đếm hàng chờ (B18-R03/R04): sức chứa cộng
+  trang đầu HELD + QUARANTINED, có cờ "chưa đầy đủ"; hàng chờ không hiện tổng.
+- Rời ADMISSION_OFF/WRITE_FROZEN cần bằng chứng khôi phục chưa có (B18-R05);
+  ADMISSION_OFF → WRITE_FROZEN luôn 409 vì proof provider fail closed (B18-R18).
+  UI hiện lý do của server; trạng thái WRITE_FROZEN chỉ kiểm được trên stack
+  test seed thẳng vào DB.
+- Service hẹp hơn contract: slug 3–63 ký tự (contract 3–64, B18-R19), GPU của
+  hạn mức tenant ≤ 1 (contract ≤ 64, B18-R20); UI hiện 422 của server tại field.
+- Đăng nhập của user thường khi WRITE_FROZEN nhận 401 "Invalid credentials"
+  (server không phân biệt), nên thông báo khóa ghi của B17 không xuất hiện
+  (B18-R21).
+- Sau thay đổi allocation, `Bật lại` có thể bị 409/412 trong vài giây (A6,
+  B18-R22); admin bấm lại.
+- Audit `artifact.upload.commit` của upload do worker gửi ghi `actor_type`
+  USER với id của worker (backend B07), nên trang Audit hiện "User …<worker>"
+  cho "Tải dữ liệu lên"; UI hiện đúng dữ liệu server (B18-R24).
+- Mỗi GET admin là một dòng audit; danh sách không tự cập nhật (B18-R02).
+- Tên tenant/user chỉ từ danh sách đã tải (B18-R09); membership chỉ quản lý
+  theo tenant (B18-R10).
+- Playwright W2-admin giữ cửa sổ QUARANTINED bằng `docker pause` container
+  worker của chính harness (`nexa_b17_worker_*`); đây là kỹ thuật test, không
+  phải thao tác vận hành.

@@ -1,0 +1,73 @@
+# B18 W2-admin chain3 run becccfec: DB timeline (UTC, polled from nexa_b05_test_b18e2e during the run; ids truncated) and end state
+      t       |                                    what                                     
+--------------+-----------------------------------------------------------------------------
+ 12:18:41.025 | event JOB_ACCEPTED Job accepted job=…a286f1
+ 12:18:41.224 | alloc HELD job=…a286f1
+ 12:18:41.224 | event JOB_DISPATCHING job=…a286f1
+ 12:18:43.291 | event ATTEMPT_STARTED attempt_started job=…a286f1
+ 12:18:45.119 | audit admin.worker.drain v4→v5 "b18 e2e drain"
+ 12:18:45.200 | event JOB_ACCEPTED Job accepted job=…34f091
+ 12:19:14.864 | event RESULT_RECOGNIZED result_recognized job=…a286f1
+ 12:19:20.936 | alloc RELEASED (VERIFIED_CLEANUP) job=…a286f1
+ 12:19:37.217 | audit admin.worker.enable v11→v12 "b18 e2e enable after drain"
+ 12:19:37.355 | event JOB_DISPATCHING job=…34f091
+ 12:19:37.355 | alloc HELD job=…34f091
+ 12:19:38.946 | event ATTEMPT_STARTED attempt_started job=…34f091
+ 12:19:42.936 | event RESULT_RECOGNIZED result_recognized job=…34f091
+ 12:19:44.322 | event JOB_ACCEPTED Job accepted job=…c3e9a0
+ 12:19:49.879 | alloc RELEASED (VERIFIED_CLEANUP) job=…34f091
+ 12:19:49.968 | alloc HELD job=…c3e9a0
+ 12:19:49.968 | event JOB_DISPATCHING job=…c3e9a0
+ 12:19:51.420 | event ATTEMPT_STARTED attempt_started job=…c3e9a0
+ 12:19:53.871 | audit admin.worker.disable v15→v16 "b18 e2e disable"
+ 12:19:53.876 | event ATTEMPT_FENCED WORKER_DISABLED job=…c3e9a0
+ 12:19:53.876 | alloc QUARANTINED job=…c3e9a0
+ 12:20:06.577 | alloc RELEASED (VERIFIED_CLEANUP) job=…c3e9a0
+ 12:20:08.623 | event RETRY_READY BACKOFF_ELAPSED job=…c3e9a0
+ 12:20:17.562 | audit admin.worker.enable v16→v17 "b18 e2e enable after cleanup"
+ 12:20:20.340 | event JOB_DISPATCHING job=…c3e9a0
+ 12:20:20.340 | alloc HELD job=…c3e9a0
+ 12:20:20.920 | event CHECKPOINT_FALLBACK_TO_INPUT CHECKPOINT_FALLBACK_TO_INPUT job=…c3e9a0
+ 12:20:21.663 | event ATTEMPT_STARTED attempt_started job=…c3e9a0
+ 12:20:56.762 | event CHECKPOINT_COMMITTED CHECKPOINT_COMMITTED job=…c3e9a0
+ 12:20:58.983 | event RESULT_RECOGNIZED result_recognized job=…c3e9a0
+ 12:21:03.588 | audit admin.worker.drain v18→v19 "b18 e2e drain by admin one"
+ 12:21:03.882 | audit admin.worker.enable v19→v20 "b18 e2e enable by admin two"
+(32 rows)
+
+  job   |   state   |    c     |    u     
+--------+-----------+----------+----------
+ a286f1 | SUCCEEDED | 12:18:41 | 12:19:20
+ 34f091 | SUCCEEDED | 12:18:45 | 12:19:49
+ c3e9a0 | SUCCEEDED | 12:19:44 | 12:20:58
+(3 rows)
+
+ admin_state | health | version 
+-------------+--------+---------
+ ENABLED     | READY  |      20
+(1 row)
+
+# admin.% audit rows of the whole w2-admin run
+           action           | count 
+----------------------------+-------
+ admin.allocation.list      |    38
+ admin.audit.list           |     3
+ admin.fairness.query       |     3
+ admin.job.get              |     1
+ admin.membership.list      |     3
+ admin.membership.upsert    |     9
+ admin.policy.global.get    |     1
+ admin.policy.tenant.get    |     4
+ admin.policy.tenant.update |     3
+ admin.recovery_event.list  |     2
+ admin.tenant.create        |     3
+ admin.tenant.get           |     1
+ admin.tenant.list          |     1
+ admin.user.create          |     9
+ admin.worker.disable       |     1
+ admin.worker.drain         |     2
+ admin.worker.enable        |     3
+ admin.worker.get           |    18
+ admin.worker.list          |    31
+(19 rows)
+

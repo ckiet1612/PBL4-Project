@@ -1,0 +1,46 @@
+[b17-stack] run 5974e6b5 tier=w2 network=bridge dist index=26f823701cc6
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+INFO  [alembic.runtime.migration] Running upgrade 20260929_0022 -> 20261001_0023, Index the cross-tenant admin job list and the fairness ledger period (B18).
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 50006 (bind 127.0.0.1)
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:50007
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] coordinator started
+[b17-stack] worker READY: cpu image sha256:6382e10aa8fa, worker sha256:a2b0aace4881
+[b17-stack] running: pnpm --dir web exec playwright test --project=w2-admin --project=w2-admin-mobile
+
+Running 5 tests using 1 worker
+
+  ✓  1 [w2-admin] › tests/e2e/w2-admin/01-workers.spec.ts:135:1 › 14–15. worker inventory and capacity, a RUNNING job's HELD allocation, drain waits for it, enable dispatches the queued job (1.2m)
+
+  ✓  2 [w2-admin] › tests/e2e/w2-admin/01-workers.spec.ts:216:1 › 16. disable fences a RUNNING job; QUARANTINED blocks enable until the worker cleans up; the job recovers (1.1m)
+  ✓  3 [w2-admin] › tests/e2e/w2-admin/01-workers.spec.ts:305:1 › 17. worker action 412: a second admin acts on a stale page and is told to re-check (1.8s)
+  ✓  4 [w2-admin] › tests/e2e/w2-admin/02-fairness.spec.ts:17:1 › 18. fairness with real allocations: tenants that ran have service > 0; the tenant filter narrows the report (577ms)
+  ✓  5 [w2-admin-mobile] › tests/e2e/admin-mobile/mobile.spec.ts:8:1 › 19. mobile admin: nav, overview, worker detail and tenant policy form without horizontal scroll (780ms)
+
+  5 passed (2.4m)
+[b17-stack] command exit=0 in 146.5s
+[b17-stack] cleaned up run 5974e6b5

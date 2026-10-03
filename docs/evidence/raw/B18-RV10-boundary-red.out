@@ -1,0 +1,40 @@
+
+ RUN  v5.0.2 /Users/macbook/Documents/University Library/PBL4-Project/web
+
+ ❯ src/app/AppErrorBoundary.test.ts (3 tests | 2 failed) 4ms
+   ❯ AppErrorBoundary resets on navigation (B18-RV10) (2)
+     × a new route clears the fallback; the same route keeps it 2ms
+     × without a reset key (the outermost boundary) the fallback stays until reload 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/AppErrorBoundary.test.ts > AppErrorBoundary resets on navigation (B18-RV10) > a new route clears the fallback; the same route keeps it
+TypeError: AppErrorBoundary.getDerivedStateFromProps is not a function
+ ❯ src/app/AppErrorBoundary.test.ts:13:29
+     11| describe("AppErrorBoundary resets on navigation (B18-RV10)", () => {
+     12|   it("a new route clears the fallback; the same route keeps it", () =>…
+     13|     expect(AppErrorBoundary.getDerivedStateFromProps({ resetKey: "/adm…
+       |                             ^
+     14|       failed: false,
+     15|       resetKey: "/admin/users",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/app/AppErrorBoundary.test.ts > AppErrorBoundary resets on navigation (B18-RV10) > without a reset key (the outermost boundary) the fallback stays until reload
+TypeError: AppErrorBoundary.getDerivedStateFromProps is not a function
+ ❯ src/app/AppErrorBoundary.test.ts:21:29
+     19|
+     20|   it("without a reset key (the outermost boundary) the fallback stays …
+     21|     expect(AppErrorBoundary.getDerivedStateFromProps({}, { failed: tru…
+       |                             ^
+     22|   });
+     23| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  19:23:59
+   Duration  132ms (transform 58%, import 28%, tests 8%, worker 5%)
+

@@ -1,0 +1,42 @@
+## ruff
+All checks passed!
+EXIT=0
+519 files already formatted
+EXIT=0
+## node v24.21.0 pnpm 11.9.0
+Scope: all 2 workspace projects
+Already up to date
+Done in 286ms using pnpm v11.9.0
+EXIT=0
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+EXIT=0
+$ tsc -b && vite build
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 172 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.48 kB │ gzip:   0.32 kB
+dist/assets/index-B-fVmwfX.css   12.62 kB │ gzip:   2.97 kB
+dist/assets/index-CYtK5Fb9.js   463.12 kB │ gzip: 133.77 kB
+
+✓ built in 172ms
+EXIT=0
+$ vitest run
+
+ RUN  v5.0.2 /Users/macbook/Documents/University Library/PBL4-Project/web
+
+
+ Test Files  28 passed (28)
+      Tests  197 passed (197)
+   Start at  19:33:17
+   Duration  958ms (transform 51%, import 24%, tests 20%, worker 5%)
+
+    Isolate  28 workers spawned · ~139ms startup each (spawn + environment, per file)
+             at least ~418ms faster with isolate: false — reuses workers across files instead of one per file
+
+EXIT=0
+## dist index
+9c9397bd5322
+index-B-fVmwfX.css
+index-CYtK5Fb9.js

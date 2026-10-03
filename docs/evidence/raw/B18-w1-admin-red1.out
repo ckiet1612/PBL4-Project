@@ -1,0 +1,126 @@
+[b17-stack] run 1dbf2c7e tier=w1 network=bridge dist index=4f9036eb5739
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+INFO  [alembic.runtime.migration] Running upgrade 20260929_0022 -> 20261001_0023, Index the cross-tenant admin job list and the fairness ledger period (B18).
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 64730 (bind 127.0.0.1)
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:64731
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] running: pnpm --dir web exec playwright test --project=w1-admin
+
+Running 16 tests using 1 worker
+
+  ✓   1 [w1-admin] › tests/e2e/admin/01-access.spec.ts:9:3 › 1. member_a: no admin link, guarded pages without any /v1/admin request, the API answers 403 (905ms)
+  ✓   2 [w1-admin] › tests/e2e/admin/01-access.spec.ts:9:3 › 1. admin_a: no admin link, guarded pages without any /v1/admin request, the API answers 403 (492ms)
+  ✓   3 [w1-admin] › tests/e2e/admin/01-access.spec.ts:34:1 › 1. a system admin without any membership gets the admin link and enters the area (466ms)
+  ✓   4 [w1-admin] › tests/e2e/admin/01-access.spec.ts:50:1 › 11. CSRF: an admin write without X-CSRF-Token is refused with 403 invalid_csrf (265ms)
+  ✓   5 [w1-admin] › tests/e2e/admin/01-access.spec.ts:70:1 › 10. no polling: two simulated minutes on Overview, Workers and Queue send no /v1/admin request (2.1s)
+  ✓   6 [w1-admin] › tests/e2e/admin/02-tenants.spec.ts:5:1 › 2a. create: a double click creates one tenant and opens it (533ms)
+  ✓   7 [w1-admin] › tests/e2e/admin/02-tenants.spec.ts:29:1 › 2b. the proxy answers 502 without an envelope after the commit: the resend reuses the key, one tenant (483ms)
+  ✓   8 [w1-admin] › tests/e2e/admin/02-tenants.spec.ts:67:1 › 2c. rename with the ETag of the latest read, then disable and enable through the dialog (758ms)
+  ✓   9 [w1-admin] › tests/e2e/admin/03-users.spec.ts:17:1 › 3. create a user with a password: it never leaves the form, the user signs in, disable revokes the open session (1.1s)
+  ✓  10 [w1-admin] › tests/e2e/admin/03-users.spec.ts:88:1 › 4. membership: add MEMBER → TENANT_ADMIN → remove with the MembershipSet ETag; a stale second admin gets 412 and no change (1.2s)
+  ✓  11 [w1-admin] › tests/e2e/admin/04-policy.spec.ts:16:1 › 5a. edit weight and resource limit; a stale second admin gets 412 with the server values side by side (886ms)
+  ✓  12 [w1-admin] › tests/e2e/admin/04-policy.spec.ts:62:1 › 5b. lowering the outstanding limit below committed QUEUED jobs is refused with the server reason; nothing changes (781ms)
+  ✓  13 [w1-admin] › tests/e2e/admin/04-policy.spec.ts:93:1 › 6. global outstanding limit: edit, then a stale second admin gets 412 and the first value stays (702ms)
+  ✘  14 [w1-admin] › tests/e2e/admin/05-queue.spec.ts:47:1 › 7. queue: tenant/state/waiting-reason filters, pages forward/back/first, broken cursor, read-only job detail (10.5s)
+  ✘  15 [w1-admin] › tests/e2e/admin/06-monitor.spec.ts:22:1 › 8. audit: the writes of scenarios 2–6 and admin reads with their reasons; action, time range and pages (814ms)
+  ✓  16 [w1-admin] › tests/e2e/admin/06-monitor.spec.ts:80:1 › 9. fairness and recovery: empty states, more than 31 days blocked in the form, bad parameters → 400 (596ms)
+
+
+  1) [w1-admin] › tests/e2e/admin/05-queue.spec.ts:47:1 › 7. queue: tenant/state/waiting-reason filters, pages forward/back/first, broken cursor, read-only job detail 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 1
+
+    - Array [
+    -   "01a0f70a-cc1c-70a2-ab28-1e7294476b00",
+    - ]
+    + Array []
+
+    Call Log:
+    - Timeout 10000ms exceeded while waiting on the predicate
+
+      106 |   const cancelled = (await adminJobs(admin, `tenant_id=${seed.tenants.b}&state=CANCELLED`)).map((job) => job.job_id);
+      107 |   expect(cancelled).toContain(cancelledB);
+    > 108 |   await expect.poll(() => shownIds(page)).toEqual(cancelled.slice(0, PAGE));
+          |                                           ^
+      109 |
+      110 |   // Job detail: read-only, no job control.
+      111 |   await page.locator("tbody tr").first().getByRole("link").first().click();
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/admin/05-queue.spec.ts:108:43
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/05-queue-7-queue-tenant-st-bd005-cursor-read-only-job-detail-w1-admin/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/05-queue-7-queue-tenant-st-bd005-cursor-read-only-job-detail-w1-admin/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/05-queue-7-queue-tenant-st-bd005-cursor-read-only-job-detail-w1-admin/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/05-queue-7-queue-tenant-st-bd005-cursor-read-only-job-detail-w1-admin/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [w1-admin] › tests/e2e/admin/06-monitor.spec.ts:22:1 › 8. audit: the writes of scenarios 2–6 and admin reads with their reasons; action, time range and pages 
+
+    Error: expect(received).toContain(expected) // indexOf
+
+    Expected value: "Tenant created"
+    Received array: []
+
+      63 |     const rows = await auditRows(page);
+      64 |     expect(rows.every((row) => row.action === action), action).toBe(true);
+    > 65 |     expect(rows.map((row) => row.reason)).toContain(reason);
+         |                                           ^
+      66 |   }
+      67 |
+      68 |   // Time range in the future: nothing matches.
+        at /Users/macbook/Documents/University Library/PBL4-Project/web/tests/e2e/admin/06-monitor.spec.ts:65:43
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/06-monitor-8-audit-the-wri-b5048-action-time-range-and-pages-w1-admin/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/06-monitor-8-audit-the-wri-b5048-action-time-range-and-pages-w1-admin/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/06-monitor-8-audit-the-wri-b5048-action-time-range-and-pages-w1-admin/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/06-monitor-8-audit-the-wri-b5048-action-time-range-and-pages-w1-admin/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [w1-admin] › tests/e2e/admin/05-queue.spec.ts:47:1 › 7. queue: tenant/state/waiting-reason filters, pages forward/back/first, broken cursor, read-only job detail 
+    [w1-admin] › tests/e2e/admin/06-monitor.spec.ts:22:1 › 8. audit: the writes of scenarios 2–6 and admin reads with their reasons; action, time range and pages 
+  14 passed (27.3s)
+[b17-stack] command exit=1 in 28.4s
+[b17-stack] cleaned up run 1dbf2c7e

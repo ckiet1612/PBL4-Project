@@ -1,0 +1,3 @@
+$ pytest --run-postgres -q tests/integration/test_migration_b18.py tests/integration/test_admin_fairness_b18.py tests/application/test_fairness_report_b18.py
+# full-suite failure before: test_b18_admin_reads_can_use_the_new_indexes (stale bucket_us/range_us bind names after the B18-R26 ms change)
+23 passed, 2 warnings in 18.39s

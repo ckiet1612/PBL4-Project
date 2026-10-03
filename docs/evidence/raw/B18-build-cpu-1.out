@@ -1,0 +1,47 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.27kB 0.0s done
+#1 WARN: InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE_REF} results in empty or invalid base image name (line 2)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/4] FROM docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+#4 resolve docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 0.0s done
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 304.99kB 0.1s done
+#5 DONE 0.1s
+
+#6 [2/4] RUN groupadd --gid 1000 nexa-runner     && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin nexa-runner     && groupadd --gid 1001 nexa-workload     && useradd --uid 1001 --gid 1001 --create-home --shell /usr/sbin/nologin nexa-workload     && mkdir -p /opt/nexa /run/nexa /var/lib/nexa /input /output     && chown -R nexa-runner:nexa-runner /run/nexa /var/lib/nexa /output     && chmod 0555 /input
+#6 DONE 0.6s
+
+#7 [3/4] COPY src/nexa /opt/nexa/nexa
+#7 DONE 0.2s
+
+#8 [4/4] COPY deploy/cpu-iterative/runner-config.json /etc/nexa/runner-config.json
+#8 DONE 0.0s
+
+#9 exporting to image
+#9 exporting layers
+#9 exporting layers 0.2s done
+#9 exporting manifest sha256:8a5517df764cfd9a6739e940b24660bf918e379130668b39ab1387e01761f6fb done
+#9 exporting config sha256:87c588decab0974f0dd5f5f14ed169c3819405f30d9b61ee86007aa9afaa1748 done
+#9 exporting attestation manifest sha256:8f63029fe56b927556223bc753f9cf1c00750d24b1405c65f14f4071975d5383 done
+#9 exporting manifest list sha256:6382e10aa8fa53b32e41aae516bb6a28dc1b4ce6f38bdfa1a5860ecea3b6967b done
+#9 naming to docker.io/nexa/cpu-iterative:b18 done
+#9 unpacking to docker.io/nexa/cpu-iterative:b18
+#9 unpacking to docker.io/nexa/cpu-iterative:b18 0.2s done
+#9 DONE 0.4s
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE_REF} results in empty or invalid base image name (line 2)
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/vepovk5o8xgmv7bvwvyf2kuvr

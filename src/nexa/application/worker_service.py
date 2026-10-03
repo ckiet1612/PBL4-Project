@@ -788,7 +788,11 @@ class WorkerService:
                 )
             now = clock_timestamp(session)
             inventory = self._inventory_payload(request)
-            checksum = jcs_request_hash(inventory)
+            # The agent re-discovers on every heartbeat: `discovered_at` alone is not a new
+            # inventory nor a visible change (contracts.md:100, B18-R22).
+            checksum = jcs_request_hash(
+                {key: value for key, value in inventory.items() if key != "discovered_at"}
+            )
             current_version = worker["current_inventory_version"]
             current_checksum = None
             if current_version is not None:

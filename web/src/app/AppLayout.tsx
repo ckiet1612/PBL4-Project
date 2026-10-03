@@ -1,10 +1,13 @@
 // Header, global nav, tenant picker and account menu for every signed-in page.
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
-import { useSession, useSessionContext, type SessionInfo } from "../auth/session";
+import { useEffect, useId, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from "react-router";
+import { isSystemAdmin, useSession, useSessionContext, type SessionInfo } from "../auth/session";
+import { Notice } from "../components/bits";
 import { ErrorPanel } from "../components/ErrorPanel";
+import { AppErrorBoundary } from "./AppErrorBoundary";
 import { shortId } from "../components/format";
 import { ROLE_LABELS } from "./labels";
+import { globalNavItems } from "./nav";
 
 /** Tenant on the URL, else the one used last in this SPA lifetime, else the first membership. */
 export function useCurrentTenant(): string | null {
@@ -18,37 +21,42 @@ export function useCurrentTenant(): string | null {
 export function AppLayout() {
   const session = useSession();
   const tenantId = useCurrentTenant();
+  const { sessionNotice, dismissSessionNotice } = useSessionContext();
+  const navItems = globalNavItems(tenantId, isSystemAdmin(session));
+  const { pathname } = useLocation();
   return (
     <div className="app">
       <header className="app-header">
         <Link to="/" className="brand">
           Nexa
         </Link>
-        {tenantId && <GlobalNav tenantId={tenantId} />}
+        {navItems.length > 0 && <GlobalNav items={navItems} />}
         <div className="header-tools">
           <TenantPicker session={session} current={tenantId} />
           <AccountMenu session={session} tenantId={tenantId} />
         </div>
       </header>
       <main className="app-main">
-        <Outlet />
+        {sessionNotice && <Notice onDismiss={dismissSessionNotice}>{sessionNotice}</Notice>}
+        {/* A different user in this tab (R14) must not see the previous user's page state. */}
+        {/* A render error replaces only the page; the nav stays and another route clears it. */}
+        <AppErrorBoundary resetKey={pathname}>
+          <Outlet key={session.user_id} />
+        </AppErrorBoundary>
       </main>
     </div>
   );
 }
 
-/** `adminSlot` is where B18 adds its area; B17 renders nothing there. */
-function GlobalNav({ tenantId, adminSlot }: { tenantId: string; adminSlot?: ReactNode }) {
+function GlobalNav({ items }: { items: ReturnType<typeof globalNavItems> }) {
   return (
     <nav aria-label="Điều hướng chính" className="global-nav">
       <ul>
-        <li>
-          <NavLink to={`/t/${tenantId}/jobs`}>Jobs</NavLink>
-        </li>
-        <li>
-          <NavLink to={`/t/${tenantId}/data`}>Dữ liệu</NavLink>
-        </li>
-        {adminSlot}
+        {items.map((item) => (
+          <li key={item.to}>
+            <NavLink to={item.to}>{item.label}</NavLink>
+          </li>
+        ))}
       </ul>
     </nav>
   );

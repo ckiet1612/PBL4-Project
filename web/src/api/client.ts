@@ -65,11 +65,19 @@ export class ApiError extends Error implements ApiErrorInit {
   }
 }
 
+/** refreshCsrf() found a session of another user: nothing may be resent on its behalf (B18-R14). */
+export const SESSION_SWITCHED = Symbol("session-switched");
+
 export interface ClientHooks {
   /** CSRF token of the current browser session, held in memory only. */
   csrfToken(): string | null;
-  /** Re-read GET /v1/auth/session after invalid_csrf; resolves to the new token or null. */
-  refreshCsrf(): Promise<string | null>;
+  /** User of the current browser session (null: none); recorded when a request is sent. */
+  sessionUser(): string | null;
+  /**
+   * Re-read GET /v1/auth/session after invalid_csrf for a request sent as `sentAs`; resolves to
+   * the new token (same user only), null (no session) or SESSION_SWITCHED (B18-RV03).
+   */
+  refreshCsrf(sentAs: string | null): Promise<string | null | typeof SESSION_SWITCHED>;
   /** Any 401 (or a second invalid_csrf): drop the in-memory session and go to login. */
   onAuthenticationRequired(): void;
 }
@@ -212,6 +220,8 @@ export function createApiClient(hooks: ClientHooks, fetchImpl: typeof fetch = fe
 
   return {
     async request<T>(request: ApiRequest): Promise<ApiResponse<T>> {
+      // The user is bound at send time: a refresh that finds another user never resends.
+      const sentAs = hooks.sessionUser();
       try {
         return await send<T>(request, hooks.csrfToken());
       } catch (error) {
@@ -221,7 +231,8 @@ export function createApiClient(hooks: ClientHooks, fetchImpl: typeof fetch = fe
         }
         if (error.code !== "invalid_csrf" || request.authProbe) throw error;
         // One session refresh, then the same request (same key and body) once more.
-        const refreshed = await hooks.refreshCsrf();
+        const refreshed = await hooks.refreshCsrf(sentAs);
+        if (refreshed === SESSION_SWITCHED) throw error;
         if (refreshed === null) {
           hooks.onAuthenticationRequired();
           throw error;

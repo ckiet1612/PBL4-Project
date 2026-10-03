@@ -1,0 +1,8 @@
+# B18 round 2 final web gates after the W2 scenario 17 spec fix (2026-10-03T14:06:33Z)
+$ pnpm --dir web run typecheck ; pnpm --dir web run test ; sha256 web/dist/index.html
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+TC_EXIT=0
+ Test Files  29 passed (29)
+      Tests  217 passed (217)
+de4c3dbb3979
+web/dist/assets/index-CgsJn8hd.js

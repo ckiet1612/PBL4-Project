@@ -1,0 +1,36 @@
+== w1-admin start 2026-10-03T13:32:29Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w1-admin end 2026-10-03T13:33:16Z:   20 passed (32.6s) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== b17-w1 start 2026-10-03T13:33:17Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== b17-w1 end 2026-10-03T13:33:50Z:   23 passed (22.8s) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w1-admin-mode start 2026-10-03T13:33:52Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w1-admin-mode end 2026-10-03T13:34:05Z:   1 passed (3.7s) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w1-admin-frozen start 2026-10-03T13:34:07Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w1-admin-frozen end 2026-10-03T13:34:21Z:   1 passed (4.5s) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== b17-admission start 2026-10-03T13:34:23Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== b17-admission end 2026-10-03T13:34:36Z:   1 passed (2.9s) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w2-admin start 2026-10-03T13:34:37Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w2-admin end 2026-10-03T13:37:23Z:   1 failed   4 passed (2.4m) EXIT=1 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== b17-w2 start 2026-10-03T13:37:24Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== b17-w2 end 2026-10-03T13:39:25Z:   4 passed (1.7m) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w2-admin-run2 start 2026-10-03T13:45:01Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w2-admin-run2 end 2026-10-03T13:48:11Z:   5 passed (2.8m) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w2-admin-run3 start 2026-10-03T13:48:32Z dist de4c3dbb3979
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
+== w2-admin-run3 end 2026-10-03T13:51:34Z:   5 passed (2.7m) EXIT=0 
+leftovers procs=0 containers=0 db_sessions=0 smoke3_pids=14
