@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.observability import metrics_api
 from tests.api.test_http_contract import _client
 from tests.integration.test_worker_api_b10 import _bootstrap_worker, _create_incarnation
 from tests.integration.test_worker_authority_b10 import CONTAINER_ID, DIGEST, _running_authority
@@ -14,7 +15,8 @@ pytestmark = pytest.mark.postgres
 
 
 @pytest.mark.parametrize(
-    "prior_retries,failure_class", [(0, "INTERNAL"), (0, "INFRASTRUCTURE"), (1, "INFRASTRUCTURE")]
+    "prior_retries,failure_class",
+    [(0, "INTERNAL"), (0, "INFRASTRUCTURE"), (1, "INFRASTRUCTURE"), (0, "INVALID_INPUT")],
 )
 def test_failure_then_cleanup_replays_without_double_release(
     migrated_postgres_engine, tmp_path, prior_retries, failure_class
@@ -70,9 +72,11 @@ def test_failure_then_cleanup_replays_without_double_release(
         failure = {
             "authority": authority,
             "failure_class": failure_class,
-            "reason_code": "WORKLOAD_EXIT_NONZERO"
-            if failure_class == "INTERNAL"
-            else "EXECUTOR_UNAVAILABLE",
+            "reason_code": {
+                "INTERNAL": "WORKLOAD_EXIT_NONZERO",
+                "INFRASTRUCTURE": "EXECUTOR_UNAVAILABLE",
+                "INVALID_INPUT": "INPUT_CHECKSUM_MISMATCH",
+            }[failure_class],
             "observation": {
                 "observation_type": "CONTAINER",
                 "container": {"container_id": CONTAINER_ID, "runtime_identity_digest": DIGEST},
@@ -85,11 +89,17 @@ def test_failure_then_cleanup_replays_without_double_release(
         callback = str(new_uuid7())
         headers = {"Authorization": f"Bearer {credential}", "X-Callback-Id": callback}
         path = f"/v1/attempts/{prior['attempt_id']}"
+        # B19: event metrics count once, after commit; replays add nothing.
+        checksum = metrics_api.CHECKSUM_ERRORS.labels("download")
+        retries = metrics_api.RETRY_SCHEDULED.labels("INFRASTRUCTURE")
+        checksum_before, retries_before = checksum._value.get(), retries._value.get()
         failed = client.post(path + "/fail", headers=headers, json=failure)
         assert failed.status_code == 200, failed.text
         ack = failed.json()
         assert ack["job_state"] == "RECOVERING"
         assert client.post(path + "/fail", headers=headers, json=failure).json() == ack
+        expected_checksum = checksum_before + (failure_class == "INVALID_INPUT")
+        assert checksum._value.get() == expected_checksum
         with engine.connect() as connection:
             assert connection.execute(select(s.allocations.c.state)).scalar_one() == "QUARANTINED"
             assert connection.execute(select(s.jobs.c.job_fence)).scalar_one() == 2
@@ -119,8 +129,11 @@ def test_failure_then_cleanup_replays_without_double_release(
         assert (
             client.post(path + "/cleanup", headers=headers, json=request).json()["verified"] is True
         )
+        expected_retries = retries_before + (failure_class == "INFRASTRUCTURE")
+        assert retries._value.get() == expected_retries
+        assert checksum._value.get() == expected_checksum
         with engine.connect() as connection:
-            expected = "FAILED" if failure_class == "INTERNAL" else "RETRY_WAIT"
+            expected = "RETRY_WAIT" if failure_class == "INFRASTRUCTURE" else "FAILED"
             assert connection.execute(select(s.jobs.c.state)).scalar_one() == expected
             if failure_class == "INFRASTRUCTURE":
                 schedule = connection.execute(select(s.retry_schedules)).mappings().one()

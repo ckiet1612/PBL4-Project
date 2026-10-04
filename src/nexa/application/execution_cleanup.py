@@ -13,6 +13,8 @@ from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.transactions import run_transaction
+from nexa.observability import metrics_api
+from nexa.observability.metrics import after_commit
 
 # Safe codes have a fixed meaning. Neither raw worker text nor stderr is persisted.
 _FAILURE_REASONS = {
@@ -345,6 +347,9 @@ class ExecutionCleanupMixin:
                     updated_at=now,
                 )
             )
+            if request.reason_code == "INPUT_CHECKSUM_MISMATCH":
+                # The worker verified a downloaded input against its recorded checksum.
+                after_commit(session, lambda: metrics_api.checksum_error("download"))
             session.execute(
                 update(s.attempt_leases)
                 .where(s.attempt_leases.c.lease_id == lease["lease_id"])
@@ -610,6 +615,7 @@ class ExecutionCleanupMixin:
                             reason="INFRASTRUCTURE",
                         )
                     )
+                    after_commit(session, lambda: metrics_api.retry_scheduled("INFRASTRUCTURE"))
                 # SM:77 — a reaped LOST attempt is already terminal; cleanup only ends it.
                 session.execute(
                     update(s.attempts)

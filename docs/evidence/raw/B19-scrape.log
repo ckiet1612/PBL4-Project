@@ -1,0 +1,30 @@
+[b17-stack] run 6b46bc35 tier=w2 network=bridge dist index=de4c3dbb3979
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 49575 (bind 127.0.0.1)
+[b17-stack] api ops listener on port 49571
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:49576
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] coordinator started
+[b17-stack] coordinator ops listener on port 49572
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:d563c2c33257
+[b17-stack] worker ops listener on port 49573
+[b17-stack] Prometheus sha256:63805ebb8d2b on port 49574
+[b17-stack] running: .venv/bin/python scripts/b19_scrape.py --out docs/evidence/raw/B19-scrape.json
+[b19] 19:49:42.141Z targets up: {'nexa-api': '1', 'nexa-coordinator': '1', 'nexa-worker': '1'}
+[b19] 19:49:51.862Z job 01a10350-b1a0-76b9-8b00-9e89248c347a SUCCEEDED
+[b19] 19:49:52.560Z groups missing=[] id_labels=[]
+[b19] 19:50:00.603Z worker container stopped
+[b19] 19:50:00.613Z alert NexaGcNeverCompleted pending job=nexa-api
+[b19] 19:50:03.702Z alert NexaWorkerNotReady pending job=nexa-api
+[b19] 19:50:03.702Z alert NexaGcNeverCompleted firing job=nexa-api
+[b19] 19:50:08.833Z alert NexaTargetDown pending job=nexa-worker
+[b19] 19:50:23.227Z alert NexaWorkerNotReady firing job=nexa-api
+[b19] 19:50:28.349Z alert NexaTargetDown firing job=nexa-worker
+[b19] 19:50:28.352Z wrote docs/evidence/raw/B19-scrape.json
+[b19] 19:50:28.352Z failures=[]
+[b17-stack] command exit=0 in 54.9s
+[b17-stack] nexa-maintenance consistency-check exit=0
+[b17-stack]   {"accepted":1,"consistent":true,"missing_accepted":0,"multiple_results":0,"result_of_unsucceeded_job":0,"succeeded":1,"succeeded_without_result":0}
+[b17-stack] nexa-maintenance storage-check exit=0
+[b17-stack]   {"consistent":true,"drift":[],"drift_tenants":0,"retained_unpublished_artifacts":0,"retained_unpublished_bytes":0}
+[b17-stack] cleaned up run 6b46bc35

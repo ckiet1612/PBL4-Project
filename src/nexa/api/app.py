@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from typing import Any
@@ -13,6 +14,7 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from nexa.api.dependencies import ApiServices
+from nexa.api.ops import ApiOps
 from nexa.api.routes_admin import router as admin_router
 from nexa.api.routes_artifacts import router as artifacts_router
 from nexa.api.routes_auth import router as auth_router
@@ -28,6 +30,8 @@ from nexa.application.execution_service import ExecutionService
 from nexa.application.identity_service import IdentityService
 from nexa.application.job_service import JobService
 from nexa.application.policy_service import PolicyService
+from nexa.application.readiness_proof import ReadinessRecoveryProofProvider
+from nexa.application.storage_gc import StorageGc
 from nexa.application.storage_identity import bind_artifact_store
 from nexa.application.sweep_service import SweepService
 from nexa.application.template_registry import TemplateCatalog
@@ -40,13 +44,22 @@ from nexa.infrastructure.persistence.database import (
 from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.schema_guard import require_current_schema
 from nexa.infrastructure.persistence.transactions import TransactionRetryExhausted
+from nexa.observability import metrics_api
+from nexa.observability.logging import bind_log_context, log_event
+from nexa.observability.metrics import method_label
 
 _LOG = logging.getLogger(__name__)
+_WORKER_ROUTES = frozenset(str(getattr(route, "path", "")) for route in worker_router.routes)
 
 
 def _request_id(request: Request) -> str:
     value = getattr(request.state, "request_id", None)
     return str(value if value is not None else new_uuid7())
+
+
+def _route_template(request: Request) -> str:
+    route = request.scope.get("route")
+    return str(getattr(route, "path", None) or "unmatched")
 
 
 def _log_rejected_callback(request: Request, exc: ApplicationError) -> None:
@@ -108,12 +121,19 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                 max_file_bytes=settings.artifact_max_file_bytes,
             )
             bind_artifact_store(session_factory, artifact_store)
+            readiness = ReadinessRecoveryProofProvider(settings, artifact_store)
             job_service = JobService(session_factory, settings, identity, artifact_store)
             app.state.services = ApiServices(
                 settings=settings,
                 identity=identity,
                 admin=AdminWorkerService(session_factory, settings, identity),
-                policy=PolicyService(session_factory, settings, identity),
+                policy=PolicyService(
+                    session_factory,
+                    settings,
+                    identity,
+                    proof_provider=readiness,
+                    storage_probe=readiness.storage_ready,
+                ),
                 artifact=ArtifactService(session_factory, settings, identity, artifact_store),
                 jobs=job_service,
                 templates=TemplateCatalog(session_factory, identity),
@@ -135,15 +155,50 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
                     try:
                         await asyncio.to_thread(app.state.services.worker.sweep_health)
                     except SQLAlchemyError:
-                        _LOG.warning("worker health sweep unavailable")
+                        log_event(_LOG, logging.WARNING, "worker_health_sweep_unavailable")
 
             monitor = asyncio.create_task(health_monitor())
+            gc = StorageGc(active_engine, settings, app.state.services.artifact)
+            gc_passes: list[asyncio.Future[Any]] = []
+
+            async def storage_gc() -> None:
+                while True:
+                    await asyncio.sleep(settings.gc_interval_seconds)
+                    # The pass runs in a thread; cancelling this task never interrupts it.
+                    gc_passes[:] = [asyncio.ensure_future(asyncio.to_thread(gc.run_once))]
+                    try:
+                        await asyncio.shield(gc_passes[0])
+                    except Exception as exc:  # a failed pass never stops the API
+                        # NexaGcStalled fires if this persists (GC_LAST_RUN stays old).
+                        log_event(_LOG, logging.WARNING, "gc_pass_failed", error=type(exc).__name__)
+
+            collector = asyncio.create_task(storage_gc())
+            ops = ApiOps(settings, artifact_store) if settings.ops_bind is not None else None
+            beat: asyncio.Task[None] | None = None
             try:
+                if ops is not None:
+                    # Bind failure stops startup: the operator asked for the listener (D3).
+                    ops.start()
+
+                    async def liveness_beat() -> None:
+                        while True:
+                            ops.beat()
+                            await asyncio.sleep(1)
+
+                    beat = asyncio.create_task(liveness_beat())
                 yield
             finally:
-                monitor.cancel()
-                with suppress(asyncio.CancelledError):
-                    await monitor
+                gc.stop()  # a running pass returns at its next item
+                for task in (monitor, collector, beat):
+                    if task is not None:
+                        task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await task
+                if gc_passes and not gc_passes[0].done():
+                    # Bounded: one item (a file unlink or a row check) after stop().
+                    await asyncio.wait(gc_passes, timeout=30)
+                if ops is not None:
+                    ops.stop()
         finally:
             if owns_engine:
                 active_engine.dispose()
@@ -192,7 +247,27 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next: Any):
         request.state.request_id = new_uuid7()
-        response = await call_next(request)
+        started = time.perf_counter()
+        status = 500
+        # The access line replaces uvicorn's: route template only, never the query string,
+        # headers or body (B19, PLAN §9).
+        with bind_log_context(request_id=request.state.request_id):
+            try:
+                response = await call_next(request)
+                status = response.status_code
+            finally:
+                elapsed = time.perf_counter() - started
+                route = _route_template(request)
+                metrics_api.observe_http(route, request.method, status, elapsed)
+                log_event(
+                    _LOG,
+                    logging.INFO,
+                    "http_request",
+                    method=method_label(request.method),
+                    route=route,
+                    status=status,
+                    duration_ms=round(elapsed * 1000, 3),
+                )
         response.headers["X-Request-Id"] = str(request.state.request_id)
         return response
 
@@ -200,6 +275,9 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
     async def application_error_handler(request: Request, exc: ApplicationError) -> JSONResponse:
         if exc.code == "stale_authority":
             _log_rejected_callback(request, exc)
+        route = _route_template(request)
+        if route in _WORKER_ROUTES:
+            metrics_api.callback_rejected(route, exc.code)
         headers: dict[str, str] = {}
         if exc.retry_after is not None:
             headers["Retry-After"] = str(exc.retry_after)
@@ -264,6 +342,15 @@ def create_app(settings: Settings, *, engine: Engine | None = None) -> FastAPI:
 
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        log_event(
+            _LOG,
+            logging.ERROR,
+            "unhandled_exception",
+            request_id=_request_id(request),
+            method=request.method,
+            route=_route_template(request),
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
         return _error_response(
             request,
             status=500,

@@ -32,6 +32,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from nexa.application.job_service import JobService
 from nexa.coordinator.accounting import epoch_ms
+from nexa.coordinator.artifact_quota import exhausted_tenants
 from nexa.coordinator.eligibility import pending_eligibility_tenants, process_eligibility_batch
 from nexa.domain.scheduling import (
     AllocationState,
@@ -565,7 +566,17 @@ def _populated_cells(session, cells_by_tenant):
     return populated
 
 
-def read_snapshot(session, now, policy, worker, inventory, cursors, *, replay_eligibility=True):
+def read_snapshot(
+    session,
+    now,
+    policy,
+    worker,
+    inventory,
+    cursors,
+    *,
+    replay_eligibility=True,
+    artifact_quota_bytes=None,
+):
     pending_tenants = (
         process_eligibility_batch(session, now)
         if replay_eligibility
@@ -1040,6 +1051,9 @@ def read_snapshot(session, now, policy, worker, inventory, cursors, *, replay_el
             )
         )
     floor = session.execute(select(s.fairness_state.c.virtual_floor)).scalar_one_or_none()
+    quota_exhausted = (
+        set() if artifact_quota_bytes is None else exhausted_tenants(session, artifact_quota_bytes)
+    )
     snapshot = SchedulingSnapshot(
         policy["policy_version"],
         capacity,
@@ -1054,6 +1068,7 @@ def read_snapshot(session, now, policy, worker, inventory, cursors, *, replay_el
                 ),
                 row["tenant_active_limit"],
                 row["user_active_limit"],
+                row["tenant_id"] not in quota_exhausted,
             )
             for row in limits
         ),

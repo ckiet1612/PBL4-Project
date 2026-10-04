@@ -11,7 +11,15 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
 
+from nexa.config import (
+    ConfigError,
+    ResourceLimits,
+    log_settings,
+    ops_bind_setting,
+    resource_limits,
+)
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.observability.logging import configure_logging, log_event, set_log_context
 
 from .agent import WorkerAgent
 from .client import WorkerApiClient, WorkerTransportError
@@ -24,6 +32,7 @@ from .credentials import (
 from .docker_client import DockerCli
 from .executor import DockerExecutor
 from .journal import ExecutionJournal
+from .ops import WorkerOps
 from .probes import live_provider
 from .singleton import LocalWorkerLock, WorkerAlreadyRunning
 from .state import PendingOperationStore
@@ -159,13 +168,20 @@ def _credential(config: WorkerConfig, *, bootstrap: bool) -> str:
         with_client.close()
 
 
-def run(config: WorkerConfig, *, bootstrap: bool = False) -> int:
+def run(
+    config: WorkerConfig,
+    *,
+    bootstrap: bool = False,
+    ops_bind: tuple[str, int] | None = None,
+    limits: ResourceLimits | None = None,
+) -> int:
     if platform.system() != "Linux":
         raise RuntimeError("worker and trusted runner require the same Linux monotonic clock")
     with LocalWorkerLock(config.state_root / "worker.lock"):
         credential = _credential(config, bootstrap=bootstrap)
         state = PendingOperationStore(config.state_root / "agent-state.json")
         client = WorkerApiClient(config.api_url, credential)
+        ops: WorkerOps | None = None
         try:
             _replay_pending(config, client, state)
             nonce = str(new_uuid7())
@@ -203,9 +219,15 @@ def run(config: WorkerConfig, *, bootstrap: bool = False) -> int:
                     ),
                     staging_root=config.state_root / "staging",
                     installation_id=config.installation_id,
+                    limits=limits or resource_limits({}),
                 ),
                 provider=provider,
             )
+
+            if ops_bind is not None:
+                # A bind conflict aborts startup before any work is offered (B19 D3).
+                ops = WorkerOps(ops_bind, agent, docker)
+                ops.start()
 
             def terminate(_signum: int, _frame: object) -> None:
                 agent.stop()
@@ -215,6 +237,8 @@ def run(config: WorkerConfig, *, bootstrap: bool = False) -> int:
             asyncio.run(agent.run())
             return 0
         finally:
+            if ops is not None:
+                ops.stop()
             client.close()
 
 
@@ -222,9 +246,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Nexa local worker")
     parser.add_argument("--bootstrap", action="store_true", help="one-time explicit bootstrap")
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
     try:
-        return run(WorkerConfig.from_environment(), bootstrap=args.bootstrap)
+        level, fmt = log_settings(os.environ)
+        ops_bind = ops_bind_setting(os.environ)
+        limits = resource_limits(os.environ)
+    except ConfigError as exc:
+        raise SystemExit(str(exc)) from None
+    configure_logging("worker", level=level, fmt=fmt)
+    try:
+        config = WorkerConfig.from_environment()
+        set_log_context(worker_id=config.worker_id)
+        return run(config, bootstrap=args.bootstrap, ops_bind=ops_bind, limits=limits)
     except (
         OSError,
         ValueError,
@@ -233,7 +265,8 @@ def main() -> int:
         WorkerAlreadyRunning,
         WorkerTransportError,
     ) as exc:
-        LOG.error("worker unavailable: %s", exc)
+        # Exception text can carry paths, URLs or server responses: log the class only.
+        log_event(LOG, logging.ERROR, "worker_unavailable", reason=type(exc).__name__)
         return 75
 
 

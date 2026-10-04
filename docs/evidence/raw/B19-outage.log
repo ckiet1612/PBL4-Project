@@ -1,0 +1,49 @@
+[b17-stack] run af383797 tier=w2 network=bridge dist index=de4c3dbb3979
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 50041 (bind 127.0.0.1)
+[b17-stack] api ops listener on port 50037
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:50042
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] coordinator started
+[b17-stack] coordinator ops listener on port 50038
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:d563c2c33257
+[b17-stack] worker ops listener on port 50039
+[b17-stack] Prometheus sha256:63805ebb8d2b on port 50040
+[b17-stack] running: .venv/bin/python scripts/b19_outage.py --out docs/evidence/raw/B19-outage.json
+[b19] 19:51:02.788Z submitted {'accepted': 8}
+[b19] 19:51:04.117Z first job RUNNING {'states': {'01a10351-e97e-7c09-9675-9a33187dd44c': 'RUNNING', '01a10351-e9e9-74e2-bd08-81939f0d929a': 'DISPATCHING', '01a10351-ea5f-7510-81a4-267e1660fea3': 'QUEUED', '01a10351-ea7f-7319-b5b4-126ad13065f5': 'QUEUED', '01a10351-eacd-7967-a75c-dd1472544969': 'QUEUED', '01a10351-eb30-7e2b-a39b-b845f475445a': 'QUEUED', '01a10351-eb53-7756-98d2-36168d5c6f2a': 'QUEUED', '01a10351-eb6c-7363-9288-19b4d4feeba4': 'QUEUED'}}
+[b19] 19:51:04.314Z prometheus stopped
+[b19] 19:51:04.314Z metrics hammer start {'rate': 20, 'seconds': 30}
+[b19] 19:51:04.315Z lock checkpoints {'seconds': 3}
+[b19] 19:51:05.646Z checkpoint collector down (series dropped)
+[b19] 19:51:08.073Z checkpoint collector up again
+[b19] 19:51:10.453Z lock checkpoints {'seconds': 3}
+[b19] 19:51:11.445Z checkpoint collector down (series dropped)
+[b19] 19:51:13.810Z checkpoint collector up again
+[b19] 19:51:16.615Z lock checkpoints {'seconds': 3}
+[b19] 19:51:17.262Z checkpoint collector down (series dropped)
+[b19] 19:51:19.760Z checkpoint collector up again
+[b19] 19:51:22.767Z lock checkpoints {'seconds': 3}
+[b19] 19:51:23.195Z checkpoint collector down (series dropped)
+[b19] 19:51:26.807Z checkpoint collector up again
+[b19] 19:51:34.321Z metrics hammer end {'errors': 0, 'requests': 503, 'p50_ms': 7.9, 'p99_ms': 242.1, 'max_ms': 276.8}
+[b19] 19:51:34.454Z job states {'QUEUED': 4, 'RUNNING': 1, 'SUCCEEDED': 3}
+[b19] 19:51:38.788Z job states {'DISPATCHING': 1, 'QUEUED': 3, 'RUNNING': 1, 'SUCCEEDED': 3}
+[b19] 19:51:41.015Z job states {'DISPATCHING': 1, 'QUEUED': 3, 'SUCCEEDED': 4}
+[b19] 19:51:49.755Z job states {'DISPATCHING': 1, 'QUEUED': 2, 'RUNNING': 1, 'SUCCEEDED': 4}
+[b19] 19:51:51.875Z job states {'QUEUED': 2, 'RUNNING': 2, 'SUCCEEDED': 4}
+[b19] 19:51:56.232Z job states {'QUEUED': 2, 'RUNNING': 1, 'SUCCEEDED': 5}
+[b19] 19:52:02.811Z job states {'DISPATCHING': 1, 'QUEUED': 1, 'SUCCEEDED': 6}
+[b19] 19:52:04.918Z job states {'QUEUED': 1, 'RUNNING': 1, 'SUCCEEDED': 6}
+[b19] 19:52:09.403Z job states {'DISPATCHING': 1, 'RUNNING': 1, 'SUCCEEDED': 6}
+[b19] 19:52:11.521Z job states {'RUNNING': 1, 'SUCCEEDED': 7}
+[b19] 19:52:18.038Z job states {'SUCCEEDED': 8}
+[b19] 19:52:18.038Z all jobs terminal {'states': ['SUCCEEDED']}
+[b19] 19:52:24.154Z wrote docs/evidence/raw/B19-outage.json
+[b19] 19:52:24.154Z failures=[]
+[b17-stack] command exit=0 in 82.5s
+[b17-stack] nexa-maintenance consistency-check exit=0
+[b17-stack]   {"accepted":8,"consistent":true,"missing_accepted":0,"multiple_results":0,"result_of_unsucceeded_job":0,"succeeded":8,"succeeded_without_result":0}
+[b17-stack] nexa-maintenance storage-check exit=0
+[b17-stack]   {"consistent":true,"drift":[],"drift_tenants":0,"retained_unpublished_artifacts":0,"retained_unpublished_bytes":0}
+[b17-stack] cleaned up run af383797

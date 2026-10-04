@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from nexa.application import storage_pressure
 from nexa.application.artifact_service import ArtifactService
 from nexa.application.errors import ApplicationError
 from nexa.domain import workload_adapters
@@ -35,6 +36,8 @@ class WorkerUploadPrincipal:
 
 class AttemptArtifactService(ArtifactService):
     _upload_operation = "workerUploadAttemptArtifact"
+    # Worker uploads (checkpoint/result/chunk) are refused only at the critical watermark.
+    _storage_operation = storage_pressure.WORKER_UPLOAD
 
     def __init__(self, base, worker, credential, authority, kind=None, media_type=None):
         super().__init__(base.session_factory, base.settings, base.identity, base.store)
@@ -230,6 +233,9 @@ class AttemptArtifactService(ArtifactService):
             "authority_grant_id": grant["grant_id"],
         }
         return principal
+
+    def _upload_actor(self, live):
+        return "WORKER", str(self.authority.worker_id)
 
     def _commit_upload_reference(self, session, tenant_id, upload_id, artifact_id):
         session.execute(

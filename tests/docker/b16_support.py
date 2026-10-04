@@ -257,7 +257,7 @@ def assert_hardened(row, resources):
         assert process["no_new_privs"] == "1", process
         assert process["seccomp"] == "2", process
         assert int(process["cap_eff"], 16) == 0 and int(process["cap_bnd"], 16) == 0, process
-    assert row["pids_limit"] == 128
+    assert row["pids_limit"] == 512  # contract default (B19-R15)
     assert row["memory"] == row["memory_swap"] == resources["memory_bytes"]
     assert row["nano_cpus"] == resources["cpu_millis"] * 1_000_000
     assert row["restart_policy"] == "no"

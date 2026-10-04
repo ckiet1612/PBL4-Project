@@ -9,10 +9,12 @@ import hashlib
 
 import rfc8785
 
+from nexa.config import DEFAULT_RESOURCE_LIMITS, ResourceLimits
 from nexa.domain import workload_adapters
 from nexa.workloads import adapter_launch, chunk_manifest, inference_state, training_state
 
 from .dispatch import DEFAULT_CHECKPOINT_INTERVAL_SECONDS, RestoreUnavailable
+from .docker_config import attempt_bounds
 from .models import (
     AdapterLaunch,
     AllocationIdentity,
@@ -336,6 +338,7 @@ def adapter_execution_request(
     restore=None,
     restore_files=(),
     recognized=(),
+    limits: ResourceLimits = DEFAULT_RESOURCE_LIMITS,
 ):
     if context["execution_intent"] not in {"RUN", "CHECKPOINT_FOR_PAUSE"}:
         raise ValueError("worker executes only RUN or CHECKPOINT_FOR_PAUSE attempts")
@@ -444,13 +447,14 @@ def adapter_execution_request(
                 size_bytes=view["size_bytes"],
             )
         )
+    scratch_bytes, log_bytes = attempt_bounds(resources.memory_bytes, limits)
     return StartExecution(
         context=execution,
         allocation=AllocationIdentity(authority.allocation_id, authority.attempt_id, resources),
         startup_nonce=context["startup_nonce"],
         operation_sequence=1,
-        scratch_bytes=min(64 * 1024**2, resources.memory_bytes // 4),
-        log_bytes=1024**2,
+        scratch_bytes=scratch_bytes,
+        log_bytes=log_bytes,
         runtime_limit_seconds=spec["runtime_limit_seconds"],
         input_mounts=tuple(mounts),
         adapter_launch=AdapterLaunch(spec=launch_spec, interval_seconds=interval),

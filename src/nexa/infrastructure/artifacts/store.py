@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import re
 import secrets
 import stat as stat_module
-from collections.abc import Callable
+import threading
+import time
+from collections.abc import Callable, Iterator
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -21,6 +24,17 @@ class ArtifactError(Exception):
         self.code = code
         self.message = message
         self.received_bytes = received_bytes
+
+
+_FULL_ERRNOS = frozenset(
+    code for code in (errno.ENOSPC, getattr(errno, "EDQUOT", None)) if code is not None
+)
+
+
+def _write_failure(exc: OSError, message: str, *, received_bytes: int | None = None):
+    """ENOSPC/EDQUOT become `storage_full` (storage pressure); other errors stay unavailable."""
+    code = "storage_full" if exc.errno in _FULL_ERRNOS else "storage_unavailable"
+    return ArtifactError(code, message, received_bytes=received_bytes)
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +75,20 @@ class GcToken:
     size_bytes: int
     expires_at: datetime
     _capability: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredFile:
+    """A regular file seen by a GC scan; inode, size and mtime pin the exact file."""
+
+    key: str
+    size_bytes: int
+    mtime_ns: int
+    inode: int
+
+    def age_seconds(self, now: float) -> float:
+        """Age against the host clock: single-node, the API host wrote the mtime."""
+        return now - self.mtime_ns / 1_000_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +152,7 @@ class BoundedReader:
 
 _CHECKSUM_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _BLOB_KEY_PATTERN = re.compile(r"^(?:blobs|staging)/[0-9a-f]{32}$")
+_NAME_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 # B14-OBS-01: the root names the store the deployment bound; see ``_missing``.
 _IDENTITY_NAME = "store-identity"
 _IDENTITY_PATTERN = re.compile(
@@ -189,6 +218,8 @@ class FilesystemArtifactStore:
         self._active: dict[str, _StagingState] = {}
         self._gc_tokens: dict[str, GcToken] = {}
         self._identity: UUID | None = None
+        self._capacity_lock = threading.Lock()
+        self._capacity: tuple[float, int, int] | None = None
 
     @staticmethod
     def _validate_checksum(checksum: str) -> None:
@@ -266,9 +297,7 @@ class FilesystemArtifactStore:
         except FileExistsError as exc:
             raise ArtifactError("state_conflict", "Upload identity is already active") from exc
         except OSError as exc:
-            raise ArtifactError(
-                "storage_unavailable", "Artifact staging cannot be created"
-            ) from exc
+            raise _write_failure(exc, "Artifact staging cannot be created") from exc
         handle = StagingHandle(
             _capability=secrets.token_urlsafe(24),
             owner=owner,
@@ -305,10 +334,8 @@ class FilesystemArtifactStore:
             try:
                 written = state.file.write(value[offset:])  # type: ignore[attr-defined]
             except OSError as exc:
-                raise ArtifactError(
-                    "storage_unavailable",
-                    "Artifact staging cannot be written",
-                    received_bytes=state.received_bytes,
+                raise _write_failure(
+                    exc, "Artifact staging cannot be written", received_bytes=state.received_bytes
                 ) from exc
             if not isinstance(written, int) or written <= 0 or written > len(value) - offset:
                 raise ArtifactError(
@@ -334,15 +361,13 @@ class FilesystemArtifactStore:
             self._fsync(state.file.fileno())  # type: ignore[attr-defined]
             state.file.close()  # type: ignore[attr-defined]
         except OSError as exc:
-            raise ArtifactError(
-                "storage_unavailable", "Artifact staging cannot be made durable"
-            ) from exc
+            raise _write_failure(exc, "Artifact staging cannot be made durable") from exc
         blob_key = f"blobs/{secrets.token_hex(16)}"
         destination = self._path_for_key(blob_key)
         try:
             self._rename(str(state.path), str(destination))
         except OSError as exc:
-            raise ArtifactError("storage_unavailable", "Artifact blob cannot be committed") from exc
+            raise _write_failure(exc, "Artifact blob cannot be committed") from exc
         try:
             directory_fd = os.open(
                 self._committed_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
@@ -352,9 +377,8 @@ class FilesystemArtifactStore:
             finally:
                 os.close(directory_fd)
         except OSError as exc:
-            raise ArtifactError(
-                "storage_unavailable", "Artifact committed directory cannot be synced"
-            ) from exc
+            # The renamed blob has no metadata: it stays an orphan for GC G2.
+            raise _write_failure(exc, "Artifact committed directory cannot be synced") from exc
         self._active.pop(handle._capability, None)
         return DurableBlob(blob_key, handle.expected_size, checksum, handle.media_type)
 
@@ -554,19 +578,126 @@ class FilesystemArtifactStore:
             file.close()  # type: ignore[attr-defined]
         return BlobStat(blob_key, size, f"sha256:{digest.hexdigest()}")
 
-    def disk_usage(self, expected_bytes: int = 0) -> tuple[int, int, float]:
-        try:
-            stats = self._statvfs(str(self.root))
-            total = int(stats.f_frsize * stats.f_blocks)
-            free = int(stats.f_frsize * stats.f_bavail)
-        except OSError as exc:
-            raise ArtifactError(
-                "storage_unavailable", "Artifact storage capacity cannot be checked"
-            ) from exc
-        if total <= 0 or free < 0 or free > total:
-            raise ArtifactError("storage_unavailable", "Artifact storage capacity is invalid")
+    def disk_usage(
+        self, expected_bytes: int = 0, *, max_age_seconds: float = 0.0
+    ) -> tuple[int, int, float]:
+        """(total, free, used percent including ``expected_bytes``) of the artifact root.
+
+        ``max_age_seconds`` reuses this process's last statvfs for at most that long
+        (B19-R06: admission is a hot path); a failed statvfs is never cached.
+        """
+        total, free = self._capacity_reading(max_age_seconds)
         used_percent = ((total - free + expected_bytes) / total) * 100
         return total, free, used_percent
+
+    def _capacity_reading(self, max_age_seconds: float) -> tuple[int, int]:
+        with self._capacity_lock:
+            now = time.monotonic()
+            cached = self._capacity
+            if cached is not None and max_age_seconds > 0 and now - cached[0] < max_age_seconds:
+                return cached[1], cached[2]
+            try:
+                stats = self._statvfs(str(self.root))
+                total = int(stats.f_frsize * stats.f_blocks)
+                free = int(stats.f_frsize * stats.f_bavail)
+            except OSError as exc:
+                self._capacity = None
+                raise ArtifactError(
+                    "storage_unavailable", "Artifact storage capacity cannot be checked"
+                ) from exc
+            if total <= 0 or free < 0 or free > total:
+                self._capacity = None
+                raise ArtifactError("storage_unavailable", "Artifact storage capacity is invalid")
+            self._capacity = (now, total, free)
+            return total, free
+
+    def has_blob(self, blob_key: str) -> bool:
+        """Whether a committed blob file exists, without reading it (GC G2 commit check)."""
+        if not blob_key.startswith("blobs/"):
+            raise ArtifactError("invalid_blob_key", "Artifact blob key is invalid")
+        path = self._path_for_key(blob_key)
+        try:
+            found = os.lstat(path)
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise ArtifactError("storage_unavailable", "Artifact blob cannot be inspected") from exc
+        return stat_module.S_ISREG(found.st_mode)
+
+    def scan(self, area: str) -> Iterator[StoredFile]:
+        """Regular files named like keys under ``staging`` or ``blobs`` (B19 GC G1/G2).
+
+        Symlinks, directories and foreign names are skipped and never followed. The
+        store must be the bound one, so a re-created or foreign volume is never swept.
+        """
+        if area not in {"staging", "blobs"}:
+            raise ArtifactError("invalid_blob_key", "Artifact storage area is invalid")
+        self._verify_bound()
+        directory = self._staging_root if area == "staging" else self._committed_root
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if not _NAME_PATTERN.fullmatch(entry.name):
+                        continue
+                    try:
+                        found = entry.stat(follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    if stat_module.S_ISREG(found.st_mode):
+                        yield StoredFile(
+                            f"{area}/{entry.name}", found.st_size, found.st_mtime_ns, found.st_ino
+                        )
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact storage directory cannot be listed"
+            ) from exc
+
+    def active_staging_keys(self) -> frozenset[str]:
+        """Staged keys with a handle open in this process (G1 never removes them)."""
+        # list() copies the dict in C without running Python code, so an upload
+        # thread adding or removing a handle cannot break the iteration.
+        return frozenset(state.handle.staged_key for state in list(self._active.values()))
+
+    def remove_scanned(self, file: StoredFile) -> bool:
+        """Unlink exactly the scanned file and fsync its directory.
+
+        False when it vanished, changed (inode, size or mtime) or is now an open
+        staging handle; such a file is left for a later pass.
+        """
+        self._verify_bound()
+        path = self._path_for_key(file.key)
+        if file.key in self.active_staging_keys():
+            return False
+        try:
+            found = os.lstat(path)
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise ArtifactError("storage_unavailable", "Artifact file cannot be inspected") from exc
+        if (
+            not stat_module.S_ISREG(found.st_mode)
+            or found.st_ino != file.inode
+            or found.st_size != file.size_bytes
+            or found.st_mtime_ns != file.mtime_ns
+        ):
+            return False
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise ArtifactError("storage_unavailable", "Artifact file cannot be removed") from exc
+        try:
+            directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                self._fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError as exc:
+            raise ArtifactError(
+                "storage_unavailable", "Artifact directory cannot be synced"
+            ) from exc
+        return True
 
     def check_readiness(self, *, critical_watermark_percent: int) -> None:
         """Verify current storage durability without retaining a probe artifact."""
@@ -670,4 +801,5 @@ __all__ = [
     "GcToken",
     "Progress",
     "StagingHandle",
+    "StoredFile",
 ]

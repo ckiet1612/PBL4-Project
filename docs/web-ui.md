@@ -501,20 +501,22 @@ Mọi thao tác có ô lý do bắt buộc (1–256 ký tự), `If-Match` = ETag
 ### A7. Ma trận chế độ vận hành và quy tắc form chính sách
 
 Lựa chọn hiển thị theo `validate_mode_transition` (`src/nexa/domain/policy.py`);
-server quyết định. Bản hiện tại dùng `FailClosedRecoveryProofProvider`: mọi bằng
-chứng (freeze/restore/readiness) là `False`.
+server quyết định. Bản hiện tại dùng `ReadinessRecoveryProofProvider` (B19-R02):
+readiness là bằng chứng thật (DB/schema, probe lưu trữ, mọi worker ENABLED/READY,
+heartbeat ≤30 s, đã reconcile, inventory đạt); freeze/restore vẫn là `False` (B21).
 
 | Chế độ hiện tại | Lựa chọn | Hậu quả (dialog) | Kết quả thật ở bản hiện tại |
 |---|---|---|---|
 | NORMAL | ADMISSION_OFF | "Ngừng nhận job mới từ mọi tenant; job đã nhận vẫn chạy." | 200 |
-| ADMISSION_OFF | NORMAL | "Nhận job trở lại. Cần bằng chứng sẵn sàng và worker đã reconcile." | 409 "Readiness and worker reconciliation are required" (B18-R05) |
+| ADMISSION_OFF | NORMAL | "Nhận job và điều phối trở lại." | 200 khi DB/schema/lưu trữ và mọi worker sẵn sàng; nếu không, 409 "Readiness and worker reconciliation are required" (B19-R02) |
 | ADMISSION_OFF | WRITE_FROZEN | "Khóa mọi thay đổi quản trị và nhận job. Cần mọi container đã dừng và allocation đã reconcile." | 409 "Freeze requires stopped containers and reconciled unreleased allocations" (B18-R18) |
 | WRITE_FROZEN | ADMISSION_OFF | "Mở lại thay đổi quản trị sau khi khôi phục đã được xác minh." | 409 "Restore verification is required before leaving frozen mode" (B18-R05) |
 
-- Mọi lựa chọn rời ADMISSION_OFF/WRITE_FROZEN kèm cảnh báo cố định "Bản hiện tại
-  chưa mở lại được chế độ qua API (cần bằng chứng khôi phục, B18-R05)". Dialog
-  NORMAL → ADMISSION_OFF nói rõ: **"Trong bản hiện tại không quay lại NORMAL qua
-  API được."**
+- Lựa chọn vào/rời WRITE_FROZEN kèm cảnh báo cố định "Bản hiện tại chưa hỗ trợ
+  đóng băng/khôi phục qua API (B21)." Dialog ADMISSION_OFF → NORMAL ghi điều kiện:
+  **"Chỉ mở lại được khi cơ sở dữ liệu, lưu trữ và worker đều sẵn sàng. Nếu chưa,
+  máy chủ từ chối và giữ nguyên chế độ."**; dialog NORMAL → ADMISSION_OFF ghi
+  **"Mở lại NORMAL cần cơ sở dữ liệu, lưu trữ và worker sẵn sàng."** (B19-R02).
 - Giới hạn toàn cục: số nguyên 1–1.000.000; dưới số job đang tồn đọng → server
   409; WRITE_FROZEN → ô khóa kèm lý do. Giới hạn và chế độ là hai form, hai
   intent.
@@ -538,7 +540,7 @@ chứng (freeze/restore/readiness) là `False`.
 | Global policy + chế độ | Một trang `Hệ thống` | Cùng object, cùng ETag |
 | Chi tiết job admin | Không lên nav; vào từ hàng chờ/khôi phục | Chỉ xem |
 | Template | Không có trong UI | Đăng ký template qua CLI/maintenance; không có REST admin template |
-| Log, metrics, storage, GC | Không có | B17-R01, B19 |
+| Log, metrics, storage, GC | Không có | Log của job vẫn hoãn (B17-R01, B19-R01); metrics/storage/GC đã có ở cổng vận hành và `nexa-maintenance`, không có trên UI ([observability](observability.md)) |
 
 ### A9. Giả định UX (tiếp theo UX-A15)
 
@@ -705,7 +707,7 @@ export NEXA_TEST_DATABASE_URL=<postgresql+psycopg://…/nexa_b05_test_…>   # k
 S="PYTHONPATH=src:. uv run --no-sync python scripts/b17_e2e_stack.py"
 # W1: backend thật, không worker
 $S run --tier w1 -- pnpm --dir web exec playwright test --project=w1-desktop --project=w1-mobile
-# Chế độ vận hành: stack riêng, vì ADMISSION_OFF không trả về NORMAL qua API được (B17-R18)
+# Chế độ vận hành: stack riêng, vì W1 không có worker nên ADMISSION_OFF không mở lại NORMAL được (B17-R18, B19-R02)
 $S run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admission
 # W2: thêm coordinator + worker Docker + image cpu-iterative build từ source hiện tại
 NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:<digest> NEXA_B17_WORKER_IMAGE=<worker image> \
@@ -753,8 +755,10 @@ Khu quản trị:
 
 - Không có API tổng sức chứa hay đếm hàng chờ (B18-R03/R04): sức chứa cộng
   trang đầu HELD + QUARANTINED, có cờ "chưa đầy đủ"; hàng chờ không hiện tổng.
-- Rời ADMISSION_OFF/WRITE_FROZEN cần bằng chứng khôi phục chưa có (B18-R05);
-  ADMISSION_OFF → WRITE_FROZEN luôn 409 vì proof provider fail closed (B18-R18).
+- ADMISSION_OFF → NORMAL chỉ được khi DB/schema/lưu trữ và mọi worker sẵn sàng
+  (B19-R02; kiểm trên W2 bằng `w2-admin/00-reopen.spec.ts`). Rời WRITE_FROZEN cần
+  bằng chứng khôi phục chưa có (B18-R05, B21); ADMISSION_OFF → WRITE_FROZEN luôn
+  409 vì proof đóng băng fail closed (B18-R18).
   UI hiện lý do của server; trạng thái WRITE_FROZEN chỉ kiểm được trên stack
   test seed thẳng vào DB.
 - Service hẹp hơn contract: slug 3–63 ký tự (contract 3–64, B18-R19), GPU của

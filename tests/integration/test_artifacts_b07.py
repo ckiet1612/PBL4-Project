@@ -258,8 +258,10 @@ def test_upload_maps_storage_write_failure_to_retryable_dependency_error(
             )
         )
 
-    assert failure.value.code == "storage_unavailable"
+    # B19 6.A: the internal store code never reaches the wire.
+    assert failure.value.code == "dependency_unavailable"
     assert failure.value.status == 503
+    assert failure.value.retry_after == 1
 
     with pytest.raises(ApplicationError) as replay:
         asyncio.run(
@@ -275,7 +277,7 @@ def test_upload_maps_storage_write_failure_to_retryable_dependency_error(
                 content_length=1,
             )
         )
-    assert replay.value.code == "storage_unavailable"
+    assert replay.value.code == "dependency_unavailable"
     assert replay.value.status == 503
     with migrated_postgres_engine.connect() as connection:
         assert (

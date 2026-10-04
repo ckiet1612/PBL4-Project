@@ -13,6 +13,7 @@ from sqlalchemy import and_, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from nexa.application import storage_pressure
 from nexa.application.errors import ApplicationError
 from nexa.application.idempotency import begin_idempotency, complete_idempotency
 from nexa.application.json_codec import jcs_request_hash, json_wire_value
@@ -36,7 +37,7 @@ from nexa.infrastructure.artifacts.store import (
     GcToken,
 )
 from nexa.infrastructure.persistence.ids import new_uuid7
-from nexa.infrastructure.persistence.locking import transaction_timestamp
+from nexa.infrastructure.persistence.locking import lock_blob_key, transaction_timestamp
 from nexa.infrastructure.persistence.schema import (
     artifact_references,
     artifact_storage_counters,
@@ -47,6 +48,8 @@ from nexa.infrastructure.persistence.schema import (
 )
 from nexa.infrastructure.persistence.transactions import run_transaction
 from nexa.infrastructure.security import CursorCodec, CursorError
+from nexa.observability import metrics_api
+from nexa.observability.metrics import after_commit, guarded
 
 _CHECKSUM_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _READABLE_ARTIFACT_KINDS = frozenset(
@@ -62,6 +65,10 @@ _READABLE_ARTIFACT_KINDS = frozenset(
         "LOG",
     }
 )
+
+
+# Audit actor of the storage GC loop (B19 6.E/6.F).
+GC_ACTOR_ID = "storage-gc"
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +88,7 @@ class ArtifactDownload:
 
 class ArtifactService:
     _upload_operation = "uploadArtifact"
+    _storage_operation = storage_pressure.USER_UPLOAD
     _upload_provenance: dict = {}
     _upload_metadata = staticmethod(validate_public_artifact_metadata)
 
@@ -164,23 +172,16 @@ class ArtifactService:
             )
         return row
 
-    def _check_disk(self, expected_size: int) -> None:
-        try:
-            _total, _free, used_percent = self.store.disk_usage(expected_size)
-        except ArtifactError as exc:
-            raise ApplicationError(
-                code=exc.code,
-                status=503,
-                message="Artifact storage capacity cannot be checked",
-                retry_after=1,
-            ) from exc
-        if used_percent >= self.settings.storage_high_watermark_percent:
-            raise ApplicationError(
-                code="storage_pressure",
-                status=503,
-                message="Artifact storage is under pressure",
-                retry_after=1,
-            )
+    def _check_disk(self, reading, expected_size: int = 0) -> None:
+        storage_pressure.enforce_watermark(
+            reading, self._storage_operation, self.settings, extra_bytes=expected_size
+        )
+
+    def _store_failure(self, exc: ArtifactError) -> ApplicationError:
+        return storage_pressure.store_failure(exc, self._storage_operation)
+
+    def _upload_actor(self, live) -> tuple[str, str]:
+        return "USER", str(live.user_id)
 
     def _abort_upload(
         self,
@@ -302,6 +303,8 @@ class ArtifactService:
         )
         upload_id = new_uuid7()
         staged_key = f"staging/{upload_id.hex}"
+        # Read outside the transaction; enforced after replay so a replay never needs disk.
+        reading = storage_pressure.read_storage(self.store)
 
         def begin_operation(session: Session) -> tuple[dict[str, Any] | None, UUID]:
             live = self._authorize(session, principal, tenant_id, write=True)
@@ -326,7 +329,7 @@ class ArtifactService:
                     .where(idempotency_records.c.idempotency_id == idempotency.record_id)
                     .values(original_authority=receipt_identity)
                 )
-            self._check_disk(expected_size)
+            self._check_disk(reading, expected_size)
             counter = self._counter_lock(session, tenant_id)
             if (
                 int(counter["committed_bytes"]) + int(counter["reserved_bytes"]) + expected_size
@@ -405,17 +408,12 @@ class ArtifactService:
                 upload_id=upload_id.hex,
             )
         except ArtifactError as exc:
-            status = 413 if exc.code == "payload_too_large" else 503
-            failure = ApplicationError(
-                code=exc.code,
-                status=status,
-                message=exc.message,
-                retry_after=1 if status == 503 else None,
-            )
+            failure = self._store_failure(exc)
             self._abort_upload(upload_id, tenant_id, expected_size, 0, record_id, failure)
             raise failure from exc
 
         received = 0
+        next_check = storage_pressure.STREAM_CHECK_BYTES
         try:
             async for chunk in chunks:
                 progress = self.store.append(handle, chunk)
@@ -424,21 +422,24 @@ class ArtifactService:
                     raise ArtifactError(
                         "payload_too_large", "Artifact stream exceeds the declared size"
                     )
+                if received >= next_check:
+                    # Mid-stream re-check (cached statvfs) for the bytes still to come.
+                    next_check = received + storage_pressure.STREAM_CHECK_BYTES
+                    self._check_disk(
+                        storage_pressure.read_storage(self.store), expected_size - received
+                    )
+        except ApplicationError as failure:
+            try:
+                self._abort_upload(
+                    upload_id, tenant_id, expected_size, received, record_id, failure
+                )
+            finally:
+                self.store.abort_staging(handle)
+            raise
         except ArtifactError as exc:
             if exc.received_bytes is not None:
                 received = exc.received_bytes
-            if exc.code == "payload_too_large":
-                status = 413
-            elif exc.code == "storage_unavailable":
-                status = 503
-            else:
-                status = 422
-            failure = ApplicationError(
-                code=exc.code,
-                status=status,
-                message=exc.message,
-                retry_after=1 if status == 503 else None,
-            )
+            failure = self._store_failure(exc)
             try:
                 self._abort_upload(
                     upload_id, tenant_id, expected_size, received, record_id, failure
@@ -487,7 +488,7 @@ class ArtifactService:
             raise failure
 
         try:
-            self._check_disk(0)
+            self._check_disk(storage_pressure.read_storage(self.store))
         except ApplicationError as failure:
             try:
                 self._abort_upload(
@@ -499,22 +500,19 @@ class ArtifactService:
         try:
             blob = self.store.commit_blob(handle)
         except ArtifactError as exc:
-            status = 422 if exc.code in {"checksum_mismatch", "size_mismatch"} else 503
-            failure = ApplicationError(
-                code=exc.code,
-                status=status,
-                message=exc.message,
-                retry_after=1 if status == 503 else None,
-            )
+            failure = self._store_failure(exc)
             try:
                 self._abort_upload(
                     upload_id, tenant_id, expected_size, received, record_id, failure
                 )
             finally:
                 self.store.abort_staging(handle)
+            if exc.code == "checksum_mismatch":
+                metrics_api.checksum_error("upload")
             raise failure from exc
 
         artifact_id = new_uuid7()
+        blob_missing: list[bool] = []
 
         def commit_operation(session: Session) -> ArtifactUploadResult:
             live = self._authorize(session, principal, tenant_id, write=True)
@@ -559,6 +557,23 @@ class ArtifactService:
                 .one_or_none()
             )
             if existing is None:
+                # Shared against GC G2's exclusive lock: the blob cannot be swept
+                # between this check and the artifacts row becoming visible.
+                lock_blob_key(session, blob.blob_key, exclusive=False)
+                try:
+                    present = self.store.has_blob(blob.blob_key)
+                except ArtifactError:
+                    # Uninspectable is treated as missing: fail closed, and a blob that
+                    # does exist is left unreferenced for GC G2.
+                    present = False
+                if not present:
+                    blob_missing.append(True)
+                    raise ApplicationError(
+                        code="dependency_unavailable",
+                        status=503,
+                        message="Artifact storage is unavailable",
+                        retry_after=1,
+                    )
                 session.execute(
                     artifacts.insert().values(
                         artifact_id=artifact_id,
@@ -616,11 +631,12 @@ class ArtifactService:
                 headers=headers,
                 resource_id=UUID(body["artifact_id"]),
             )
+            actor_type, actor_id = self._upload_actor(live)
             session.execute(
                 audit_records.insert().values(
                     audit_id=new_uuid7(),
-                    actor_type="USER",
-                    actor_id=str(live.user_id),
+                    actor_type=actor_type,
+                    actor_id=actor_id,
                     tenant_id=tenant_id,
                     action="artifact.upload.commit",
                     target_type="ARTIFACT",
@@ -638,6 +654,13 @@ class ArtifactService:
 
         try:
             result = run_transaction(self.session_factory, commit_operation)
+        except ApplicationError as failure:
+            if blob_missing:
+                # Nothing references the vanished blob; release the reservation.
+                self._abort_upload(
+                    upload_id, tenant_id, expected_size, received, record_id, failure
+                )
+            raise
         except BaseException:
             # The blob is intentionally retained as an orphan when the DB outcome
             # is unknown; cleanup requires a later DB-issued claim.
@@ -966,7 +989,24 @@ class ArtifactService:
                             },
                             headers={},
                         )
+                # B19 6.E: GC G1 expiry is a SYSTEM action, recorded with its release.
+                session.execute(
+                    audit_records.insert().values(
+                        audit_id=new_uuid7(),
+                        actor_type="SYSTEM",
+                        actor_id=GC_ACTOR_ID,
+                        tenant_id=row["tenant_id"],
+                        action="artifact.upload.expire",
+                        target_type="UPLOAD_SESSION",
+                        target_id=str(row["upload_id"]),
+                        reason="Upload session expired and its reservation released",
+                        safe_metadata={"reserved_bytes": expected_size},
+                    )
+                )
                 expired += 1
+            if expired:
+                count = expired
+                after_commit(session, lambda: guarded(metrics_api.UPLOADS_EXPIRED.inc, count))
             return expired
 
         return run_transaction(self.session_factory, operation)

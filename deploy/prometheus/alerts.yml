@@ -1,0 +1,155 @@
+# Nexa alert rules (B19). Thresholds are conservative single-node defaults, not
+# benchmark results; docs/observability.md §5 gives each rule's reason and runbook.
+# Tests: tests/alerts_test.yml (promtool test rules).
+groups:
+  - name: nexa
+    rules:
+      - alert: NexaQueueOldestAgeHigh
+        expr: nexa_queue_oldest_age_seconds > 1800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: The oldest QUEUED job has waited more than 30 minutes.
+          runbook: Check nexa_jobs_waiting by reason, a READY worker, tenant quota and capacity.
+
+      - alert: NexaQueueDepthHigh
+        expr: nexa_queue_outstanding / nexa_queue_outstanding_limit > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Outstanding jobs are above 90% of the global admission limit.
+          runbook: Submits will soon get 429 queue_full; find the busy tenants with the admin jobs and fairness views.
+
+      - alert: NexaStorageHighWatermark
+        expr: nexa_storage_used_ratio >= ignoring(level) nexa_storage_watermark_ratio{level="high"}
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Artifact storage is above the high watermark.
+          runbook: Submits and user uploads get 503 storage_pressure; free space outside Nexa or grow the disk.
+
+      - alert: NexaStorageCriticalWatermark
+        expr: nexa_storage_used_ratio >= ignoring(level) nexa_storage_watermark_ratio{level="critical"}
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Artifact storage is above the critical watermark.
+          runbook: Dispatch has stopped and worker uploads get 503; grow the disk now.
+
+      - alert: NexaWorkerNotReady
+        expr: sum by (job, instance) (nexa_workers{health="READY", admin_state="ENABLED"}) < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: No ENABLED worker is READY; nothing can be dispatched.
+          runbook: Check the worker log and its /readyz, heartbeats and the storage level.
+
+      - alert: NexaWorkerHeartbeatStale
+        expr: nexa_worker_heartbeat_age_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: An enabled worker has not sent an accepted heartbeat for over 60 seconds.
+          runbook: Check that the worker process runs and reaches the API.
+
+      - alert: NexaCheckpointStale
+        expr: nexa_checkpoint_age_seconds > 7200
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: A running attempt has gone more than 2 hours without a committed checkpoint.
+          runbook: Check the job events and the workload adapter's checkpoint uploads.
+
+      # increase() sees the first failure only because the API exposes every outcome at 0
+      # from start-up (B19-RV03); a series that first appeared at 1 would never fire.
+      - alert: NexaRestoreFailures
+        expr: increase(nexa_restore_total{outcome="failed"}[30m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: A checkpoint restore failed in the last 30 minutes.
+          runbook: Look for CHECKPOINT_RESTORE_UNAVAILABLE events on the job.
+
+      - alert: NexaAllocationQuarantinedTooLong
+        expr: nexa_quarantine_oldest_age_seconds > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: An allocation has stayed QUARANTINED for more than 15 minutes.
+          runbook: The container has no cleanup proof yet; check the worker reconcile log.
+
+      - alert: NexaNotReady
+        expr: min by (job, instance) (nexa_ready) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: A Nexa process reports not ready.
+          runbook: Open the process's /readyz to see the failing check.
+
+      - alert: NexaTargetDown
+        expr: up{job=~"nexa-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus cannot scrape a Nexa ops listener.
+          runbook: The process or its NEXA_OPS_BIND listener stopped; check the process.
+
+      - alert: NexaMetricsCollectorDown
+        expr: nexa_collector_up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: An API metrics collector keeps failing; its series are dropped.
+          runbook: Look for metrics_collector_failed in the API log; the database may be slow or locked.
+
+      - alert: NexaStorageCounterDrift
+        expr: nexa_storage_counter_drift_tenants > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Artifact storage counters disagree with the artifact rows.
+          runbook: Run nexa-maintenance storage-check; it reports and never repairs.
+
+      # The gauge is 0 until the first completed pass, which comes one
+      # NEXA_GC_INTERVAL_SECONDS (at most 1 h) after start; NexaGcNeverCompleted
+      # covers that window instead of firing on the initial 0.
+      - alert: NexaGcStalled
+        expr: >-
+          nexa_gc_last_run_timestamp_seconds > 0
+          and time() - nexa_gc_last_run_timestamp_seconds > 7200
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: The storage GC pass has not completed for over 2 hours.
+          runbook: Look for gc_pass and nexa_gc_errors_total in the API log and metrics.
+
+      - alert: NexaGcNeverCompleted
+        expr: nexa_gc_last_run_timestamp_seconds == 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: The storage GC pass has not completed since the API started 2 hours ago.
+          runbook: Look for gc_pass and nexa_gc_errors_total in the API log and metrics.
+
+      - alert: NexaOrphanBacklog
+        expr: nexa_storage_orphan_bytes > 1073741824
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: Over 1 GiB of orphan blobs is waiting for GC.
+          runbook: GC is behind or failing; check nexa_gc_errors_total.

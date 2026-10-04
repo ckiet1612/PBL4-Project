@@ -1,0 +1,7 @@
+$ (P, 2026-10-04) PYTHONPATH=src:. uv run --no-sync pytest -q -s --run-postgres tests/integration/test_storage_pressure_b19.py -k next_heartbeat   # x3, DB nexa_b05_test_b19
+b19 dispatch stop window 40.6 ms
+1 passed, 17 deselected, 2 warnings in 2.89s
+b19 dispatch stop window 40.3 ms
+1 passed, 17 deselected, 2 warnings in 3.01s
+b19 dispatch stop window 36.6 ms
+1 passed, 17 deselected, 2 warnings in 3.84s

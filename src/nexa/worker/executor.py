@@ -12,6 +12,7 @@ from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from nexa.config import DEFAULT_RESOURCE_LIMITS, ResourceLimits
 from nexa.workloads import adapter_launch
 
 from .docker_client import DockerCli, DockerCommandBackend, DockerContainerNotFound
@@ -63,6 +64,7 @@ class DockerExecutor:
         monotonic: Callable[[], float] = time.monotonic,
         clock_domain: str | None = None,
         installation_id: str | None = None,
+        limits: ResourceLimits = DEFAULT_RESOURCE_LIMITS,
     ) -> None:
         self.journal = journal
         self.docker = backend if isinstance(backend, DockerCli) else DockerCli(backend)
@@ -72,6 +74,7 @@ class DockerExecutor:
         self.monotonic = monotonic
         self.clock_domain = clock_domain or _detect_clock_domain()
         self.installation_id = installation_id
+        self.limits = limits
         self._checkpoint_capability: dict[tuple[str, str], bool] = {}
 
     def prepare(self, request: StartExecution) -> PreparedExecution:
@@ -100,6 +103,7 @@ class DockerExecutor:
                 image=image,
                 control_dir=str(control_dir),
                 installation_id=self.installation_id,
+                pid_limit=self.limits.container_pid_limit,
             )
         except (JournalWriteError, OSError, ValueError) as exc:
             message = str(exc)

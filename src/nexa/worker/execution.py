@@ -5,6 +5,7 @@ from contextlib import nullcontext, suppress
 from dataclasses import asdict, replace
 
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.observability import metrics_worker
 from nexa.workloads import adapter_launch
 
 from .adapter_dispatch import (
@@ -195,12 +196,18 @@ class WorkerExecutionMixin:
         # tombstone against the launch-free request.
         if adapter is None:
             request = execution_request(
-                {**context, "restore_checkpoint": None}, source, architecture
+                {**context, "restore_checkpoint": None},
+                source,
+                architecture,
+                limits=self.executor.limits,
             )
             downloads = [(context["input_artifacts"][0], source)]
         else:
             request = adapter_execution_request(
-                {**context, "restore_checkpoint": None}, directory, architecture
+                {**context, "restore_checkpoint": None},
+                directory,
+                architecture,
+                limits=self.executor.limits,
             )
             downloads = adapter_downloads(context, directory)
         start_callback = None
@@ -259,6 +266,7 @@ class WorkerExecutionMixin:
                     checkpoint=launch,
                     restore_file=restore_file,
                     restore_source=directory / "restore-state.json",
+                    limits=self.executor.limits,
                 )
             else:
                 checkpoint, restore, restore_files, recognized = launch
@@ -270,6 +278,7 @@ class WorkerExecutionMixin:
                     restore=restore,
                     restore_files=restore_files,
                     recognized=recognized,
+                    limits=self.executor.limits,
                 )
             for artifact, target in downloads:
                 if target.exists() and not _matches_descriptor(target, artifact):
@@ -845,6 +854,7 @@ class WorkerExecutionMixin:
             self._containers.pop(record.container.container_id, None)
             self._pause_deadline.pop(attempt_id, None)
             self._pause_retry.pop(attempt_id, None)
+            metrics_worker.execution("PAUSED")
 
     def _checkpoint_step(self, attempt_id, step):
         """Run one checkpoint step; a definite protocol defect fails the attempt closed."""

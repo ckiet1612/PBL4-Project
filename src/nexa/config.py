@@ -10,6 +10,7 @@ from uuid import UUID
 
 Environment = Literal["development", "test", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+LogFormat = Literal["json", "text"]
 
 
 class ConfigError(ValueError):
@@ -51,6 +52,11 @@ class Settings:
     orphan_ttl_seconds: int
     storage_high_watermark_percent: int
     storage_critical_watermark_percent: int
+    ops_bind: tuple[str, int] | None
+    log_format: LogFormat
+    gc_interval_seconds: int
+    metrics_cache_seconds: int
+    metrics_statement_timeout_ms: int
 
     def __repr__(self) -> str:
         return (
@@ -98,6 +104,11 @@ _ALLOWED_KEYS = frozenset(
         "NEXA_ORPHAN_TTL_SECONDS",
         "NEXA_STORAGE_HIGH_WATERMARK_PERCENT",
         "NEXA_STORAGE_CRITICAL_WATERMARK_PERCENT",
+        "NEXA_OPS_BIND",
+        "NEXA_LOG_FORMAT",
+        "NEXA_GC_INTERVAL_SECONDS",
+        "NEXA_METRICS_CACHE_SECONDS",
+        "NEXA_METRICS_STATEMENT_TIMEOUT_MS",
     }
 )
 _ENVIRONMENTS = frozenset({"development", "test", "production"})
@@ -148,6 +159,85 @@ def _network_setting(
         raise ConfigError(f"{key} must contain comma-separated CIDR networks") from None
 
 
+@dataclass(frozen=True, slots=True)
+class ResourceLimits:
+    """Worker-side container bounds (concurrency-recovery limits table)."""
+
+    container_pid_limit: int
+    scratch_max_bytes: int
+    attempt_log_max_bytes: int
+
+
+_HOST_PATTERN = re.compile(r"^[A-Za-z0-9.-]{1,253}$")
+
+
+def ops_bind_setting(environ: Mapping[str, str]) -> tuple[str, int] | None:
+    """Parse NEXA_OPS_BIND (``host:port`` or ``[ipv6]:port``); unset or blank keeps it off."""
+    raw = environ.get("NEXA_OPS_BIND", "").strip()
+    if not raw:
+        return None
+    error = ConfigError("NEXA_OPS_BIND must be host:port with a port between 1 and 65535")
+    if raw.startswith("["):
+        host, separator, port_text = raw[1:].partition("]:")
+        valid_host = bool(host) and all(c in "0123456789abcdefABCDEF:." for c in host)
+    else:
+        host, separator, port_text = raw.rpartition(":")
+        valid_host = bool(_HOST_PATTERN.fullmatch(host))
+    if not separator or not valid_host or not port_text.isdigit():
+        raise error
+    port = int(port_text)
+    if not 1 <= port <= 65_535:
+        raise error
+    return host, port
+
+
+def log_settings(environ: Mapping[str, str]) -> tuple[LogLevel, LogFormat]:
+    level = environ.get("NEXA_LOG_LEVEL", "INFO").strip().upper()
+    if level not in _LOG_LEVELS:
+        raise ConfigError("NEXA_LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
+    log_format = environ.get("NEXA_LOG_FORMAT", "json").strip().lower()
+    if log_format not in {"json", "text"}:
+        raise ConfigError("NEXA_LOG_FORMAT must be json or text")
+    return cast(LogLevel, level), cast(LogFormat, log_format)
+
+
+def resource_limits(environ: Mapping[str, str]) -> ResourceLimits:
+    """Read worker container bounds; ranges follow the contract limits table.
+
+    The scratch upper bound is only syntactic here: each dispatch also caps
+    scratch below the allocated memory (the validated host maximum).
+    """
+    return ResourceLimits(
+        container_pid_limit=_integer_setting(
+            environ, "NEXA_CONTAINER_PID_LIMIT", 512, minimum=32, maximum=32_768
+        ),
+        scratch_max_bytes=_integer_setting(
+            environ,
+            "NEXA_SCRATCH_MAX_BYTES",
+            2 * 1024**3,
+            minimum=64 * 1024**2,
+            maximum=1024**4,
+        ),
+        attempt_log_max_bytes=_integer_setting(
+            environ,
+            "NEXA_ATTEMPT_LOG_MAX_BYTES",
+            100 * 1024**2,
+            minimum=1024**2,
+            maximum=10 * 1024**3,
+        ),
+    )
+
+
+DEFAULT_RESOURCE_LIMITS = resource_limits({})
+
+
+def coordinator_artifact_quota_bytes(environ: Mapping[str, str]) -> int:
+    """The coordinator reads the same tenant byte quota as the API (default 100 GiB)."""
+    return _integer_setting(
+        environ, "NEXA_TENANT_ARTIFACT_QUOTA_BYTES", 100 * 1024**3, minimum=1, maximum=1024**4
+    )
+
+
 def load_settings(environ: Mapping[str, str]) -> Settings:
     unknown = sorted(key for key in environ if key.startswith("NEXA_") and key not in _ALLOWED_KEYS)
     if unknown:
@@ -190,10 +280,17 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         environ, "NEXA_API_JSON_MAX_BYTES", 1_048_576, minimum=65_536, maximum=16_777_216
     )
 
-    log_level_text = environ.get("NEXA_LOG_LEVEL", "INFO").strip().upper()
-    if log_level_text not in _LOG_LEVELS:
-        raise ConfigError("NEXA_LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
-    log_level = cast(LogLevel, log_level_text)
+    log_level, log_format = log_settings(environ)
+    ops_bind = ops_bind_setting(environ)
+    gc_interval_seconds = _integer_setting(
+        environ, "NEXA_GC_INTERVAL_SECONDS", 60, minimum=5, maximum=3_600
+    )
+    metrics_cache_seconds = _integer_setting(
+        environ, "NEXA_METRICS_CACHE_SECONDS", 15, minimum=1, maximum=300
+    )
+    metrics_statement_timeout_ms = _integer_setting(
+        environ, "NEXA_METRICS_STATEMENT_TIMEOUT_MS", 2_000, minimum=1, maximum=10_000
+    )
 
     public_origin = environ.get("NEXA_PUBLIC_ORIGIN", "https://localhost").strip().rstrip("/")
     parsed_origin = urlsplit(public_origin)
@@ -357,4 +454,9 @@ def load_settings(environ: Mapping[str, str]) -> Settings:
         orphan_ttl_seconds=orphan_ttl_seconds,
         storage_high_watermark_percent=storage_high_watermark_percent,
         storage_critical_watermark_percent=storage_critical_watermark_percent,
+        ops_bind=ops_bind,
+        log_format=log_format,
+        gc_interval_seconds=gc_interval_seconds,
+        metrics_cache_seconds=metrics_cache_seconds,
+        metrics_statement_timeout_ms=metrics_statement_timeout_ms,
     )

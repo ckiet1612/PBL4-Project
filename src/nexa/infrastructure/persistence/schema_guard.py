@@ -1,4 +1,5 @@
 from enum import StrEnum
+from functools import cache
 from pathlib import Path
 
 from alembic.config import Config
@@ -71,3 +72,12 @@ def require_current_schema(engine: Engine) -> None:
             f"Database schema is {compatibility.value}; "
             "explicit migration or operator action is required"
         )
+
+
+@cache
+def current_schema_head(alembic_config_path: str = "alembic.ini") -> str:
+    """The single Alembic head this code serves; read once per process."""
+    heads = ScriptDirectory.from_config(Config(alembic_config_path)).get_heads()
+    if len(heads) != 1:
+        raise SchemaCompatibilityError("Alembic must have exactly one head")
+    return str(heads[0])

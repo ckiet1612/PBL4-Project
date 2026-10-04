@@ -336,7 +336,14 @@ def test_env_example_is_loadable_without_real_credentials() -> None:
         "NEXA_TRUSTED_PROXY_CIDRS",
         "NEXA_WORKER_BOOTSTRAP_WINDOW_SECONDS",
         "NEXA_WORKER_CREDENTIAL_TTL_SECONDS",
+        # B19 ops/log/GC/metrics keys.
+        "NEXA_LOG_FORMAT",
+        "NEXA_OPS_BIND",
+        "NEXA_GC_INTERVAL_SECONDS",
+        "NEXA_METRICS_CACHE_SECONDS",
+        "NEXA_METRICS_STATEMENT_TIMEOUT_MS",
     }
+    assert settings.ops_bind is None
     assert settings.environment == "development"
     assert settings.database_url == "postgresql+psycopg://nexa@localhost/nexa"
     assert settings.artifact_root == Path("/srv/nexa/artifacts")

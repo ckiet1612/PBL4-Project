@@ -4,6 +4,7 @@ import hashlib
 
 import rfc8785
 
+from nexa.observability import metrics_worker
 from nexa.workloads import chunk_manifest, inference_state
 
 from .client import WorkerApiError
@@ -339,6 +340,7 @@ class ResultFlow:
         if ack.get("accepted") is not True:
             raise ValueError("completion was not accepted")
         self._save(attempt_id, completed=True, completion_ack=ack)
+        metrics_worker.execution("SUCCEEDED")
 
     def _upload(self, attempt_id, sequence, descriptor):
         state = self._load(attempt_id)

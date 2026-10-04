@@ -515,33 +515,11 @@ class AdminWorkerService(AdminQueryMixin, AdminService):
         state. Reconciliation, quarantine and inventory are rechecked here because
         they may have changed since that heartbeat (finding B15-R07).
         """
-        heartbeat = worker["last_heartbeat_at"]
-        if heartbeat is None or heartbeat < now - _HEARTBEAT_FRESH:
-            raise _conflict("The worker has no fresh heartbeat")
         if worker["admin_state"] == "DRAINING" and worker["health"] != "READY":
             raise _conflict("The worker is not READY")
-        incarnation = (
-            session.execute(
-                select(s.worker_incarnations).where(
-                    s.worker_incarnations.c.worker_incarnation_id
-                    == worker["current_incarnation_id"]
-                )
-            )
-            .mappings()
-            .one_or_none()
-        )
-        if incarnation is not None and (
-            incarnation["ready_checked_at"] is None or incarnation["ready_checked_at"] != heartbeat
-        ):
-            raise _conflict("The latest worker heartbeat did not pass the READY checks")
-        if (
-            incarnation is None
-            or incarnation["ended_at"] is not None
-            or not incarnation["reconciliation_drained"]
-            or incarnation["reconciliation_snapshot"]
-            != WorkerService._reconciliation_snapshot(session, worker["worker_id"])
-        ):
-            raise _conflict("The current worker incarnation is not reconciled")
+        failure = worker_readiness_failure(session, worker, now)
+        if failure is not None:
+            raise _conflict(failure)
         pending = session.execute(
             select(s.allocations.c.allocation_id)
             .where(
@@ -552,9 +530,6 @@ class AdminWorkerService(AdminQueryMixin, AdminService):
         ).scalar_one_or_none()
         if pending is not None:
             raise _conflict("Quarantined allocations still await verified cleanup")
-        inventory = AdminWorkerService._inventory_view(session, worker)
-        if inventory is None or not WorkerService._inventory_can_be_ready(inventory):
-            raise _conflict("The worker inventory does not pass capability checks")
 
     @staticmethod
     def _fence_worker_attempts(session: Session, worker_id: UUID, now, actor_id: UUID) -> None:
@@ -704,3 +679,41 @@ def _job_event(
             created_at=now,
         )
     )
+
+
+def worker_readiness_failure(session: Session, worker: Any, now: datetime) -> str | None:
+    """READY evidence shared by worker enable and reopening NORMAL (B19-R02).
+
+    Returns the first failed condition, or None: a heartbeat within 30 s of DB time
+    that passed the READY checks, a reconciled current incarnation and an inventory
+    that passes capability checks. Health/admin state and quarantine are the
+    caller's own conditions.
+    """
+    heartbeat = worker["last_heartbeat_at"]
+    if heartbeat is None or heartbeat < now - _HEARTBEAT_FRESH:
+        return "The worker has no fresh heartbeat"
+    incarnation = (
+        session.execute(
+            select(s.worker_incarnations).where(
+                s.worker_incarnations.c.worker_incarnation_id == worker["current_incarnation_id"]
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if incarnation is not None and (
+        incarnation["ready_checked_at"] is None or incarnation["ready_checked_at"] != heartbeat
+    ):
+        return "The latest worker heartbeat did not pass the READY checks"
+    if (
+        incarnation is None
+        or incarnation["ended_at"] is not None
+        or not incarnation["reconciliation_drained"]
+        or incarnation["reconciliation_snapshot"]
+        != WorkerService._reconciliation_snapshot(session, worker["worker_id"])
+    ):
+        return "The current worker incarnation is not reconciled"
+    inventory = AdminWorkerService._inventory_view(session, worker)
+    if inventory is None or not WorkerService._inventory_can_be_ready(inventory):
+        return "The worker inventory does not pass capability checks"
+    return None

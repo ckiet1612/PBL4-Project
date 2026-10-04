@@ -4,8 +4,10 @@ import hashlib
 
 import rfc8785
 
+from nexa.config import DEFAULT_RESOURCE_LIMITS, ResourceLimits
 from nexa.workloads.cpu_state import CpuStateError, decode_state
 
+from .docker_config import attempt_bounds
 from .models import (
     RESTORE_STATE_PATH,
     AllocationIdentity,
@@ -157,7 +159,14 @@ def verify_restore_state(raw, *, context, cursor):
 
 
 def execution_request(
-    context, source, architecture, *, checkpoint=None, restore_file=None, restore_source=None
+    context,
+    source,
+    architecture,
+    *,
+    checkpoint=None,
+    restore_file=None,
+    restore_source=None,
+    limits: ResourceLimits = DEFAULT_RESOURCE_LIMITS,
 ):
     # A CHECKPOINT_FOR_PAUSE attempt launches like RUN; the agent's pause flow
     # checkpoints it at the first step boundary and stops it (SM:18).
@@ -211,13 +220,14 @@ def execution_request(
                 size_bytes=restore_file["size_bytes"],
             )
         )
+    scratch_bytes, log_bytes = attempt_bounds(resources.memory_bytes, limits)
     return StartExecution(
         context=execution,
         allocation=AllocationIdentity(authority.allocation_id, authority.attempt_id, resources),
         startup_nonce=context["startup_nonce"],
         operation_sequence=1,
-        scratch_bytes=min(64 * 1024**2, resources.memory_bytes // 4),
-        log_bytes=1024**2,
+        scratch_bytes=scratch_bytes,
+        log_bytes=log_bytes,
         runtime_limit_seconds=spec["runtime_limit_seconds"],
         input_mounts=tuple(mounts),
         cpu_workload=CpuWorkloadSpec(**spec["parameters"], spec_checksum=checksum(spec)),

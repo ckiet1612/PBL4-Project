@@ -1,0 +1,49 @@
+[b17-stack] run af4a6590 tier=w2 network=bridge dist index=b57852b8a94a
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 58205 (bind 127.0.0.1)
+[b17-stack] api ops listener on port 58201
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:58206
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] coordinator started
+[b17-stack] coordinator ops listener on port 58202
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5d35ccb53860
+[b17-stack] worker ops listener on port 58203
+[b17-stack] Prometheus sha256:63805ebb8d2b on port 58204
+[b17-stack] running: .venv/bin/python scripts/b19_outage.py --out /tmp/b19_canary_outage.json
+[b19] 20:52:56.497Z submitted {'accepted': 8}
+[b19] 20:52:59.072Z first job RUNNING {'states': {'01a1038a-94a6-7937-afc8-e22c48913004': 'RUNNING', '01a1038a-94d7-7b83-84f9-d93798bae963': 'DISPATCHING', '01a1038a-94fb-7695-a3f9-a0e4843df886': 'QUEUED', '01a1038a-951f-702f-9138-2c03dc9504ed': 'QUEUED', '01a1038a-953d-70e6-96f5-28a31327f2e3': 'QUEUED', '01a1038a-955c-71c2-adbd-8fc2820c15ef': 'QUEUED', '01a1038a-95ac-74e1-ad44-4fa4aae9ea78': 'QUEUED', '01a1038a-961a-7cd8-b7f0-62232a7444b0': 'QUEUED'}}
+[b19] 20:52:59.239Z prometheus stopped
+[b19] 20:52:59.239Z metrics hammer start {'rate': 20, 'seconds': 30}
+[b19] 20:52:59.240Z lock checkpoints {'seconds': 3}
+[b19] 20:53:00.582Z checkpoint collector down (series dropped)
+[b19] 20:53:03.003Z checkpoint collector up again
+[b19] 20:53:05.411Z lock checkpoints {'seconds': 3}
+[b19] 20:53:06.403Z checkpoint collector down (series dropped)
+[b19] 20:53:08.743Z checkpoint collector up again
+[b19] 20:53:11.536Z lock checkpoints {'seconds': 3}
+[b19] 20:53:12.143Z checkpoint collector down (series dropped)
+[b19] 20:53:15.730Z checkpoint collector up again
+[b19] 20:53:17.692Z lock checkpoints {'seconds': 3}
+[b19] 20:53:18.036Z checkpoint collector down (series dropped)
+[b19] 20:53:21.661Z checkpoint collector up again
+[b19] 20:53:29.321Z metrics hammer end {'errors': 0, 'requests': 509, 'p50_ms': 7.2, 'p99_ms': 240.7, 'max_ms': 278.8}
+[b19] 20:53:29.648Z job states {'DISPATCHING': 1, 'QUEUED': 3, 'RUNNING': 1, 'SUCCEEDED': 3}
+[b19] 20:53:31.798Z job states {'QUEUED': 3, 'RUNNING': 1, 'SUCCEEDED': 4}
+[b19] 20:53:36.187Z job states {'DISPATCHING': 1, 'QUEUED': 2, 'RUNNING': 1, 'SUCCEEDED': 4}
+[b19] 20:53:38.430Z job states {'QUEUED': 2, 'RUNNING': 2, 'SUCCEEDED': 4}
+[b19] 20:53:40.573Z job states {'QUEUED': 2, 'RUNNING': 1, 'SUCCEEDED': 5}
+[b19] 20:53:47.145Z job states {'QUEUED': 1, 'RUNNING': 2, 'SUCCEEDED': 5}
+[b19] 20:53:49.289Z job states {'QUEUED': 1, 'RUNNING': 1, 'SUCCEEDED': 6}
+[b19] 20:53:55.867Z job states {'DISPATCHING': 1, 'SUCCEEDED': 7}
+[b19] 20:53:57.996Z job states {'RUNNING': 1, 'SUCCEEDED': 7}
+[b19] 20:54:04.501Z job states {'SUCCEEDED': 8}
+[b19] 20:54:04.501Z all jobs terminal {'states': ['SUCCEEDED']}
+[b19] 20:54:09.901Z wrote /tmp/b19_canary_outage.json
+[b19] 20:54:09.901Z failures=[]
+[b17-stack] command exit=0 in 74.5s
+[b17-stack] nexa-maintenance consistency-check exit=0
+[b17-stack]   {"accepted":8,"consistent":true,"missing_accepted":0,"multiple_results":0,"result_of_unsucceeded_job":0,"succeeded":8,"succeeded_without_result":0}
+[b17-stack] nexa-maintenance storage-check exit=0
+[b17-stack]   {"consistent":true,"drift":[],"drift_tenants":0,"retained_unpublished_artifacts":0,"retained_unpublished_bytes":0}
+[b17-stack] canary scan: 44 values x 3 logs (api 109044 B, coordinator 383 B, worker 4467 B): 0 hit(s)
+[b17-stack] cleaned up run af4a6590

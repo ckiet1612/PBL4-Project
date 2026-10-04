@@ -10,12 +10,20 @@ W2: W1 + coordinator process + Docker worker container + CPU image built from th
     ... run --tier w2 -- pnpm --dir web exec playwright test --project=w2
     ... run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admin
     ... run --tier w1 -- pnpm --dir web exec playwright test --project=w1-admin-mode
-                                  # own stack: the mode change cannot be undone (B18-R05)
+                                  # own stack: no worker, so NORMAL cannot be reopened (B19-R02)
     ... run --tier w1 --operational-mode WRITE_FROZEN -- \
         pnpm --dir web exec playwright test --project=w1-admin-frozen
                                   # WRITE_FROZEN is unreachable over the API (B18-R18): the
                                   # harness writes it into the test DB after seeding (D6)
-    ... run --tier w2 -- pnpm --dir web exec playwright test --project=w2-admin
+    ... run --tier w2 -- pnpm --dir web exec playwright test --project=w2-admin \
+        --project=w2-admin-mobile  # w2-admin starts with the B19 NORMAL reopen scenario
+    ... run --tier w2 --prometheus [--alert-for 20s] -- python scripts/b19_scrape.py
+                                  # B19: ops listeners on loopback + a pinned Prometheus
+                                  # scraping the API, coordinator and worker; --alert-for
+                                  # shortens only the `for:` of a generated rules copy
+    ... run --tier w2 --prometheus --api-env NEXA_METRICS_CACHE_SECONDS=1 -- \
+        python scripts/b19_outage.py  # B19 outage run; the harness then runs
+                                  # nexa-maintenance consistency-check on the IDs it saved
     ... up --tier w1              # keep the stack until Ctrl-C (manual checks)
     ... cleanup                   # remove leftovers of an interrupted run
 
@@ -33,6 +41,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import secrets
 import shutil
 import signal
@@ -61,6 +70,13 @@ DIST = ROOT / "web" / "dist"
 CADDYFILE = ROOT / "deploy" / "web" / "Caddyfile"
 TEMPLATES = ROOT / "deploy" / "templates"
 CADDY_IMAGE = "caddy:2.10.2-alpine"
+PROMETHEUS_DIR = ROOT / "deploy" / "prometheus"
+# Same image and digest as the promtool evidence (docs/environment-inventory.md).
+PROMETHEUS_IMAGE = (
+    "prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996"
+)
+# --api-env may only tune observability and storage knobs, never secrets or identities.
+API_ENV_PREFIXES = ("NEXA_METRICS_", "NEXA_GC_", "NEXA_STORAGE_", "NEXA_LOG_")
 STATE_PREFIX = "nexa-b17-run-"
 CONTAINER_PREFIX = "nexa_b17_"
 CPU_INPUT_MEDIA = "application/vnd.nexa.cpu-iterative-input+json"
@@ -167,10 +183,31 @@ def reset_database(url: str) -> None:
 
 
 class Stack:
-    def __init__(self, tier: str, network: str, operational_mode: str = "NORMAL") -> None:
+    def __init__(
+        self,
+        tier: str,
+        network: str,
+        operational_mode: str = "NORMAL",
+        *,
+        ops: bool = False,
+        prometheus: bool = False,
+        alert_for: str | None = None,
+        api_env: dict[str, str] | None = None,
+    ) -> None:
         self.tier = tier
         self.network = network
         self.operational_mode = operational_mode
+        self.prometheus = prometheus
+        self.alert_for = alert_for
+        self.api_env = dict(api_env or {})
+        # B19: one loopback ops port per process (API, coordinator, worker).
+        self.ops_ports = (
+            {"api": free_port(), "coordinator": free_port(), "worker": free_port()}
+            if ops or prometheus
+            else {}
+        )
+        self.prometheus_port = free_port() if prometheus else None
+        self.api_environment: dict[str, str] = {}
         self.run_id = secrets.token_hex(4)
         self.state = Path(tempfile.mkdtemp(prefix=STATE_PREFIX))
         self.state.chmod(0o700)
@@ -184,6 +221,9 @@ class Stack:
         self.bootstrap_secret = secret_text()
         self.processes: list[subprocess.Popen] = []
         self.containers: list[str] = []
+        self.session_secrets: list[str] = []
+        self.worker_credential: str | None = None
+        self.worker_container: str | None = None
         self.fixture: dict = {}
         (self.state / "installation-id").write_text(self.installation_id)
 
@@ -220,6 +260,8 @@ class Stack:
         if self.tier == "w2":
             self._start_coordinator()
             self._start_worker()
+        if self.prometheus:
+            self._start_prometheus()
         self._write_fixture()
 
     # -- processes ---------------------------------------------------------------
@@ -247,13 +289,17 @@ class Stack:
                 "NEXA_LOCAL_WORKER_ID": self.worker_id,
                 "NEXA_LOCAL_WORKER_FINGERPRINT": self.fingerprint,
                 "NEXA_MAINTENANCE_CIDRS": "127.0.0.0/8",
+                **self.api_env,
             }
         )
         # Docker Desktop forwards host-gateway traffic to the host's loopback (measured: the
         # API sees 127.0.0.1), so the API stays on loopback. Only a Linux engine in bridge mode
         # reaches the host on its bridge address and needs every interface for the run.
-        linux_bridge = self.network == "bridge" and platform.system() == "Linux"
-        host = "0.0.0.0" if linux_bridge else "127.0.0.1"
+        host = self._host_bind()
+        if self.ops_ports:
+            environment["NEXA_OPS_BIND"] = f"{host}:{self.ops_ports['api']}"
+        # nexa-maintenance checks after the command load the same settings (never logged).
+        self.api_environment = environment
         api_log = open(self.state / "api.log", "wb")  # noqa: SIM115 - closed with the state dir
         process = subprocess.Popen(
             [
@@ -287,6 +333,26 @@ class Stack:
 
         wait_until(ready, "API readiness", 30)
         log(f"API ready on port {self.api_port} (bind {host})")
+        if self.ops_ports:
+            self._wait_ops("api", process)
+
+    def _host_bind(self) -> str:
+        linux_bridge = self.network == "bridge" and platform.system() == "Linux"
+        return "0.0.0.0" if linux_bridge else "127.0.0.1"
+
+    def _wait_ops(self, name: str, process: subprocess.Popen | None = None) -> None:
+        url = f"http://127.0.0.1:{self.ops_ports[name]}/livez"
+
+        def live() -> bool:
+            if process is not None and process.poll() is not None:
+                raise RuntimeError(f"{name} exited with {process.returncode}")
+            try:
+                return httpx.get(url, timeout=0.5).status_code == 200
+            except httpx.RequestError:
+                return False
+
+        wait_until(live, f"{name} ops listener", 60)
+        log(f"{name} ops listener on port {self.ops_ports[name]}")
 
     def _start_caddy(self) -> None:
         name = f"{CONTAINER_PREFIX}caddy_{self.run_id}"
@@ -373,6 +439,8 @@ class Stack:
         environment.update(
             {"PYTHONPATH": str(ROOT / "src"), "NEXA_DATABASE_URL": self.database_url}
         )
+        if self.ops_ports:
+            environment["NEXA_OPS_BIND"] = f"{self._host_bind()}:{self.ops_ports['coordinator']}"
         coordinator_log = open(self.state / "coordinator.log", "wb")  # noqa: SIM115
         process = subprocess.Popen(
             [sys.executable, "-m", "nexa.coordinator.main"],
@@ -386,6 +454,8 @@ class Stack:
         if process.poll() is not None:
             raise RuntimeError(f"coordinator exited with {process.returncode}")
         log("coordinator started")
+        if self.ops_ports:
+            self._wait_ops("coordinator", process)
 
     def _start_worker(self) -> None:
         cpu_image = os.environ.get("NEXA_B17_CPU_IMAGE_REF", "")
@@ -412,6 +482,7 @@ class Stack:
             201,
             "worker bootstrap",
         ).json()
+        self.worker_credential = bootstrap["credential"]
         CredentialStore(shared / "credential.json").save(
             worker_id=self.worker_id,
             installation_id=self.installation_id,
@@ -424,7 +495,17 @@ class Stack:
         else:
             network = ["--network", "host"]
             api_url = f"http://127.0.0.1:{self.api_port}"
+        ops: list[str] = []
+        if self.ops_ports:
+            port = self.ops_ports["worker"]
+            if self.network == "bridge":
+                # Published on the host's loopback only (B19-R03: never public).
+                ops = ["--env", f"NEXA_OPS_BIND=0.0.0.0:{port}"]
+                ops += ["--publish", f"127.0.0.1:{port}:{port}"]
+            else:
+                ops = ["--env", f"NEXA_OPS_BIND=127.0.0.1:{port}"]
         name = f"{CONTAINER_PREFIX}worker_{self.run_id}"
+        self.worker_container = name
         self.containers.append(name)
         docker(
             "run",
@@ -450,6 +531,7 @@ class Stack:
             f"NEXA_BOOTSTRAP_SECRET_FILE={shared / 'bootstrap-secret'}",
             "--env",
             f"NEXA_CPU_IMAGE_REF={cpu_image}",
+            *ops,
             worker_image,
             "nexa-worker",
         )
@@ -469,6 +551,90 @@ class Stack:
         worker_digest = docker("image", "inspect", "--format", "{{.Id}}", worker_image)
         cpu_digest = cpu_image.rsplit("@", 1)[1]
         log(f"worker READY: cpu image {cpu_digest[:19]}, worker {worker_digest[:19]}")
+        if self.ops_ports:
+            self._wait_ops("worker")
+
+    def _start_prometheus(self) -> None:
+        """B19: a pinned, read-only Prometheus scraping the three ops listeners.
+
+        The scrape config and rules are generated in the state directory from
+        deploy/prometheus: only the targets, the 5 s intervals and (with --alert-for)
+        the rules' `for:` durations differ from the shipped samples.
+        """
+        if self.tier != "w2":
+            raise SystemExit("--prometheus needs --tier w2 (coordinator and worker)")
+        config_dir = self.state / "prometheus"
+        config_dir.mkdir(mode=0o755)
+        config_dir.chmod(0o755)  # read by the image's `nobody` user; holds no secret
+        if self.network == "bridge":
+            worker_ip = docker(
+                "inspect",
+                "--format",
+                "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+                self.worker_container,
+            )
+            targets = {
+                "api": f"host.docker.internal:{self.ops_ports['api']}",
+                "coordinator": f"host.docker.internal:{self.ops_ports['coordinator']}",
+                "worker": f"{worker_ip}:{self.ops_ports['worker']}",
+            }
+            network = ["--network", "bridge", "--add-host", "host.docker.internal:host-gateway"]
+            network += ["--publish", f"127.0.0.1:{self.prometheus_port}:9090"]
+            listen = "0.0.0.0:9090"
+        else:
+            targets = {name: f"127.0.0.1:{port}" for name, port in self.ops_ports.items()}
+            network = ["--network", "host"]
+            listen = f"127.0.0.1:{self.prometheus_port}"
+        config = (PROMETHEUS_DIR / "prometheus.yml").read_text()
+        for name, sample in (("api", 9464), ("coordinator", 9465), ("worker", 9466)):
+            config = config.replace(f'"127.0.0.1:{sample}"', f'"{targets[name]}"')
+        config = re.sub(r"(?m)^(  (?:scrape|evaluation)_interval:) 15s$", r"\1 5s", config)
+        rules = (PROMETHEUS_DIR / "alerts.yml").read_text()
+        if self.alert_for:
+            rules = re.sub(r"(?m)^(\s+for:) \S+$", rf"\1 {self.alert_for}", rules)
+            header = f"# GENERATED by b17_e2e_stack.py: every `for:` set to {self.alert_for}\n"
+            rules = header + rules
+        for file_name, content in (("prometheus.yml", config), ("alerts.yml", rules)):
+            (config_dir / file_name).write_text(content)
+            (config_dir / file_name).chmod(0o644)
+        name = f"{CONTAINER_PREFIX}prometheus_{self.run_id}"
+        self.containers.append(name)
+        docker(
+            "run",
+            "--detach",
+            "--name",
+            name,
+            "--pids-limit",
+            "128",
+            "--memory",
+            "512m",
+            "--read-only",
+            "--tmpfs",
+            "/prometheus:rw,size=256m,uid=65534,gid=65534",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges",
+            *network,
+            "--mount",
+            f"type=bind,src={config_dir},dst=/etc/nexa-prometheus,readonly",
+            PROMETHEUS_IMAGE,
+            "--config.file=/etc/nexa-prometheus/prometheus.yml",
+            "--storage.tsdb.path=/prometheus",
+            "--storage.tsdb.retention.time=1h",
+            f"--web.listen-address={listen}",
+        )
+        self.prometheus_container = name
+        url = f"http://127.0.0.1:{self.prometheus_port}"
+
+        def ready() -> bool:
+            try:
+                return httpx.get(url + "/-/ready", timeout=1).status_code == 200
+            except httpx.RequestError:
+                return False
+
+        wait_until(ready, "Prometheus readiness", 60)
+        log(f"Prometheus {PROMETHEUS_IMAGE.rsplit('@', 1)[1][:19]} on port {self.prometheus_port}")
 
     # -- seed over REST ------------------------------------------------------------
     def _session(self) -> httpx.Client:
@@ -483,6 +649,8 @@ class Stack:
             200,
             f"login {username}",
         ).json()
+        self.session_secrets.append(login["csrf_token"])
+        self.session_secrets.extend(cookie.value for cookie in client.cookies.jar if cookie.value)
         return client, {"X-CSRF-Token": login["csrf_token"]}
 
     def _seed(self) -> None:
@@ -724,11 +892,105 @@ class Stack:
 
     def _write_fixture(self) -> None:
         (self.state / "storage").mkdir(mode=0o700)
+        if self.ops_ports:
+            # B19 scripts: loopback-only URLs and names; no credential is added here.
+            self.fixture["ops"] = {
+                name: f"http://127.0.0.1:{port}" for name, port in self.ops_ports.items()
+            }
+            self.fixture["ca_file"] = str(self.state / "caddy-root.crt")
+            self.fixture["accepted_ids_file"] = str(self.accepted_ids_path)
+            self.fixture["worker_container"] = self.worker_container
+            self.fixture["database_name"] = urlsplit(self.database_url).path.removeprefix("/")
+        if self.prometheus:
+            self.fixture["prometheus"] = {
+                "url": f"http://127.0.0.1:{self.prometheus_port}",
+                "container": self.prometheus_container,
+                "alert_for": self.alert_for,
+            }
         write_private(self.state / "fixture.json", json.dumps(self.fixture, indent=2).encode())
 
     @property
     def fixture_path(self) -> Path:
         return self.state / "fixture.json"
+
+    @property
+    def accepted_ids_path(self) -> Path:
+        return self.state / "accepted-ids.txt"
+
+    def maintenance_checks(self) -> int:
+        """B19: when the command saved accepted job IDs, run the read-only checks with the
+        API's settings and log their JSON summaries (counts and IDs only)."""
+        if not self.accepted_ids_path.is_file():
+            return 0
+        worst = 0
+        for args in (
+            ["consistency-check", "--accepted-ids", str(self.accepted_ids_path)],
+            ["storage-check"],
+        ):
+            result = subprocess.run(
+                [sys.executable, "-c", "from nexa.cli.main import app; app()", *args],
+                cwd=ROOT,
+                env=self.api_environment,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            log(f"nexa-maintenance {args[0]} exit={result.returncode}")
+            for line in (result.stdout + result.stderr).splitlines():
+                log(f"  {line}")
+            worst = max(worst, result.returncode)
+        return worst
+
+    def canary_scan(self) -> int:
+        """B19 (§7.B): no secret or payload of this run may appear in the API, coordinator
+        or worker logs. The values are compared in memory and never printed: a hit names
+        only its kind and the log it was found in."""
+        logs = {
+            name: (self.state / f"{name}.log").read_bytes()
+            for name in ("api", "coordinator")
+            if (self.state / f"{name}.log").is_file()
+        }
+        if self.worker_container:
+            worker = subprocess.run(
+                ["docker", "logs", self.worker_container],
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+            logs["worker"] = worker.stdout + worker.stderr
+        canaries: dict[str, list[bytes]] = {
+            "server secret": [(self.state / "server-secret").read_bytes()],
+            "bootstrap secret": [self.bootstrap_secret.encode()],
+            "user password": [
+                user["password"].encode() for user in self.fixture.get("users", {}).values()
+            ],
+            "session cookie or CSRF token": [value.encode() for value in self.session_secrets],
+            "database password": [
+                (urlsplit(self.database_url).password or "").encode(),
+            ],
+            "worker credential": [(self.worker_credential or "").encode()],
+            "input bytes": [json.dumps({"initial_value": 5}, separators=(",", ":")).encode()],
+            "committed blob bytes": [
+                blob.read_bytes()[:64]
+                for blob in (self.state / "artifacts" / "committed").glob("*")
+                if blob.is_file() and not blob.is_symlink() and blob.stat().st_size >= 16
+            ],
+        }
+        hits = [
+            f"{kind} in {name}"
+            for kind, values in canaries.items()
+            for value in values
+            if len(value) >= 8
+            for name, content in logs.items()
+            if value in content
+        ]
+        counted = sum(len([v for v in values if len(v) >= 8]) for values in canaries.values())
+        sizes = ", ".join(f"{name} {len(content)} B" for name, content in logs.items())
+        log(f"canary scan: {counted} values x {len(logs)} logs ({sizes}): {len(hits)} hit(s)")
+        for hit in sorted(set(hits)):
+            log(f"  canary hit: {hit}")
+        return 1 if hits else 0
 
 
 def remove_workload_containers(installation_id: str) -> None:
@@ -792,6 +1054,18 @@ def main(argv: list[str] | None = None) -> int:
         item.add_argument(
             "--operational-mode", choices=("NORMAL", "WRITE_FROZEN"), default="NORMAL"
         )
+        item.add_argument("--ops", action="store_true", help="B19: enable NEXA_OPS_BIND")
+        item.add_argument(
+            "--prometheus", action="store_true", help="B19: --ops plus a pinned Prometheus"
+        )
+        item.add_argument("--alert-for", help="B19: shorten every rule's `for:` (e.g. 20s)")
+        item.add_argument(
+            "--api-env",
+            action="append",
+            default=[],
+            metavar="KEY=VALUE",
+            help="B19: extra API setting (" + ", ".join(p + "*" for p in API_ENV_PREFIXES) + ")",
+        )
         if action == "run":
             item.add_argument("command", nargs=argparse.REMAINDER)
     sub.add_parser("cleanup")
@@ -804,7 +1078,23 @@ def main(argv: list[str] | None = None) -> int:
     with ExitStack() as stack_context:
         if args.tier == "w2" and args.operational_mode != "NORMAL":
             parser.error("--operational-mode WRITE_FROZEN is a W1 (no worker) stack only")
-        stack = Stack(args.tier, args.network, args.operational_mode)
+        if args.alert_for and not re.fullmatch(r"[0-9]+[smh]", args.alert_for):
+            parser.error("--alert-for must look like 20s, 2m or 1h")
+        api_env = {}
+        for item in args.api_env:
+            key, separator, value = item.partition("=")
+            if not separator or not key.startswith(API_ENV_PREFIXES):
+                parser.error(f"--api-env accepts {', '.join(API_ENV_PREFIXES)} keys only")
+            api_env[key] = value
+        stack = Stack(
+            args.tier,
+            args.network,
+            args.operational_mode,
+            ops=args.ops,
+            prometheus=args.prometheus,
+            alert_for=args.alert_for,
+            api_env=api_env,
+        )
         stack_context.callback(stack.close)
         interrupted = []
 
@@ -825,7 +1115,10 @@ def main(argv: list[str] | None = None) -> int:
                 command_line, cwd=ROOT, env=child_environment(stack), check=False
             )
             log(f"command exit={result.returncode} in {time.monotonic() - started:.1f}s")
-            return result.returncode
+            checks = stack.maintenance_checks()
+            if stack.ops_ports:
+                checks = max(checks, stack.canary_scan())
+            return result.returncode or checks
         except KeyboardInterrupt:
             log("interrupted")
             return 130

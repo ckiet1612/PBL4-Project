@@ -10,7 +10,7 @@ Hãy hình dung dự án như xây một ngôi nhà:
 - B02 là dựng khung nhà và chuẩn bị dụng cụ.
 - Các chặng sau lần lượt xây bộ phận chia việc, nơi lưu dữ liệu, bộ phận thực hiện công việc, giao diện và phần kiểm tra.
 
-## Trạng thái ghi nhận ngày 03/10/2026
+## Trạng thái ghi nhận ngày 05/10/2026
 
 - **B01 đã được Task Review duyệt.**
 - **B02 đã hoàn thành và được Task Review duyệt.** B02 hiện có bộ khung Python, giao diện web mẫu, lockfile cho Python/UI, kiểm tra cấu hình, kiểm thử tự động và CI chỉ đọc. Các mục Review trước đây đã được xử lý và kiểm chứng.
@@ -61,10 +61,20 @@ Hãy hình dung dự án như xây một ngôi nhà:
   - xem cách chia tài nguyên (fairness) theo khoảng thời gian, các sự kiện phục hồi và lịch sử thao tác (audit).
 
   Trang web gọi cùng API với CLI; CLI cũng có thêm lệnh xem hàng chờ và fairness cho admin. Mỗi lần admin xem dữ liệu đều được ghi lịch sử, nên trang không tự tải lại danh sách; chỉ trang chi tiết worker tự cập nhật trong lúc worker đang chuyển trạng thái. Hai admin sửa cùng lúc thì người sau được báo xung đột và thấy giá trị mới, không ghi đè nhau. Trang không báo "đã xong" trước khi hệ thống xác nhận. Có thêm hai chỉ mục (index) để danh sách công việc và báo cáo fairness đọc nhanh: danh sách công việc từ 307 ms xuống 0,234 ms, báo cáo 31 ngày dưới 1 giây với khoảng 200.000 bản ghi. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac: 20 test khu quản trị không có worker, 2 test chế độ vận hành, 5 test có worker chạy việc thật (gồm màn hình điện thoại), và chạy lại đủ 28 test của B17. Task Review không duyệt ba vòng đầu: vòng 1 có ba lỗi chặn, vòng 2 thiếu lượt chạy kiểm thử vì Docker bị nghẽn, vòng 3 thiếu lượt đo tốc độ trên cách tính mới. Vòng 4 được duyệt. Bật lại nhận việc từ chế độ tạm ngừng vẫn bị hệ thống từ chối, chờ B19 hoặc một task phục hồi riêng. Chi tiết ở [B18 evidence](docs/evidence/B18-web-ui-admin.md), [hướng dẫn Web UI](docs/web-ui.md#khu-quản-trị-b18) và mục Bàn giao B18 bên dưới.
+- **B19 đã hoàn thành và được Task Review duyệt, theo xác nhận của user ngày 05/10/2026.** Hệ thống giờ:
+  - ghi số liệu vận hành (metrics) để Prometheus đọc định kỳ, kèm 16 cảnh báo tự bật khi có vấn đề, ví dụ một bộ phận ngừng trả lời hoặc ổ đĩa sắp đầy;
+  - ghi nhật ký dạng JSON cho API, coordinator và worker, tự che mật khẩu, token và dữ liệu nhạy cảm;
+  - cho mỗi bộ phận một cổng riêng để kiểm tra "còn sống" và "sẵn sàng". Cổng này mặc định tắt và không đi qua cổng web công khai;
+  - từ chối dần việc mới khi ổ đĩa chứa dữ liệu đầy 85 % và ngừng giao việc khi đầy 95 %; người dùng vẫn đọc, tải kết quả, hủy được và hệ thống vẫn phục hồi được;
+  - tự dọn phiên tải lên đã hết hạn, tệp tạm cũ và tệp không còn bản ghi nào trỏ tới;
+  - giới hạn số tiến trình, vùng nháp và kích thước log của mỗi công việc;
+  - có hai lệnh kiểm tra chỉ đọc để đối chiếu dung lượng và kết quả công việc.
 
-Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), [B17 evidence](docs/evidence/B17-web-ui-user.md), [B18 evidence](docs/evidence/B18-web-ui-admin.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation, ngày 01/10/2026 đã duyệt B17, ngày 03/10/2026 đã duyệt B18. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B18 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+  Admin giờ bật lại được nhận việc từ chế độ tạm ngừng, khi hệ thống kiểm tra thật thấy cơ sở dữ liệu, ổ đĩa và worker đều sẵn sàng; rời chế độ chỉ đọc (WRITE_FROZEN) vẫn chờ B21. Đã kiểm thử trên Mac. Prometheus thật đọc số liệu, bật và tắt cảnh báo đúng lúc. Khi tắt Prometheus và làm phần đọc số liệu lỗi trong lúc chạy 8 công việc, cả 8 vẫn xong và server không trả lỗi nào. Làm đầy ổ đĩa thật không để lại tệp dở. Không cần thêm chỉ mục mới. Task Review vòng 1 không duyệt vì ba lỗi chặn ở nhật ký và cảnh báo; vòng 2 đã sửa hết. Log của từng công việc vẫn chưa có, và chưa chạy trên Linux thật (VPS1). Chi tiết ở [B19 evidence](docs/evidence/B19-observability-storage.md), [hướng dẫn observability](docs/observability.md) và mục Bàn giao B19 bên dưới.
 
-Chặng tiếp theo là **B19 — Metrics, audit, storage limits**; B19 đã đủ điều kiện (cần B15). Phần "bằng chứng phục hồi" để bật lại nhận việc từ chế độ tạm ngừng (B18-R05/R18) được chuyển cho B19 hoặc một task phục hồi riêng. Vì B17 và B18 đã xong, khi B19 xong có thể làm B20 và B21. B23 — GPU có thể bắt đầu khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
+Nguồn ghi nhận: phản hồi duyệt cuối của Task **Review** cho B01–B04, phản hồi hoàn tất của Task **B2 - Bootstrap**, [báo cáo B02](docs/evidence/B02-bootstrap.md), [báo cáo B03](docs/evidence/B03-simulator.md), [báo cáo triển khai B04](docs/evidence/B04-fairness.md), [evidence triển khai B05](docs/evidence/B05-postgresql.md), [evidence triển khai B06](docs/evidence/B06-identity-token-rbac.md), [evidence triển khai B07](docs/evidence/B07-artifact-store.md), [B08 submit evidence](docs/evidence/B08-submit-durable-queue.md), [B09 evidence](docs/evidence/B09-docker-executor-trusted-runner.md), [B10 evidence](docs/evidence/B10-worker-heartbeat-reconcile.md), [B11 evidence](docs/evidence/B11-coordinator-dispatch-result.md), [B12 evidence](docs/evidence/B12-cli.md), [B13 evidence](docs/evidence/B13-production-fairness.md), [B14 evidence](docs/evidence/B14-cpu-checkpoint-restore.md), [B15 evidence](docs/evidence/B15-control-recovery.md), [B16 evidence](docs/evidence/B16-pytorch-sweep-inference.md), [evidence B1–B16 Findings Remediation](docs/evidence/B01-B16-findings-remediation.md), [evidence CI-python-fix](docs/evidence/CI-python-fix.md), [B17 evidence](docs/evidence/B17-web-ui-user.md), [B18 evidence](docs/evidence/B18-web-ui-admin.md), [B19 evidence](docs/evidence/B19-observability-storage.md), các xác nhận của user ngày 20/09/2026 rằng Task **Review** đã duyệt B05–B08, ngày 21/09/2026 đã duyệt B09, ngày 22/09/2026 đã duyệt B10, ngày 24/09/2026 đã duyệt B11, ngày 25/09/2026 đã duyệt B12, ngày 26/09/2026 đã duyệt B13 và B14, ngày 27/09/2026 đã duyệt B15, ngày 28/09/2026 đã duyệt B16, ngày 30/09/2026 đã duyệt đợt B1–B16 Findings Remediation, ngày 01/10/2026 đã duyệt B17, ngày 03/10/2026 đã duyệt B18, ngày 05/10/2026 đã duyệt B19. Các hướng dẫn/báo cáo triển khai được lập trước quyết định duyệt có thể còn ghi chờ review; trạng thái B01–B19 và đợt remediation ở đây đã được cập nhật theo xác nhận mới nhất của user.
+
+Chặng tiếp theo là **B20 — Security và race tests** và **B21 — Compose, clean install, portability, backup/restore**. Hai chặng này làm song song được vì B17, B18 và B19 đã xong. B19 đã làm phần "bằng chứng phục hồi" để bật lại nhận việc từ chế độ tạm ngừng (B18-R05/R18); phần rời chế độ chỉ đọc (WRITE_FROZEN) chuyển sang B21. B22 cần cả B20 và B21. B23 — GPU có thể bắt đầu khi có GPU thật để kiểm chứng, vì B16 và B19 đã xong.
 
 Owner còn các việc sau:
 
@@ -72,7 +82,9 @@ Owner còn các việc sau:
 - giải phóng Docker Desktop trên Mac để chạy lại kiểm thử container cho năm mục chờ môi trường;
 - quyết định có xử lý CI-R01 hay không;
 - dừng hoặc khởi động lại `nexa_b10_smoke3-caddy-1` trước các lượt kiểm thử container dài. Container này vẫn rò tiến trình: lúc chạy B17 vòng 2 nó giữ 5158 tiến trình; ở B18 vòng 2 nó lên tới 31.286 tiến trình và chặn Docker, cho đến khi owner giải phóng (còn 14 tiến trình ngày 03/10/2026);
-- dọn stack kiểm thử `nexa_b17_caddy_ec2189ce` (chạy từ 01/10/2026, không thuộc B18) và các DB test `nexa_b05_test_b18`, `nexa_b05_test_b18e2e`, `nexa_b05_test_b18r2e2e` khi không còn cần chạy lại.
+- dọn stack kiểm thử `nexa_b17_caddy_ec2189ce` và process `b17_e2e_stack.py up --tier w1` đi kèm (chạy từ 01/10/2026, không thuộc B18 hay B19, vẫn chạy lúc bàn giao B19), cùng các DB test `nexa_b05_test_b18`, `nexa_b05_test_b18e2e`, `nexa_b05_test_b18r2e2e` khi không còn cần chạy lại;
+- dọn các DB test `nexa_b05_test_b19`, `nexa_b05_test_b19e2e`, `nexa_b05_test_b19docker` và các image local `nexa/b19-worker:r0`, `nexa/b19-worker:r2` khi không còn cần chạy lại B19;
+- quyết định các đề xuất của B19: log của từng công việc (B19-R01 = B17-R01), dọn metadata và điểm lưu cũ (B19-R05), đưa key cấu hình mới vào contract (B19-R10), thời gian giữ lịch sử thao tác (B19-R16) và lý do dừng của runner (B19-R19); và cách sửa kịch bản 17 của B18 (B19-R26).
 
 Đây là ảnh chụp tiến độ tại thời điểm viết, không phải thông báo tiến độ tự động.
 
@@ -142,8 +154,8 @@ B23 chỉ bắt buộc trước B24 nếu muốn công bố hỗ trợ GPU. Khi 
 | B15 | Cancel, pause/resume, retry, recovery | Đã hoàn thành và được duyệt: hủy, tạm dừng, chạy tiếp và thử lại công việc qua API/CLI; tự thu hồi quyền khi worker mất liên lạc và khôi phục từ điểm lưu; chỉ cấp lại tài nguyên khi lần chạy cũ đã thực sự dừng; admin drain/disable/enable worker. Đã kiểm thử với container thật trên Docker Desktop Linux VM. | B12, B13, B14 |
 | B16 | PyTorch, sweep, chunk inference | Đã hoàn thành và được duyệt: thêm các mẫu việc AI được cho phép, gồm dạy một mô hình nhỏ trên CPU, thử tối đa 100 bộ cài đặt và dùng mô hình xử lý dữ liệu từng phần. Việc dạy mô hình chạy tiếp đúng sau lỗi trong ngưỡng sai số đã khóa trước; việc xử lý từng phần không tạo phần trùng. Đã kiểm thử với container thật trên VPS1 (Linux thật, không GPU). | B15 |
 | B17 | Web UI cho user | Đã hoàn thành và được duyệt: trang web để người dùng đăng nhập, chuẩn bị dữ liệu, gửi việc, xem tiến độ, hủy hoặc tạm dừng/chạy tiếp, chạy lại và tải kết quả, dùng chung API với CLI. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac, gồm cả việc chạy thật trong container. Xem log của công việc chưa có. | B12, B16 |
-| B18 | Web UI cho admin | Đã hoàn thành và được duyệt: khu quản trị trong cùng trang web để quản lý nhóm, người dùng, giới hạn được phép, máy chạy và hàng chờ; xem cách chia tài nguyên, sự kiện phục hồi và lịch sử thao tác, dùng chung API với CLI. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac, gồm cả worker chạy việc thật trong container. Bật lại nhận việc từ chế độ tạm ngừng còn chờ B19 hoặc một task phục hồi riêng. | B15 |
-| B19 | Metrics, audit, storage limits | Ghi số liệu và nhật ký cần thiết, giới hạn dung lượng và giúp biết hệ thống đang khỏe hay gặp vấn đề. | B15 |
+| B18 | Web UI cho admin | Đã hoàn thành và được duyệt: khu quản trị trong cùng trang web để quản lý nhóm, người dùng, giới hạn được phép, máy chạy và hàng chờ; xem cách chia tài nguyên, sự kiện phục hồi và lịch sử thao tác, dùng chung API với CLI. Đã kiểm thử bằng trình duyệt tự động trên hệ thống thật trên Mac, gồm cả worker chạy việc thật trong container. Bật lại nhận việc từ chế độ tạm ngừng được bổ sung ở B19; rời chế độ chỉ đọc thuộc B21. | B15 |
+| B19 | Metrics, audit, storage limits | Đã hoàn thành và được duyệt: ghi số liệu vận hành và cảnh báo cho Prometheus, nhật ký JSON có che dữ liệu nhạy cảm, kiểm tra "sẵn sàng", giới hạn dung lượng theo mức đầy ổ đĩa và theo nhóm, tự dọn tệp không còn dùng, giới hạn tiến trình/vùng nháp/log của mỗi công việc và lệnh đối chiếu chỉ đọc. Đã kiểm thử trên Mac với Prometheus thật, ổ đĩa bị làm đầy thật và trình duyệt tự động; chưa chạy trên Linux thật. Log của từng công việc chưa có. | B15 |
 | B20 | Security và race tests | Kiểm tra người dùng không xem dữ liệu trái quyền và không vượt giới hạn. Thử các tình huống như hủy công việc đúng lúc kết quả vừa gửi về để tìm và sửa lỗi. | B17, B18, B19 |
 | B21 | Compose, clean install, portability, backup/restore | Cài cùng bản phần mềm trên hai cấu hình Linux, mỗi máy hoạt động độc lập. Kiểm tra sao lưu, khôi phục và chuyển sang máy khác có dừng hệ thống. | B17, B18, B19 |
 | B22 | Load, soak, chaos | Đo khi có nhiều người và nhiều việc, chạy liên tục ít nhất 8 giờ, cố ý tạo sự cố và kiểm tra không mất việc đã nhận hay công nhận kết quả trùng. | B20, B21 |
@@ -171,7 +183,7 @@ Sau B15, có thể làm cùng lúc:
 - **B18:** giao diện người quản trị.
 - **B19:** số liệu và giới hạn vận hành.
 
-Khi B17, B18 và B19 đều xong, có thể làm B20 và B21 cùng lúc. B23 có thể làm cùng các chặng khác khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
+Khi B17, B18 và B19 đều xong (đã đạt ngày 05/10/2026), có thể làm B20 và B21 cùng lúc. B23 có thể làm cùng các chặng khác khi B16 và B19 đã xong và có GPU thật để kiểm chứng.
 
 Chỉ làm song song khi đủ mọi việc cần chờ và các phần sửa không xung đột. Các nhóm phải giữ đúng thỏa thuận đã khóa ở B01. Nếu chỉ làm một mình, vẫn có thể đi lần lượt B01 → B02 → … → B25, với B23 theo điều kiện GPU đã nêu.
 
@@ -244,6 +256,8 @@ Có thể tra phần này khi gặp một từ lạ; không cần học thuộc 
 ### Kiểm tra, cài đặt và phát hành
 
 - **Metrics / audit / storage limits:** metrics là số liệu theo dõi tình trạng; audit là lịch sử ai đã làm gì; storage limits là giới hạn dung lượng được phép lưu.
+- **Prometheus / alert:** Prometheus là phần mềm định kỳ đọc metrics từ các bộ phận và lưu theo thời gian; alert là cảnh báo tự bật khi số liệu cho thấy có vấn đề, ví dụ một bộ phận ngừng trả lời.
+- **Readiness / watermark / GC:** readiness là kiểm tra một bộ phận đã sẵn sàng nhận việc chưa; watermark là các mức đầy ổ đĩa (mức cao, mức nguy cấp) mà khi vượt qua thì hệ thống dần từ chối việc mới; GC (garbage collection) là tự dọn các tệp không còn ai dùng.
 - **Security / race tests:** kiểm tra bảo vệ dữ liệu và quyền truy cập / kiểm tra khi nhiều thao tác xảy ra gần như cùng lúc, ví dụ hủy công việc trong lúc kết quả vừa gửi về.
 - **Compose / clean install:** Compose là công cụ khởi chạy các phần của hệ thống theo cấu hình chung; clean install là thử cài từ đầu trên máy chưa có dự án.
 - **Portability / backup:** portability là khả năng cài cùng sản phẩm trên các máy có cấu hình khác nhau; backup là sao lưu dữ liệu để có thể khôi phục. Khôi phục bản sao lưu toàn hệ thống khác với chạy tiếp một công việc từ điểm lưu tiến độ.
@@ -550,3 +564,42 @@ B18 — Web UI cho admin đã được Task Review duyệt theo xác nhận củ
 - **Chưa chạy:** VPS1 (Linux thật).
 
 Task này không thay các chặng B19–B25. Các gate nghiệm thu chỉ đạt phần thuộc B18 và vẫn ghi `specified`. Bước tiếp theo là B19.
+
+## Bàn giao B19
+
+B19 — Metrics, audit, storage limits đã được Task Review duyệt theo xác nhận của user ngày 05/10/2026. Vòng 1 không duyệt, vòng 2 được duyệt. [B19 evidence](docs/evidence/B19-observability-storage.md) ghi cách làm, số đo và kết quả; [hướng dẫn observability](docs/observability.md) ghi danh sách số liệu, nhật ký, cảnh báo và cách xử lý khi cảnh báo bật, giới hạn lưu trữ và các cấu hình mới.
+
+- **Đã thêm:**
+  - mỗi bộ phận (API, coordinator, worker) có cổng vận hành riêng để kiểm tra còn sống/sẵn sàng và để Prometheus đọc số liệu. Cổng này mặc định tắt, không đi qua Caddy và không nằm trong API `/v1`;
+  - 69 loại số liệu. Nhãn chỉ lấy từ danh sách cố định, không dùng mã công việc hay mã nhóm, nên số chuỗi số liệu không tăng theo số việc;
+  - 16 cảnh báo Prometheus có test tự động, kèm hướng dẫn xử lý cho từng cảnh báo;
+  - nhật ký JSON cho cả ba bộ phận, tự che mật khẩu, token và dữ liệu nhạy cảm;
+  - bằng chứng phục hồi thật để admin bật lại nhận việc từ chế độ tạm ngừng: hệ thống kiểm cơ sở dữ liệu, ổ đĩa và worker trước khi cho phép;
+  - giới hạn dung lượng: từ mức đầy 85 % từ chối gửi việc và tải tệp mới của người dùng; từ 95 % ngừng giao việc. Worker vẫn được lưu kết quả tới mức 95 %. Mỗi nhóm có giới hạn số byte riêng;
+  - tự dọn phiên tải lên đã hết hạn, tệp tạm cũ và tệp không còn bản ghi nào trỏ tới, có khóa để không xóa nhầm tệp đang được lưu;
+  - hai lệnh kiểm tra chỉ đọc `nexa-maintenance storage-check` và `consistency-check`;
+  - giới hạn cấu hình được cho số tiến trình (mặc định 512), vùng nháp (2 GiB) và log (100 MiB) của mỗi công việc;
+  - lịch sử thao tác ghi đúng worker là bên tải tệp lên (đóng B18-R24); việc tự dọn tệp ghi là hệ thống.
+- **Kết quả kiểm thử trên Mac:**
+  - Prometheus thật đọc cả 3 bộ phận. Khi chặn ghi ổ đĩa, số liệu "chưa sẵn sàng" đổi sau 2,1 s, cảnh báo bật ở 22,6 s và tắt ở 27,9 s sau khi khôi phục;
+  - tắt Prometheus và làm phần đọc số liệu lỗi 4 lần trong lúc chạy 8 công việc: cả 8 xong, không có lỗi 5xx, hai lệnh kiểm tra đều sạch. Mật khẩu và token mẫu không xuất hiện trong log;
+  - làm đầy thật một ổ đĩa 16 MiB: tải lên bị từ chối gọn, không để lại tệp dở, tệp cũ còn nguyên;
+  - số chuỗi số liệu thật: API 458, coordinator 40, worker 14, dưới trần thiết kế;
+  - kiểm thử trình duyệt trên hệ thống thật: chạy lại toàn bộ test của B17 và B18, cộng 1 test mới bật lại nhận việc, đều pass;
+  - Vitest 217 test; kiểm thử Python 1973 passed; kiểm thử với PostgreSQL 2628 passed; kiểm thử container 6 + 17 passed;
+  - đo tốc độ với 100.000 công việc: phần dọn tệp dùng chỉ mục sẵn có, lệnh kiểm tra chạy dưới 0,1 s, nên không cần migration mới.
+- **Ba lỗi chặn đã sửa ở vòng 2:**
+  - bộ lọc che dữ liệu nhạy cảm có thể chạy rất chậm với chuỗi dài (7,68 s cho 16.000 ký tự), và log ghi nguyên phương thức HTTP lạ → giờ thời gian chạy tăng tuyến tính theo độ dài chuỗi, log chỉ ghi phương thức trong danh sách cố định;
+  - số liệu "sẵn sàng" chỉ cập nhật khi có người gọi trang kiểm tra, nên Prometheus không bao giờ thấy lỗi → giờ cập nhật mỗi lần Prometheus đọc;
+  - một số bộ đếm chỉ xuất hiện sau lần lỗi đầu, nên cảnh báo bỏ sót lần đó → giờ mọi bộ đếm có sẵn từ 0;
+  - tám khuyến nghị khác của Task Review cũng đã sửa.
+- **Còn mở, không chặn:**
+  - chưa xem được log của công việc (B19-R01 = B17-R01), cần đổi contract;
+  - chờ owner quyết định: dọn metadata và điểm lưu cũ (R05), đưa key cấu hình mới vào contract (R10), thời gian giữ lịch sử thao tác (R16), lý do dừng của runner (R19);
+  - rời chế độ chỉ đọc (WRITE_FROZEN) vẫn bị từ chối, chuyển sang B21; Prometheus trong Compose chuyển sang B21 (R11); kiểm thử trình duyệt và promtool trên CI chuyển sang B25 (R12);
+  - số liệu CPU bị hãm và RAM chỉ là số gần đúng (R18); worker tạm báo chưa sẵn sàng ngay sau khi trả tài nguyên (R20); lý do chờ "hết quota" có thể ghi đè lý do chờ worker (R25);
+  - kịch bản 17 của B18 thỉnh thoảng fail vì chính test đọc phiên bản quá sớm (R26); đã có đề xuất cho owner B18;
+  - hai ghi chú nhỏ của Task Review: hai dòng log lỗi hiếm còn ghi nguyên phương thức HTTP; bộ lọc chưa che mật khẩu trong địa chỉ dạng `scheme://:password@host` khi thiếu tên người dùng.
+- **Chưa chạy:** VPS1 (Linux thật).
+
+Task này không thay các chặng B20–B25. Các gate nghiệm thu chỉ đạt phần thuộc B19 và vẫn ghi `specified`. Bước tiếp theo là B20 và B21.

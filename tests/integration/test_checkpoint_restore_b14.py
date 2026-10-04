@@ -11,6 +11,7 @@ from nexa.api.schemas import CheckpointRecord
 from nexa.infrastructure.artifacts.store import ArtifactError
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.observability import metrics_api
 from tests.api.test_http_contract import _client
 from tests.integration._factories import seed_authority
 from tests.integration.test_checkpoint_b14 import (
@@ -153,6 +154,18 @@ def _assert_claim_kept_version(fixture, claimed, before, events):
     assert claimed.json()["job_version"] == version
 
 
+def _restore_metrics():
+    """B19: restore outcome and restore checksum counters, read before/after a claim."""
+    outcomes = {o: metrics_api.RESTORE.labels(o)._value.get() for o in metrics_api.RESTORE_OUTCOMES}
+    return outcomes, metrics_api.CHECKSUM_ERRORS.labels("restore")._value.get()
+
+
+def _restore_delta(before):
+    outcomes, checksum = _restore_metrics()
+    changed = {o: v - before[0][o] for o, v in outcomes.items() if v != before[0][o]}
+    return changed, checksum - before[1]
+
+
 def _start(fixture, context):
     return fixture.post(
         "/start",
@@ -185,6 +198,7 @@ def test_claim_selects_the_newest_valid_checkpoint_immutably(checkpoint_job):
     newest = _commit(fixture, step=40, accumulator=222)
     _next_attempt(fixture)
     before = _job_versions(fixture)
+    metrics = _restore_metrics()
 
     callback = str(new_uuid7())
     claimed = _claim(fixture, callback_id=callback)
@@ -202,6 +216,7 @@ def test_claim_selects_the_newest_valid_checkpoint_immutably(checkpoint_job):
     assert replay.status_code == 200 and replay.json() == claimed.json()
     again = _claim(fixture)
     assert again.status_code == 200 and again.json()["execution_context"] == context
+    assert _restore_delta(metrics) == ({"selected": 1}, 0)
 
     rows = fixture.rows()
     assert _restore_events(fixture) == [("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED")]
@@ -230,6 +245,7 @@ def test_corrupt_checkpoints_are_marked_once_and_older_is_restored(checkpoint_jo
     _blob_path(fixture, middle["manifest_artifact"]["artifact_id"]).unlink()
     _next_attempt(fixture)
     before = _job_versions(fixture)
+    metrics = _restore_metrics()
 
     claimed = _claim(fixture)
     assert claimed.status_code == 200, claimed.text
@@ -249,6 +265,8 @@ def test_corrupt_checkpoints_are_marked_once_and_older_is_restored(checkpoint_jo
     assert _claim(fixture).json()["execution_context"]["restore_checkpoint"] == restore
     assert _event_types(fixture) == events
     assert fixture.rows()["job"]["retry_count"] == 0
+    # Only the checksum mark counts as a checksum error; a missing blob does not.
+    assert _restore_delta(metrics) == ({"selected": 1}, 1)
 
 
 def test_no_valid_checkpoint_falls_back_to_input_only_when_restart_safe(checkpoint_job):
@@ -258,6 +276,7 @@ def test_no_valid_checkpoint_falls_back_to_input_only_when_restart_safe(checkpoi
     _overwrite(manifest, manifest.read_bytes()[:-1] + b" ")
     _next_attempt(fixture)
     before = _job_versions(fixture)
+    metrics = _restore_metrics()
 
     claimed = _claim(fixture)
     assert claimed.status_code == 200, claimed.text
@@ -268,6 +287,7 @@ def test_no_valid_checkpoint_falls_back_to_input_only_when_restart_safe(checkpoi
         ("CHECKPOINT_CORRUPT", "CHECKPOINT_CHECKSUM_MISMATCH"),
         ("CHECKPOINT_FALLBACK_TO_INPUT", "CHECKPOINT_FALLBACK_TO_INPUT"),
     ]
+    assert _restore_delta(metrics) == ({"fallback": 1}, 1)
     assert _start(fixture, context).status_code == 200
 
 
@@ -393,7 +413,9 @@ def test_non_restart_safe_recovery_without_valid_checkpoint_fails_before_create(
         assert offer["authority"] == authority
         # The newest committed checkpoint is still unmarked when the offer is made.
         assert offer["checkpoint"] == only["record"]
+        metrics = _restore_metrics()
         agent._dispatch_offer(offer)
+        assert _restore_delta(metrics) == ({"failed": 1}, 0)
 
         rows = fixture.rows()
         assert rows["job"]["state"] == "FAILED"
@@ -474,10 +496,12 @@ def test_first_attempt_claim_has_no_restore_decision(checkpoint_job):
         connection.execute(
             update(s.jobs).where(s.jobs.c.job_id == fixture.job_id).values(state="DISPATCHING")
         )
+    metrics = _restore_metrics()
     claimed = _claim(fixture)
     assert claimed.status_code == 200, claimed.text
     assert claimed.json()["execution_context"]["restore_checkpoint"] is None
     assert _restore_events(fixture) == []
+    assert _restore_delta(metrics) == ({"none": 1}, 0)
 
 
 def test_storage_outage_fails_closed_without_marks_or_context(checkpoint_job):

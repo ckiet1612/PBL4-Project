@@ -1,0 +1,283 @@
+{
+  "api_4xx_by_route": {
+    "nexa_http_requests_total{method=\"POST\",route=\"/v1/workers/{worker_id}/poll\",status_class=\"4xx\"}": 1.0
+  },
+  "api_5xx_after": 0.0,
+  "api_5xx_before": 0.0,
+  "api_requests_by_class": {
+    "2xx": 403.0,
+    "3xx": 0.0,
+    "4xx": 1.0,
+    "5xx": 0.0
+  },
+  "audit_added": 58,
+  "collector_errors_total": 9.0,
+  "collector_transitions": [
+    "down",
+    "up",
+    "down",
+    "up",
+    "down",
+    "up",
+    "down",
+    "up"
+  ],
+  "config": {
+    "iterations": 30000000,
+    "jobs": 8,
+    "memory_mib": 256,
+    "out": "docs/evidence/raw/B19-outage.json",
+    "rate": 20,
+    "seconds": 30
+  },
+  "events_added": 40,
+  "hammer": {
+    "codes": {
+      "200": 503
+    },
+    "errors": 0,
+    "max_ms": 276.8,
+    "p50_ms": 7.9,
+    "p99_ms": 242.1,
+    "requests": 503
+  },
+  "jobs": {
+    "01a10351-e97e-7c09-9675-9a33187dd44c": "SUCCEEDED",
+    "01a10351-e9e9-74e2-bd08-81939f0d929a": "SUCCEEDED",
+    "01a10351-ea5f-7510-81a4-267e1660fea3": "SUCCEEDED",
+    "01a10351-ea7f-7319-b5b4-126ad13065f5": "SUCCEEDED",
+    "01a10351-eacd-7967-a75c-dd1472544969": "SUCCEEDED",
+    "01a10351-eb30-7e2b-a39b-b845f475445a": "SUCCEEDED",
+    "01a10351-eb53-7756-98d2-36168d5c6f2a": "SUCCEEDED",
+    "01a10351-eb6c-7363-9288-19b4d4feeba4": "SUCCEEDED"
+  },
+  "locks": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "rows": {
+    "after": {
+      "audit": {
+        "ADMIN admin.membership.list": 3,
+        "ADMIN admin.membership.upsert": 9,
+        "ADMIN admin.policy.tenant.get": 3,
+        "ADMIN admin.policy.tenant.update": 3,
+        "ADMIN admin.tenant.create": 3,
+        "ADMIN admin.user.create": 9,
+        "ADMIN admin.worker.list": 26,
+        "COORDINATOR JOB_DISPATCHING": 8,
+        "SYSTEM identity.bootstrap_admin": 1,
+        "SYSTEM template.version.register": 3,
+        "SYSTEM worker.bootstrap_credential": 1,
+        "USER artifact.upload.commit": 5,
+        "USER auth.login": 6,
+        "USER job.submit": 8,
+        "WORKER allocation_released": 8,
+        "WORKER artifact.upload.commit": 16,
+        "WORKER attempt_started": 8,
+        "WORKER result_recognized": 8
+      },
+      "audit_total": 128,
+      "events": 40
+    },
+    "before": {
+      "audit": {
+        "ADMIN admin.membership.list": 3,
+        "ADMIN admin.membership.upsert": 9,
+        "ADMIN admin.policy.tenant.get": 3,
+        "ADMIN admin.policy.tenant.update": 3,
+        "ADMIN admin.tenant.create": 3,
+        "ADMIN admin.user.create": 9,
+        "ADMIN admin.worker.list": 26,
+        "SYSTEM identity.bootstrap_admin": 1,
+        "SYSTEM template.version.register": 3,
+        "SYSTEM worker.bootstrap_credential": 1,
+        "USER artifact.upload.commit": 5,
+        "USER auth.login": 4
+      },
+      "audit_total": 70,
+      "events": 0
+    }
+  },
+  "script_rest_statuses": {
+    "200": 192,
+    "202": 8
+  },
+  "timeline": [
+    {
+      "accepted": 8,
+      "at": "19:51:02.788Z",
+      "event": "submitted"
+    },
+    {
+      "at": "19:51:04.117Z",
+      "event": "first job RUNNING",
+      "states": {
+        "01a10351-e97e-7c09-9675-9a33187dd44c": "RUNNING",
+        "01a10351-e9e9-74e2-bd08-81939f0d929a": "DISPATCHING",
+        "01a10351-ea5f-7510-81a4-267e1660fea3": "QUEUED",
+        "01a10351-ea7f-7319-b5b4-126ad13065f5": "QUEUED",
+        "01a10351-eacd-7967-a75c-dd1472544969": "QUEUED",
+        "01a10351-eb30-7e2b-a39b-b845f475445a": "QUEUED",
+        "01a10351-eb53-7756-98d2-36168d5c6f2a": "QUEUED",
+        "01a10351-eb6c-7363-9288-19b4d4feeba4": "QUEUED"
+      }
+    },
+    {
+      "at": "19:51:04.314Z",
+      "event": "prometheus stopped"
+    },
+    {
+      "at": "19:51:04.314Z",
+      "event": "metrics hammer start",
+      "rate": 20,
+      "seconds": 30
+    },
+    {
+      "at": "19:51:04.315Z",
+      "event": "lock checkpoints",
+      "seconds": 3
+    },
+    {
+      "at": "19:51:05.646Z",
+      "event": "checkpoint collector down (series dropped)"
+    },
+    {
+      "at": "19:51:08.073Z",
+      "event": "checkpoint collector up again"
+    },
+    {
+      "at": "19:51:10.453Z",
+      "event": "lock checkpoints",
+      "seconds": 3
+    },
+    {
+      "at": "19:51:11.445Z",
+      "event": "checkpoint collector down (series dropped)"
+    },
+    {
+      "at": "19:51:13.810Z",
+      "event": "checkpoint collector up again"
+    },
+    {
+      "at": "19:51:16.615Z",
+      "event": "lock checkpoints",
+      "seconds": 3
+    },
+    {
+      "at": "19:51:17.262Z",
+      "event": "checkpoint collector down (series dropped)"
+    },
+    {
+      "at": "19:51:19.760Z",
+      "event": "checkpoint collector up again"
+    },
+    {
+      "at": "19:51:22.766Z",
+      "event": "lock checkpoints",
+      "seconds": 3
+    },
+    {
+      "at": "19:51:23.195Z",
+      "event": "checkpoint collector down (series dropped)"
+    },
+    {
+      "at": "19:51:26.807Z",
+      "event": "checkpoint collector up again"
+    },
+    {
+      "at": "19:51:34.321Z",
+      "errors": 0,
+      "event": "metrics hammer end",
+      "max_ms": 276.8,
+      "p50_ms": 7.9,
+      "p99_ms": 242.1,
+      "requests": 503
+    },
+    {
+      "QUEUED": 4,
+      "RUNNING": 1,
+      "SUCCEEDED": 3,
+      "at": "19:51:34.454Z",
+      "event": "job states"
+    },
+    {
+      "DISPATCHING": 1,
+      "QUEUED": 3,
+      "RUNNING": 1,
+      "SUCCEEDED": 3,
+      "at": "19:51:38.788Z",
+      "event": "job states"
+    },
+    {
+      "DISPATCHING": 1,
+      "QUEUED": 3,
+      "SUCCEEDED": 4,
+      "at": "19:51:41.015Z",
+      "event": "job states"
+    },
+    {
+      "DISPATCHING": 1,
+      "QUEUED": 2,
+      "RUNNING": 1,
+      "SUCCEEDED": 4,
+      "at": "19:51:49.754Z",
+      "event": "job states"
+    },
+    {
+      "QUEUED": 2,
+      "RUNNING": 2,
+      "SUCCEEDED": 4,
+      "at": "19:51:51.875Z",
+      "event": "job states"
+    },
+    {
+      "QUEUED": 2,
+      "RUNNING": 1,
+      "SUCCEEDED": 5,
+      "at": "19:51:56.231Z",
+      "event": "job states"
+    },
+    {
+      "DISPATCHING": 1,
+      "QUEUED": 1,
+      "SUCCEEDED": 6,
+      "at": "19:52:02.811Z",
+      "event": "job states"
+    },
+    {
+      "QUEUED": 1,
+      "RUNNING": 1,
+      "SUCCEEDED": 6,
+      "at": "19:52:04.918Z",
+      "event": "job states"
+    },
+    {
+      "DISPATCHING": 1,
+      "RUNNING": 1,
+      "SUCCEEDED": 6,
+      "at": "19:52:09.402Z",
+      "event": "job states"
+    },
+    {
+      "RUNNING": 1,
+      "SUCCEEDED": 7,
+      "at": "19:52:11.521Z",
+      "event": "job states"
+    },
+    {
+      "SUCCEEDED": 8,
+      "at": "19:52:18.038Z",
+      "event": "job states"
+    },
+    {
+      "at": "19:52:18.038Z",
+      "event": "all jobs terminal",
+      "states": [
+        "SUCCEEDED"
+      ]
+    }
+  ]
+}

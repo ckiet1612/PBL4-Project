@@ -1,0 +1,73 @@
+[b17-stack] run 53b76ff5 tier=w2 network=bridge dist index=b57852b8a94a
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260919_0001, Create the B05 PostgreSQL schema.
+INFO  [alembic.runtime.migration] Running upgrade 20260919_0001 -> 20260920_0002, Add durable B06 identity runtime state.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0002 -> 20260920_0003, Add B07 durable tenant artifact-storage counters.
+INFO  [alembic.runtime.migration] Running upgrade 20260920_0003 -> 20260921_0004, Persist B10 reconciliation traversal progress.
+INFO  [alembic.runtime.migration] Running upgrade 20260921_0004 -> 20260922_0005, Persist immutable B11 dispatch and claim facts.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0005 -> 20260922_0006, Bind upload sessions to the authority grant that authorized them.
+INFO  [alembic.runtime.migration] Running upgrade 20260922_0006 -> 20260923_0007, Correlate recognized results with their committed completion callback.
+INFO  [alembic.runtime.migration] Running upgrade 20260923_0007 -> 20260925_0008, Maintain the existing per-tenant/priority queue heads in Job transactions.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0008 -> 20260925_0009, Persist the inputs used to reconcile queued eligibility per tenant.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0009 -> 20260925_0010, Track queued submitters without scanning every job on a blocked tick.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0010 -> 20260925_0011, Persist the end of a tenant or user concurrency block.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0011 -> 20260925_0012, Start eligible age at the durable retry-ready boundary.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0012 -> 20260925_0013, Record exact queue eligibility boundaries without rewriting a tenant queue.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0013 -> 20260925_0014, Record tenant enable boundaries and rebuild preexisting queue eligibility.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0014 -> 20260925_0015, Support bounded age existence probes for priority promotion.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0015 -> 20260925_0016, Index per-submitter age probes used by bounded resumed queue windows.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0016 -> 20260925_0017, Track held-quota headroom per tenant instead of rewriting queued job ages.
+INFO  [alembic.runtime.migration] Running upgrade 20260925_0017 -> 20260926_0018, Record one-way checkpoint corruption marks for restore selection.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0018 -> 20260926_0019, Admit checkpoint-for-pause jobs to the B13 queue and support B15 control.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0019 -> 20260928_0020, Store the B16 sweep expansion and the batch-inference item count.
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0020 -> 20260928_0021, Make every Nexa SQL function independent of the caller's search_path (B13-R12).
+INFO  [alembic.runtime.migration] Running upgrade 20260928_0021 -> 20260929_0022, Record the artifact store identity the deployment bound (B14-OBS-01).
+INFO  [alembic.runtime.migration] Running upgrade 20260929_0022 -> 20261001_0023, Index the cross-tenant admin job list and the fairness ledger period (B18).
+[b17-stack] database reset and migrated to head
+[b17-stack] API ready on port 56920 (bind 127.0.0.1)
+[b17-stack] api ops listener on port 56916
+[b17-stack] Caddy caddy:2.10.2-alpine (sha256:4c6e91c6ed0e) serving https://localhost:56921
+[b17-stack] seeded 3 tenants, 10 users, 3 templates
+[b17-stack] coordinator started
+[b17-stack] coordinator ops listener on port 56917
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5a6039116ffe
+[b17-stack] worker ops listener on port 56918
+[b17-stack] Prometheus sha256:63805ebb8d2b on port 56919
+[b17-stack] running: .venv/bin/python scripts/b19_outage.py --out /tmp/b19_r2_outage.json
+[b19] 17:53:25.812Z submitted {'accepted': 8}
+[b19] 17:53:27.104Z first job RUNNING {'states': {'01a1080c-9743-7aab-98ac-74c889716519': 'RUNNING', '01a1080c-9779-7ef4-b8c7-6697d2abb0cf': 'DISPATCHING', '01a1080c-9818-7641-9af8-d756a98c14b2': 'QUEUED', '01a1080c-9837-7d78-ba59-ebd419d870df': 'QUEUED', '01a1080c-9853-798b-b637-3a477b2ee8db': 'QUEUED', '01a1080c-989f-7450-b43b-f85d6eeeb25a': 'QUEUED', '01a1080c-9902-7d7f-8860-a0ae483464ff': 'QUEUED', '01a1080c-991d-7d1e-97a5-263577212cf0': 'QUEUED'}}
+[b19] 17:53:27.321Z prometheus stopped
+[b19] 17:53:27.321Z metrics hammer start {'rate': 20, 'seconds': 30}
+[b19] 17:53:27.322Z lock checkpoints {'seconds': 3}
+[b19] 17:53:28.727Z checkpoint collector down (series dropped)
+[b19] 17:53:31.056Z checkpoint collector up again
+[b19] 17:53:33.480Z lock checkpoints {'seconds': 3}
+[b19] 17:53:34.416Z checkpoint collector down (series dropped)
+[b19] 17:53:36.763Z checkpoint collector up again
+[b19] 17:53:39.587Z lock checkpoints {'seconds': 3}
+[b19] 17:53:40.242Z checkpoint collector down (series dropped)
+[b19] 17:53:42.715Z checkpoint collector up again
+[b19] 17:53:45.720Z lock checkpoints {'seconds': 3}
+[b19] 17:53:46.182Z checkpoint collector down (series dropped)
+[b19] 17:53:49.791Z checkpoint collector up again
+[b19] 17:53:57.522Z metrics hammer end {'errors': 0, 'requests': 503, 'p50_ms': 8.8, 'p99_ms': 251.3, 'max_ms': 303.9}
+[b19] 17:53:57.757Z job states {'QUEUED': 4, 'RUNNING': 1, 'SUCCEEDED': 3}
+[b19] 17:53:59.878Z job states {'QUEUED': 3, 'RUNNING': 2, 'SUCCEEDED': 3}
+[b19] 17:54:01.996Z job states {'QUEUED': 3, 'RUNNING': 1, 'SUCCEEDED': 4}
+[b19] 17:54:06.369Z job states {'DISPATCHING': 1, 'QUEUED': 2, 'RUNNING': 1, 'SUCCEEDED': 4}
+[b19] 17:54:08.500Z job states {'QUEUED': 2, 'RUNNING': 1, 'SUCCEEDED': 5}
+[b19] 17:54:17.111Z job states {'QUEUED': 1, 'RUNNING': 1, 'SUCCEEDED': 6}
+[b19] 17:54:23.459Z job states {'RUNNING': 2, 'SUCCEEDED': 6}
+[b19] 17:54:25.565Z job states {'RUNNING': 1, 'SUCCEEDED': 7}
+[b19] 17:54:31.929Z job states {'SUCCEEDED': 8}
+[b19] 17:54:31.929Z all jobs terminal {'states': ['SUCCEEDED']}
+[b19] 17:54:37.309Z wrote /tmp/b19_r2_outage.json
+[b19] 17:54:37.309Z failures=[]
+[b17-stack] command exit=0 in 72.7s
+[b17-stack] nexa-maintenance consistency-check exit=0
+[b17-stack]   {"accepted":8,"consistent":true,"missing_accepted":0,"multiple_results":0,"result_of_unsucceeded_job":0,"succeeded":8,"succeeded_without_result":0}
+[b17-stack] nexa-maintenance storage-check exit=0
+[b17-stack]   {"consistent":true,"drift":[],"drift_tenants":0,"retained_unpublished_artifacts":0,"retained_unpublished_bytes":0}
+[b17-stack] canary scan: 44 values x 3 logs (api 105623 B, coordinator 575 B, worker 4467 B): 0 hit(s)
+[b17-stack] cleaned up run 53b76ff5

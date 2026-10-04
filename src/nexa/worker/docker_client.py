@@ -347,6 +347,48 @@ class DockerCli:
             raise ValueError("closed container output checksum mismatch")
         return content
 
+    def ping(self, *, timeout_seconds: float = 3.0) -> bool:
+        """True when the Docker daemon answers `docker version` within the timeout."""
+        try:
+            code, _, _ = self.backend.run(
+                ("docker", "version", "--format", "{{.Server.Version}}"), timeout_seconds
+            )
+        except (OSError, TimeoutError, RuntimeError):
+            return False
+        return code == 0
+
+    def stats(
+        self, container_ids: tuple[str, ...], *, timeout_seconds: float
+    ) -> dict[str, tuple[float, float]]:
+        """One `docker stats --no-stream` sample: container ID -> (memory %, CPU %).
+
+        CPU % is relative to one CPU, as Docker reports it. Rows that do not parse
+        are skipped; a container that exited between listing and sampling is absent.
+        """
+        for container_id in container_ids:
+            _validate_container_id(container_id)
+        if not container_ids:
+            return {}
+        code, stdout, _ = self.backend.run(
+            ("docker", "stats", "--no-stream", "--no-trunc", "--format", "{{json .}}")
+            + container_ids,
+            timeout_seconds,
+        )
+        if code != 0 and not stdout:
+            raise RuntimeError(f"Docker stats failed with code {code}")
+        samples: dict[str, tuple[float, float]] = {}
+        for line in stdout.decode("utf-8", "replace").splitlines():
+            try:
+                row = json.loads(line)
+                container_id = str(row["ID"])
+                memory = float(str(row["MemPerc"]).rstrip("%"))
+                cpu = float(str(row["CPUPerc"]).rstrip("%"))
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                continue
+            if container_id in container_ids:
+                samples[container_id] = (memory, cpu)
+        return samples
+
     def _run(self, argv: tuple[str, ...], timeout_seconds: float) -> None:
         code, _, _ = self.backend.run(argv, timeout_seconds)
         if code != 0:

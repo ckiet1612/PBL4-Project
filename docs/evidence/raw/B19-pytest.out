@@ -1,0 +1,9 @@
+# B19 default pytest 2026-10-04 (P), final tree, no PostgreSQL/Docker; PYTHONPATH=src:. because the repo .venv holds a stale --no-editable install (the clean-copy CI replay re-syncs)
+$ PYTHONPATH=src:. uv run --no-sync pytest -q
+.venv/lib/python3.12/site-packages/starlette/testclient.py:53
+  /Users/macbook/Documents/University Library/PBL4-Project/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1942 passed, 677 skipped, 2 warnings in 57.46s
+exit=0

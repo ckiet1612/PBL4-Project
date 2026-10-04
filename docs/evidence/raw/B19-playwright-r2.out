@@ -1,0 +1,85 @@
+# B19 round 2 Playwright rerun, dist index.html b57852b8a94a, worker r3 sha256:5a6039116ffe, retries 0
+## 2026-10-04T17:55:18Z env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w1 -- pnpm --dir web exec playwright test --retries=0 --project=w1-admin-mode
+  1 passed (4.2s)
+[b17-stack] command exit=0 in 5.2s
+## exit=0
+## 2026-10-04T17:55:30Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:local env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2-admin --project=w2-admin-mobile
+  ✘  4 [w2-admin] › tests/e2e/w2-admin/01-workers.spec.ts:357:1 › 17. worker action 412: a second admin acts on a stale page and is told to re-check; a still valid action keeps its dialog and reason (26.4s)
+    Error: expect(locator).toBeVisible() failed
+    Error: element(s) not found
+    test-results/01-workers-17-worker-actio-7c27d-keeps-its-dialog-and-reason-w2-admin/test-failed-1.png
+    test-results/01-workers-17-worker-actio-7c27d-keeps-its-dialog-and-reason-w2-admin/test-failed-2.png
+    Error Context: test-results/01-workers-17-worker-actio-7c27d-keeps-its-dialog-and-reason-w2-admin/error-context.md
+  1 failed
+  5 passed (2.9m)
+[b17-stack] command exit=1 in 177.6s
+## exit=1
+## 2026-10-04T17:58:54Z env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w1 -- pnpm --dir web exec playwright test --retries=0 --project=w1-desktop --project=w1-mobile
+  23 passed (22.1s)
+[b17-stack] command exit=0 in 22.9s
+## exit=0
+## 2026-10-04T17:59:23Z env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w1 -- pnpm --dir web exec playwright test --retries=0 --project=w1-admission
+  1 passed (2.9s)
+[b17-stack] command exit=0 in 3.8s
+## exit=0
+## 2026-10-04T17:59:33Z env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w1 -- pnpm --dir web exec playwright test --retries=0 --project=w1-admin
+  20 passed (22.5s)
+[b17-stack] command exit=0 in 23.4s
+## exit=0
+## 2026-10-04T18:00:03Z env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w1 --operational-mode WRITE_FROZEN -- pnpm --dir web exec playwright test --retries=0 --project=w1-admin-frozen
+  1 passed (2.4s)
+[b17-stack] command exit=0 in 3.3s
+## exit=0
+## 2026-10-04T18:00:13Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:local env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2
+  4 passed (1.5m)
+[b17-stack] command exit=0 in 91.5s
+## exit=0
+
+# ---- rerun 1 of w2-admin + w2-admin-mobile (worker r3), same failure ----
+[b17-stack] run ad94e6fc tier=w2 network=bridge dist index=b57852b8a94a
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5a6039116ffe
+[b17-stack] running: pnpm --dir web exec playwright test --retries=0 --project=w2-admin --project=w2-admin-mobile
+  ✘  4 [w2-admin] › tests/e2e/w2-admin/01-workers.spec.ts:357:1 › 17. worker action 412: a second admin acts on a stale page and is told to re-check; a still valid action keeps its dialog and reason (22.5s)
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/01-workers-17-worker-actio-7c27d-keeps-its-dialog-and-reason-w2-admin/test-failed-2.png
+    test-results/01-workers-17-worker-actio-7c27d-keeps-its-dialog-and-reason-w2-admin/test-failed-1.png
+  1 failed
+  5 passed (2.9m)
+[b17-stack] command exit=1 in 176.1s
+
+# ---- trace of rerun 1 (scenario 17), worker GET/POST only: page 6 = admin one, page 5 = admin two; ETag/If-Match, no cookies or tokens ----
+admin two  18:08:20.475 GET  worker 200 ETag "v20"   <- the spec reads `version` = 20 here (line 383)
+admin one  18:08:20.148 GET  worker 200 ETag "v19"
+admin one  18:08:20.651 POST drain  412 If-Match "v19"   (worker moved v19 -> v20 after the page opened)
+admin one  18:08:20.674 GET  worker 200 ETag "v20"
+admin two  18:08:25.535 GET  worker 200 ETag "v21"   <- 5 s page refresh: worker moved v20 -> v21
+admin one  18:08:25.720 GET  worker 200 ETag "v21"
+admin one  18:08:25.795 POST drain  202 If-Match "v21" -> "v22"
+admin two  18:08:25.909 POST drain  412 If-Match "v21"   (spec expects If-Match "v20" and text "v20 -> v22"; page shows "v21 -> v22")
+admin two  18:08:25.928 GET  worker 200 ETag "v22"
+
+# ---- bisect: w2-admin only, worker r2 (round 1 image 5d35ccb5) vs r3 ----
+## 2026-10-04T18:12:02Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:r2 env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2-admin
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5d35ccb53860
+  5 passed (2.9m)
+## exit=0
+## 2026-10-04T18:15:14Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:local env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2-admin
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5a6039116ffe
+  5 passed (3.0m)
+## exit=0
+## 2026-10-04T18:18:30Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:r2 env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2-admin
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5d35ccb53860
+  5 passed (3.0m)
+## exit=0
+
+# ---- final: official command w2-admin + w2-admin-mobile, worker r3, twice ----
+## 2026-10-04T18:25:02Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:local env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2-admin --project=w2-admin-mobile
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5a6039116ffe
+  6 passed (3.1m)
+## exit=0
+## 2026-10-04T18:28:24Z env NEXA_B17_CPU_IMAGE_REF=nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956 NEXA_B17_WORKER_IMAGE=nexa/b19-worker:local env PYTHONPATH=src:. /tmp/nexa-b12-uv-bootstrap/bin/uv run --no-sync python scripts/b17_e2e_stack.py run --tier w2 -- pnpm --dir web exec playwright test --retries=0 --project=w2-admin --project=w2-admin-mobile
+[b17-stack] worker READY: cpu image sha256:a35ca2873385, worker sha256:5a6039116ffe
+  6 passed (2.7m)
+## exit=0

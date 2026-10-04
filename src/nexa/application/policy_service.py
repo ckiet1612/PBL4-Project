@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Protocol
@@ -50,6 +51,10 @@ class FailClosedRecoveryProofProvider:
         return False
 
 
+class _StorageProbeRequired(Exception):
+    """An admin reopen reached the mode check before storage was probed; retry after."""
+
+
 class PolicyService:
     _MAX_CPU_MILLIS = 100_000_000
     _MAX_MEMORY_BYTES = 9_223_372_036_854_775_807
@@ -61,11 +66,14 @@ class PolicyService:
         identity_service: IdentityService,
         *,
         proof_provider: RecoveryProofProvider | None = None,
+        storage_probe: Callable[[], bool] | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.settings = settings
         self.identity = identity_service
         self.proofs = proof_provider or FailClosedRecoveryProofProvider()
+        # Runs before the transaction (B19-R02); without one the provider decides alone.
+        self.storage_probe = storage_probe
 
     def _authorize(self, session: Session, principal: Principal, *, write: bool) -> Principal:
         live = self.identity.revalidate_principal(session, principal)
@@ -221,6 +229,10 @@ class PolicyService:
             raise ApplicationError(
                 code="validation_failed", status=422, message="Unknown operational mode"
             ) from None
+        # Storage durability is probed (fsync) outside the transaction that commits the
+        # mode, and only once an authorized, non-replayed ADMISSION_OFF -> NORMAL
+        # transition asks for it (B19-RV05); DB and worker conditions are re-read inside.
+        storage_ready: bool | None = True if self.storage_probe is None else None
 
         def operation(session: Session) -> dict[str, Any]:
             live = self._authorize(session, principal, write=True)
@@ -295,6 +307,11 @@ class PolicyService:
                     message="Global outstanding limit is below the committed counter",
                 )
             new_mode = current_mode if target_mode is None else target_mode
+            reopen = current_mode is OperationalMode.ADMISSION_OFF and (
+                new_mode is OperationalMode.NORMAL
+            )
+            if reopen and storage_ready is None:
+                raise _StorageProbeRequired
             if new_mode is not current_mode:
                 unreleased = session.execute(
                     select(func.count())
@@ -307,7 +324,10 @@ class PolicyService:
                         new_mode,
                         freeze_ready=unreleased == 0 and self.proofs.freeze_ready(session),
                         restore_verified=self.proofs.restore_verified(session),
-                        readiness_verified=self.proofs.readiness_verified(session),
+                        # Only a reopen reads (and FOR SHARE locks) the worker rows.
+                        readiness_verified=reopen
+                        and bool(storage_ready)
+                        and self.proofs.readiness_verified(session),
                     )
                 except PolicyTransitionError as exc:
                     raise ApplicationError(
@@ -359,6 +379,11 @@ class PolicyService:
             )
             return response
 
+        try:
+            return run_transaction(self.session_factory, operation)
+        except _StorageProbeRequired:
+            pass  # rolled back, including the pending idempotency record
+        storage_ready = self.storage_probe() if self.storage_probe is not None else True
         return run_transaction(self.session_factory, operation)
 
     @staticmethod

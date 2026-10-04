@@ -55,3 +55,14 @@ def transaction_timestamp(executor: Any) -> datetime:
 
 def clock_timestamp(executor: Any) -> datetime:
     return executor.execute(select(func.clock_timestamp())).scalar_one()
+
+
+# Two-int4 advisory keys live apart from the single-bigint keys used elsewhere.
+BLOB_LOCK_CLASS = 1_919_001
+GC_RUN_LOCK_CLASS = 1_919_002
+
+
+def lock_blob_key(executor: Any, blob_key: str, *, exclusive: bool) -> None:
+    """Serialize GC G2 (exclusive) against metadata commit of the same blob (shared)."""
+    lock = func.pg_advisory_xact_lock if exclusive else func.pg_advisory_xact_lock_shared
+    executor.execute(select(lock(BLOB_LOCK_CLASS, func.hashtext(blob_key))))

@@ -249,6 +249,28 @@ artifact bytes hay server path.
 | 9 | Lỗi API/client khác |
 | 10 | Checksum/ETag/Content-Length integrity failure |
 
+## Kiểm tra storage và kết quả (B19; chờ Task Review)
+
+Hai lệnh bảo trì chỉ đọc, chạy local với `NEXA_DATABASE_URL` của deployment (không
+qua REST, không ghi audit, chạy được cả khi `WRITE_FROZEN`; transaction `READ ONLY`):
+
+```bash
+nexa-maintenance storage-check
+nexa-maintenance consistency-check --accepted-ids FILE   # mỗi dòng một job ID
+```
+
+- `storage-check` so `artifact_storage_counters` với tổng artifact `COMMITTED` và
+  upload `ACTIVE` của từng tenant, in JSON một dòng (`consistent`, `drift_tenants`,
+  `drift[]`, `retained_unpublished_artifacts`, `retained_unpublished_bytes`). Lệch chỉ
+  được báo, không tự sửa (B19-R14).
+- `consistency-check` kiểm mọi ID đã nhận có Job, Job `SUCCEEDED` có đúng một
+  result và không có result cho Job chưa `SUCCEEDED`; in JSON gồm `accepted`,
+  `missing_accepted`, `succeeded`, `succeeded_without_result`, `multiple_results`,
+  `result_of_unsucceeded_job`, `consistent`.
+- Exit code: 0 nhất quán, 1 không nhất quán, 2 cấu hình/schema/DB lỗi hoặc file ID
+  sai định dạng. Output không có path, DSN hay secret. Xem
+  [observability](observability.md) §6.4.
+
 ## Giới hạn phạm vi
 
 CLI này không tự chứng minh semantics cancel/pause/resume/retry/recovery của

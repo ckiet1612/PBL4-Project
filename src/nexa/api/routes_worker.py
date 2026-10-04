@@ -397,7 +397,7 @@ async def upload_attempt_artifact(
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=16, max_length=128)],
     kind: Annotated[str, Header(alias="X-Artifact-Kind")],
     media_type: Annotated[str, Header(alias="X-Artifact-Media-Type")],
-    size: Annotated[int, Header(alias="X-Artifact-Size", ge=0)],
+    size: Annotated[int, Header(alias="X-Artifact-Size", ge=0, le=1_099_511_627_776)],
     checksum: Annotated[str, Header(alias="X-Artifact-Checksum")],
 ):
     from nexa.application.execution_artifacts import AttemptArtifactService, WorkerUploadPrincipal
@@ -405,6 +405,28 @@ async def upload_attempt_artifact(
     if request.headers.get("content-type") != "application/octet-stream":
         raise ApplicationError(
             code="validation_failed", status=400, message="Expected binary artifact transport"
+        )
+    # Size and Content-Length are refused before any database work or staging (B19).
+    if size > services(request).settings.artifact_max_file_bytes:
+        raise ApplicationError(
+            code="payload_too_large",
+            status=413,
+            message="Artifact size exceeds the configured limit",
+        )
+    content_length = request.headers.get("content-length")
+    try:
+        parsed_content_length = int(content_length) if content_length is not None else None
+    except ValueError:
+        parsed_content_length = -1
+    if parsed_content_length is not None and parsed_content_length < 0:
+        raise ApplicationError(
+            code="validation_failed", status=400, message="Content-Length is invalid"
+        )
+    if parsed_content_length is not None and parsed_content_length != size:
+        raise ApplicationError(
+            code="validation_failed",
+            status=422,
+            message="Content-Length does not match X-Artifact-Size",
         )
     authority = _header_authority(request, attempt_id)
     service = AttemptArtifactService(
@@ -416,7 +438,6 @@ async def upload_attempt_artifact(
         media_type,
     )
     tenant = await run_in_threadpool(service.tenant_id)
-    content_length = request.headers.get("content-length")
     result = await service.upload(
         WorkerUploadPrincipal(authority.worker_id),
         tenant_id=tenant,
@@ -425,7 +446,7 @@ async def upload_attempt_artifact(
         media_type=media_type,
         expected_size=size,
         expected_checksum=checksum,
-        content_length=int(content_length) if content_length else None,
+        content_length=parsed_content_length,
         chunks=request.stream(),
     )
     return JSONResponse(result.body, status_code=result.status, headers=result.headers)

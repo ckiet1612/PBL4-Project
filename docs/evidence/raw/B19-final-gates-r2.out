@@ -1,0 +1,41 @@
+# B19 round 2 final gates (P), working tree source listing c36d2e0a…
+$ uv run --no-sync ruff check . && uv run --no-sync ruff format --check .  (2026-10-04T18:34:28Z)
+All checks passed!
+exit=0
+564 files already formatted
+exit=0
+
+$ PYTHONPATH=src:. uv run --no-sync pytest -q  (2026-10-04T18:31:57Z)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1973 passed, 683 skipped, 2 warnings in 61.86s (0:01:01)
+exit=0
+
+## web gates 2026-10-04T18:33:08Z
+Done in 327ms using pnpm v11.9.0
+install exit=0
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+typecheck exit=0
+ Test Files  29 passed (29)
+      Tests  217 passed (217)
+vitest exit=0
+✓ built in 152ms
+build exit=0
+dist index.html sha256 b57852b8a94a
+
+# promtool (prom/prometheus@sha256:63805ebb…, --network none)
+$ promtool check rules alerts.yml
+Checking alerts.yml
+  SUCCESS: 16 rules found
+
+exit=0
+$ promtool test rules tests/alerts_test.yml
+  SUCCESS
+
+exit=0
+$ promtool check config prometheus.yml
+
+Checking alerts.yml
+  SUCCESS: 16 rules found
+
+exit=0

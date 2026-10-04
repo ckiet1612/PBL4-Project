@@ -38,6 +38,8 @@ from nexa.infrastructure.artifacts.store import ArtifactError
 from nexa.infrastructure.persistence import schema as s
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.transactions import run_transaction
+from nexa.observability import metrics_api
+from nexa.observability.metrics import after_commit
 from nexa.workloads import chunk_manifest, inference_state
 
 # Reasons that describe the destination rather than the stored bytes; they never
@@ -646,6 +648,8 @@ class CheckpointRestoreMixin:
                     .returning(s.checkpoint_corruptions.c.checkpoint_id)
                 ).first()
                 if inserted is not None:
+                    if reason == "CHECKPOINT_CHECKSUM_MISMATCH":
+                        after_commit(session, lambda: metrics_api.checksum_error("restore"))
                     # Restore selection belongs to claim acknowledgment: event only,
                     # no Job version change.
                     _event(
@@ -754,15 +758,20 @@ class CheckpointRestoreMixin:
                 "files": [ArtifactService._view(f) for f in files],
             }
         events = [("CHECKPOINT_INCOMPATIBLE", reason) for reason in scan["incompatible"]]
+        outcome = "none"  # a first Attempt with nothing to restore
         if restore is not None:
             events.append(("CHECKPOINT_RESTORE_SELECTED", "CHECKPOINT_RESTORED"))
+            outcome = "selected"
         elif (scan["attempt_number"] > 1 or scan["inherited"]) and scan["restart_safe"]:
             events.append(("CHECKPOINT_FALLBACK_TO_INPUT", "CHECKPOINT_FALLBACK_TO_INPUT"))
+            outcome = "fallback"
         elif scan["attempt_number"] > 1 or scan["inherited"]:
             # The poll offer named a checkpoint, so the worker fails this Attempt
             # INCOMPATIBLE through NoContainerProof before any Docker create. Start
             # is also refused, so input is never replayed for a non-restart-safe Job.
             events.append(("CHECKPOINT_RESTORE_UNAVAILABLE", "CHECKPOINT_RESTORE_UNAVAILABLE"))
+            outcome = "failed"
+        after_commit(session, lambda: metrics_api.restore(outcome))
         for event_type, reason in events:
             # Claim acknowledgment appends events without a Job version change.
             _event(session, job, authority.worker_id, now, event_type, reason, keep_version=True)

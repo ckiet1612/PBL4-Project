@@ -13,7 +13,9 @@ from pathlib import Path
 
 import pytest
 
+from nexa.config import DEFAULT_RESOURCE_LIMITS, ResourceLimits, resource_limits
 from nexa.worker.docker_client import DockerControlChannel, SubprocessDockerBackend
+from nexa.worker.docker_config import RUNNER_LOG_FILE_BYTES, attempt_bounds
 from nexa.worker.executor import DockerExecutor
 from nexa.worker.journal import ExecutionJournal
 from nexa.worker.models import ContainerIdentity, CpuWorkloadSpec, InputMount, ResourceVector
@@ -253,6 +255,7 @@ def _production_container(
     memory_bytes: int = 256 * 1024 * 1024,
     scratch_bytes: int = 64 * 1024 * 1024,
     log_bytes: int = 1024 * 1024,
+    limits: ResourceLimits = DEFAULT_RESOURCE_LIMITS,
 ) -> Iterator[tuple[DockerExecutor, ContainerIdentity]]:
     image = image or os.environ.get("NEXA_B09_IMAGE_REF", "")
     if "@sha256:" not in image:
@@ -301,6 +304,7 @@ def _production_container(
         SubprocessDockerBackend(),
         image_ref=image_ref,
         staging_root=input_dir,
+        limits=limits,
     )
     identity = executor.start(executor.prepare(request))
     try:
@@ -311,7 +315,7 @@ def _production_container(
 
 
 @contextmanager
-def _log_pressure_image(tmp_path: Path) -> Iterator[str]:
+def _log_pressure_image(tmp_path: Path, emitted_bytes: int = 128 * 1024) -> Iterator[str]:
     base = os.environ.get("NEXA_B09_IMAGE_REF", "")
     if "@sha256:" not in base:
         pytest.fail("NEXA_B09_IMAGE_REF must be an exact digest reference")
@@ -331,7 +335,7 @@ def _log_pressure_image(tmp_path: Path) -> Iterator[str]:
         "p.parse_args()\n"
         "open('/output/log-trigger.ns','w').write(str(time.monotonic_ns()))\n"
         "time.sleep(1.0)\n"
-        "os.write(1,b'x'*(128*1024))\n"
+        f"os.write(1,b'x'*{emitted_bytes})\n"
         "time.sleep(60)\n",
         encoding="ascii",
     )
@@ -948,6 +952,7 @@ def test_production_container_enforces_cpu_pid_scratch_and_memory_bounds(tmp_pat
         cpu_millis=100,
         memory_bytes=128 * 1024 * 1024,
         scratch_bytes=1024 * 1024,
+        limits=replace(DEFAULT_RESOURCE_LIMITS, container_pid_limit=128),
     ) as (_, identity):
         before_cpu = _read_cgroup_counters(identity.container_id, "/sys/fs/cgroup/cpu.stat")
         cpu_probe = subprocess.run(
@@ -1247,4 +1252,146 @@ def test_watchdog_stops_workload_when_runner_log_bound_is_exceeded(tmp_path: Pat
             stopped_after_trigger_seconds=round(elapsed, 6),
             clock_domain="runner-monotonic",
             bound_seconds=7,
+        )
+
+
+_CONFIGURED_LIMITS = {
+    "NEXA_CONTAINER_PID_LIMIT": "64",
+    "NEXA_SCRATCH_MAX_BYTES": str(96 * 1024 * 1024),
+    "NEXA_ATTEMPT_LOG_MAX_BYTES": str(2 * 1024 * 1024),
+}
+
+
+def _host_config(container_id: str) -> dict:
+    inspection = subprocess.run(
+        ["docker", "inspect", container_id], check=True, capture_output=True, text=True
+    )
+    return json.loads(inspection.stdout)[0]["HostConfig"]
+
+
+def _exec_python(container_id: str, code: str, timeout: int = 30) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["docker", "exec", "--user", "1001:1000", container_id, "python", "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+@pytest.mark.docker
+def test_configured_pid_and_scratch_limits_bind_the_container(tmp_path: Path) -> None:
+    """B19-R15: non-default worker configuration reaches Docker and is enforced."""
+    if os.environ.get("NEXA_RUN_DOCKER") != "1":
+        pytest.skip("opt-in real Docker suite; use scripts/b09_docker_tests.sh --require")
+    limits = resource_limits(_CONFIGURED_LIMITS)
+    memory = 512 * 1024 * 1024
+    scratch, log = attempt_bounds(memory, limits)
+    assert (scratch, log) == (96 * 1024 * 1024, 2 * 1024 * 1024)
+    with _production_container(
+        tmp_path, memory_bytes=memory, scratch_bytes=scratch, log_bytes=log, limits=limits
+    ) as (_, identity):
+        host = _host_config(identity.container_id)
+        assert host["PidsLimit"] == 64
+        assert f"size={scratch}" in host["Tmpfs"]["/tmp"]
+        assert host["LogConfig"]["Config"]["max-size"] == str(RUNNER_LOG_FILE_BYTES)
+        pid_probe = _exec_python(
+            identity.container_id,
+            "import os,signal,time;children=[];limited=False"
+            "\ntry:"
+            "\n for _ in range(200):"
+            "\n  try:pid=os.fork()"
+            "\n  except OSError:limited=True;break"
+            "\n  if pid==0:time.sleep(5);os._exit(0)"
+            "\n  children.append(pid)"
+            "\n print(f'{limited}:{len(children)}',flush=True)"
+            "\nfinally:"
+            "\n for pid in children:"
+            "\n  try:os.kill(pid,signal.SIGKILL)"
+            "\n  except ProcessLookupError:pass"
+            "\n for pid in children:"
+            "\n  try:os.waitpid(pid,0)"
+            "\n  except ChildProcessError:pass",
+        )
+        assert pid_probe.returncode == 0, pid_probe.stderr
+        limited, count = pid_probe.stdout.strip().split(":")
+        assert limited == "True"
+        assert int(count) < 64
+        scratch_probe = _exec_python(
+            identity.container_id,
+            "import errno,os;fd=os.open('/tmp/limit-probe',os.O_CREAT|os.O_WRONLY,0o600);"
+            "written=0;hit=False"
+            "\ntry:"
+            "\n while written<200*1024*1024:"
+            "\n  try:written+=os.write(fd,b'x'*(1024*1024))"
+            "\n  except OSError as exc:assert exc.errno==errno.ENOSPC;hit=True;break"
+            "\nfinally:os.close(fd);os.unlink('/tmp/limit-probe')"
+            "\nassert hit"
+            "\nprint(written,flush=True)",
+        )
+        assert scratch_probe.returncode == 0, scratch_probe.stderr
+        written = int(scratch_probe.stdout.strip())
+        assert 90 * 1024 * 1024 <= written <= scratch
+        _evidence(
+            "b19-configured-limits",
+            pids_limit=host["PidsLimit"],
+            child_count_before_limit=int(count),
+            scratch_limit_bytes=scratch,
+            scratch_written_before_enospc=written,
+            json_file_max_size=host["LogConfig"]["Config"]["max-size"],
+            memory_limit_bytes=memory,
+        )
+
+
+@pytest.mark.docker
+def test_default_pid_limit_is_512(tmp_path: Path) -> None:
+    if os.environ.get("NEXA_RUN_DOCKER") != "1":
+        pytest.skip("opt-in real Docker suite; use scripts/b09_docker_tests.sh --require")
+    with _production_container(tmp_path) as (_, identity):
+        host = _host_config(identity.container_id)
+        assert host["PidsLimit"] == 512
+        _evidence("b19-default-pid-limit", pids_limit=host["PidsLimit"])
+
+
+@pytest.mark.docker
+def test_configured_attempt_log_bound_fails_the_attempt(tmp_path: Path) -> None:
+    """B19-R15: output beyond NEXA_ATTEMPT_LOG_MAX_BYTES stops the attempt (no truncation)."""
+    if os.environ.get("NEXA_RUN_DOCKER") != "1":
+        pytest.skip("opt-in real Docker suite; use scripts/b09_docker_tests.sh --require")
+    limits = resource_limits(_CONFIGURED_LIMITS)
+    scratch, log = attempt_bounds(256 * 1024 * 1024, limits)
+    emitted = 3 * 1024 * 1024
+    with (
+        _log_pressure_image(tmp_path, emitted_bytes=emitted) as image,
+        _production_container(
+            tmp_path / "run", image=image, scratch_bytes=scratch, log_bytes=log, limits=limits
+        ) as (_, identity),
+        DockerControlChannel(identity.container_id) as connection,
+    ):
+        peer = Peer(connection)
+        peer.send(
+            {
+                "schema_version": 1,
+                "control_sequence": 1,
+                "type": "SET_AUTHORITY_DEADLINE",
+                "payload": {
+                    "source_callback_id": CALLBACK,
+                    "deadline_monotonic_ns": 2**63 - 1,
+                },
+            }
+        )
+        assert peer.receive_ack(1)["accepted"] is True
+        peer.receive_type("STARTED")
+        trigger_ns = _read_container_integer(identity.container_id, "/output/log-trigger.ns")
+        peer.receive_type("PROGRESS")
+        stopped = peer.receive_type("STOPPED", timeout=7)
+        assert stopped["payload"]["reason"] == "FAILURE"
+        elapsed = (int(stopped["payload"]["stopped_monotonic_ns"]) - trigger_ns) / 1_000_000_000
+        assert 0 <= elapsed <= 7
+        _wait_for_container_stop(identity.container_id)
+        _evidence(
+            "b19-configured-log-bound",
+            log_limit_bytes=log,
+            emitted_bytes=emitted,
+            stop_reason=stopped["payload"]["reason"],
+            stopped_after_trigger_seconds=round(elapsed, 6),
         )

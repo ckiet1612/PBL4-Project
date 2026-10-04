@@ -156,7 +156,12 @@ allocation chưa release, kể cả `QUARANTINED`. Admission transaction B08 ph�
 policy lock trước khi đổi counter để giữ cùng lock order.
 
 Mode chỉ đi `NORMAL -> ADMISSION_OFF -> WRITE_FROZEN` và mở lại theo chiều ngược. Boundary
-proof mặc định fail closed vì B06 chưa có reconcile/restore/readiness runtime. Trong
+proof mặc định fail closed. Từ B19 (`ReadinessRecoveryProofProvider`, B19-R02),
+`ADMISSION_OFF -> NORMAL` chỉ được khi schema đúng head, storage qua probe fsync và dưới
+critical watermark (đo ngoài transaction), có ít nhất một worker và mọi worker ENABLED,
+READY, heartbeat còn hạn và đã reconcile; nếu không, 409 với message cố định, điều kiện
+lỗi chỉ ghi log `mode_reopen_refused`. `freeze_ready`/`restore_verified` vẫn fail closed
+(B21). Trong
 `WRITE_FROZEN`, chỉ browser login/session logout, login-rate metadata, admin read audit,
 stored idempotency replay và guarded recovery transition thuộc allowlist; token, grant,
 membership, bootstrap và config mutation bị chặn.

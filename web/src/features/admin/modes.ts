@@ -7,12 +7,13 @@ export const MODE_LABELS: Record<OperationalMode, string> = {
   WRITE_FROZEN: "Khóa ghi",
 };
 
-export const NOT_REOPENABLE_WARNING = "Bản hiện tại chưa mở lại được chế độ qua API (cần bằng chứng khôi phục, B18-R05)";
+/** Freeze/restore proofs still fail closed on the server (B21); reopening NORMAL does not (B19-R02). */
+export const NOT_REOPENABLE_WARNING = "Bản hiện tại chưa hỗ trợ đóng băng/khôi phục qua API (B21).";
 
 export interface ModeOption {
   target: OperationalMode;
   consequence: string;
-  /** Leaving ADMISSION_OFF/WRITE_FROZEN needs recovery proof the current release cannot give. */
+  /** Entering/leaving WRITE_FROZEN needs a recovery proof the current release cannot give. */
   reopenWarning: boolean;
   note?: string;
 }
@@ -23,14 +24,15 @@ const OPTIONS: Record<OperationalMode, ModeOption[]> = {
       target: "ADMISSION_OFF",
       consequence: "Ngừng nhận job mới từ mọi tenant; job đã nhận vẫn chạy.",
       reopenWarning: false,
-      note: "Trong bản hiện tại không quay lại NORMAL qua API được.",
+      note: "Mở lại NORMAL cần cơ sở dữ liệu, lưu trữ và worker sẵn sàng.",
     },
   ],
   ADMISSION_OFF: [
     {
       target: "NORMAL",
-      consequence: "Nhận job trở lại. Cần bằng chứng sẵn sàng và worker đã reconcile.",
-      reopenWarning: true,
+      consequence: "Nhận job và điều phối trở lại.",
+      reopenWarning: false,
+      note: "Chỉ mở lại được khi cơ sở dữ liệu, lưu trữ và worker đều sẵn sàng. Nếu chưa, máy chủ từ chối và giữ nguyên chế độ.",
     },
     {
       target: "WRITE_FROZEN",

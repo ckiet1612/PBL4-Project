@@ -1,0 +1,293 @@
+# promtool tests for ../alerts.yml: every alert has a firing case and at least one
+# non-firing case (below the threshold, or not yet held for `for`).
+#   docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/rules:ro" \
+#     prom/prometheus@sha256:<digest> test rules /rules/tests/alerts_test.yml
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+
+tests:
+  - name: queue
+    interval: 1m
+    input_series:
+      - series: 'nexa_queue_oldest_age_seconds{job="nexa-api",instance="old"}'
+        values: '2000x30'
+      - series: 'nexa_queue_oldest_age_seconds{job="nexa-api",instance="fresh"}'
+        values: '1000x30'
+      - series: 'nexa_queue_outstanding{job="nexa-api",instance="full"}'
+        values: '95x30'
+      - series: 'nexa_queue_outstanding_limit{job="nexa-api",instance="full"}'
+        values: '100x30'
+      - series: 'nexa_queue_outstanding{job="nexa-api",instance="half"}'
+        values: '50x30'
+      - series: 'nexa_queue_outstanding_limit{job="nexa-api",instance="half"}'
+        values: '100x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NexaQueueOldestAgeHigh
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: NexaQueueOldestAgeHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: old}
+            exp_annotations:
+              summary: The oldest QUEUED job has waited more than 30 minutes.
+              runbook: Check nexa_jobs_waiting by reason, a READY worker, tenant quota and capacity.
+      - eval_time: 5m
+        alertname: NexaQueueDepthHigh
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: NexaQueueDepthHigh
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: full}
+            exp_annotations:
+              summary: Outstanding jobs are above 90% of the global admission limit.
+              runbook: Submits will soon get 429 queue_full; find the busy tenants with the admin jobs and fairness views.
+
+  - name: storage watermarks
+    interval: 1m
+    input_series:
+      - series: 'nexa_storage_used_ratio{job="nexa-api",instance="high"}'
+        values: '0.9x20'
+      - series: 'nexa_storage_used_ratio{job="nexa-api",instance="critical"}'
+        values: '0.97x20'
+      - series: 'nexa_storage_used_ratio{job="nexa-api",instance="ok"}'
+        values: '0.5x20'
+      - series: 'nexa_storage_watermark_ratio{job="nexa-api",instance="high",level="high"}'
+        values: '0.85x20'
+      - series: 'nexa_storage_watermark_ratio{job="nexa-api",instance="high",level="critical"}'
+        values: '0.95x20'
+      - series: 'nexa_storage_watermark_ratio{job="nexa-api",instance="critical",level="high"}'
+        values: '0.85x20'
+      - series: 'nexa_storage_watermark_ratio{job="nexa-api",instance="critical",level="critical"}'
+        values: '0.95x20'
+      - series: 'nexa_storage_watermark_ratio{job="nexa-api",instance="ok",level="high"}'
+        values: '0.85x20'
+      - series: 'nexa_storage_watermark_ratio{job="nexa-api",instance="ok",level="critical"}'
+        values: '0.95x20'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: NexaStorageHighWatermark
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: NexaStorageHighWatermark
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: high}
+            exp_annotations: &high
+              summary: Artifact storage is above the high watermark.
+              runbook: Submits and user uploads get 503 storage_pressure; free space outside Nexa or grow the disk.
+          - exp_labels: {severity: warning, job: nexa-api, instance: critical}
+            exp_annotations: *high
+      - eval_time: 0m
+        alertname: NexaStorageCriticalWatermark
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: NexaStorageCriticalWatermark
+        exp_alerts:
+          - exp_labels: {severity: critical, job: nexa-api, instance: critical}
+            exp_annotations:
+              summary: Artifact storage is above the critical watermark.
+              runbook: Dispatch has stopped and worker uploads get 503; grow the disk now.
+
+  - name: workers
+    interval: 1m
+    input_series:
+      - series: 'nexa_workers{job="nexa-api",instance="down",health="READY",admin_state="ENABLED"}'
+        values: '0x10'
+      - series: 'nexa_workers{job="nexa-api",instance="down",health="SUSPECT",admin_state="ENABLED"}'
+        values: '1x10'
+      - series: 'nexa_workers{job="nexa-api",instance="up",health="READY",admin_state="ENABLED"}'
+        values: '1x10'
+      - series: 'nexa_worker_heartbeat_age_seconds{job="nexa-api",instance="stale"}'
+        values: '90x10'
+      - series: 'nexa_worker_heartbeat_age_seconds{job="nexa-api",instance="fresh"}'
+        values: '10x10'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: NexaWorkerNotReady
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: NexaWorkerNotReady
+        exp_alerts:
+          - exp_labels: {severity: critical, job: nexa-api, instance: down}
+            exp_annotations:
+              summary: No ENABLED worker is READY; nothing can be dispatched.
+              runbook: Check the worker log and its /readyz, heartbeats and the storage level.
+      - eval_time: 1m
+        alertname: NexaWorkerHeartbeatStale
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: NexaWorkerHeartbeatStale
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: stale}
+            exp_annotations:
+              summary: An enabled worker has not sent an accepted heartbeat for over 60 seconds.
+              runbook: Check that the worker process runs and reaches the API.
+
+  - name: checkpoint, restore and quarantine
+    interval: 1m
+    input_series:
+      - series: 'nexa_checkpoint_age_seconds{job="nexa-api",instance="stale"}'
+        values: '8000x30'
+      - series: 'nexa_checkpoint_age_seconds{job="nexa-api",instance="fresh"}'
+        values: '100x30'
+      - series: 'nexa_restore_total{job="nexa-api",instance="broken",outcome="failed"}'
+        values: '0 0 1x60'
+      - series: 'nexa_restore_total{job="nexa-api",instance="broken",outcome="selected"}'
+        values: '0+5x62'
+      - series: 'nexa_restore_total{job="nexa-api",instance="healthy",outcome="failed"}'
+        values: '0x62'
+      # Without the start-up 0 (B19-RV03) the first failure is invisible to increase().
+      - series: 'nexa_restore_total{job="nexa-api",instance="uninitialised",outcome="failed"}'
+        values: '_ _ 1x60'
+      - series: 'nexa_quarantine_oldest_age_seconds{job="nexa-api",instance="stuck"}'
+        values: '1000x20'
+      - series: 'nexa_quarantine_oldest_age_seconds{job="nexa-api",instance="clear"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NexaCheckpointStale
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: NexaCheckpointStale
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: stale}
+            exp_annotations:
+              summary: A running attempt has gone more than 2 hours without a committed checkpoint.
+              runbook: Check the job events and the workload adapter's checkpoint uploads.
+      - eval_time: 1m
+        alertname: NexaRestoreFailures
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: NexaRestoreFailures
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: broken, outcome: failed}
+            exp_annotations:
+              summary: A checkpoint restore failed in the last 30 minutes.
+              runbook: Look for CHECKPOINT_RESTORE_UNAVAILABLE events on the job.
+      - eval_time: 45m
+        alertname: NexaRestoreFailures
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: NexaAllocationQuarantinedTooLong
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: NexaAllocationQuarantinedTooLong
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: stuck}
+            exp_annotations:
+              summary: An allocation has stayed QUARANTINED for more than 15 minutes.
+              runbook: The container has no cleanup proof yet; check the worker reconcile log.
+
+  - name: readiness, targets and collectors
+    interval: 1m
+    input_series:
+      - series: 'nexa_ready{job="nexa-api",instance="sick",check="database"}'
+        values: '1x10'
+      - series: 'nexa_ready{job="nexa-api",instance="sick",check="storage"}'
+        values: '0x10'
+      - series: 'nexa_ready{job="nexa-worker",instance="well",check="docker"}'
+        values: '1x10'
+      - series: 'up{job="nexa-worker",instance="worker"}'
+        values: '1 1 0x10'
+      - series: 'up{job="nexa-api",instance="api"}'
+        values: '1x12'
+      - series: 'up{job="other",instance="other"}'
+        values: '0x12'
+      - series: 'nexa_collector_up{job="nexa-api",instance="api",collector="queue"}'
+        values: '0x20'
+      - series: 'nexa_collector_up{job="nexa-api",instance="api",collector="storage"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: NexaNotReady
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: NexaNotReady
+        exp_alerts:
+          - exp_labels: {severity: critical, job: nexa-api, instance: sick}
+            exp_annotations:
+              summary: A Nexa process reports not ready.
+              runbook: Open the process's /readyz to see the failing check.
+      - eval_time: 3m
+        alertname: NexaTargetDown
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: NexaTargetDown
+        exp_alerts:
+          - exp_labels: {severity: critical, job: nexa-worker, instance: worker}
+            exp_annotations:
+              summary: Prometheus cannot scrape a Nexa ops listener.
+              runbook: The process or its NEXA_OPS_BIND listener stopped; check the process.
+      - eval_time: 3m
+        alertname: NexaMetricsCollectorDown
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: NexaMetricsCollectorDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: api, collector: queue}
+            exp_annotations:
+              summary: An API metrics collector keeps failing; its series are dropped.
+              runbook: Look for metrics_collector_failed in the API log; the database may be slow or locked.
+
+  - name: storage reconciliation and GC
+    interval: 1m
+    input_series:
+      - series: 'nexa_storage_counter_drift_tenants{job="nexa-api",instance="drift"}'
+        values: '1x30'
+      - series: 'nexa_storage_counter_drift_tenants{job="nexa-api",instance="clean"}'
+        values: '0x30'
+      # Last pass at 60 s, then the loop stops.
+      - series: 'nexa_gc_last_run_timestamp_seconds{job="nexa-api",instance="stalled"}'
+        values: '60x200'
+      # A pass every minute: the value follows time().
+      - series: 'nexa_gc_last_run_timestamp_seconds{job="nexa-api",instance="healthy"}'
+        values: '0+60x200'
+      # No pass since the process started.
+      - series: 'nexa_gc_last_run_timestamp_seconds{job="nexa-api",instance="never"}'
+        values: '0x200'
+      - series: 'nexa_storage_orphan_bytes{job="nexa-api",instance="backlog"}'
+        values: '2000000000x100'
+      - series: 'nexa_storage_orphan_bytes{job="nexa-api",instance="small"}'
+        values: '1000000x100'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NexaStorageCounterDrift
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: NexaStorageCounterDrift
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: drift}
+            exp_annotations:
+              summary: Artifact storage counters disagree with the artifact rows.
+              runbook: Run nexa-maintenance storage-check; it reports and never repairs.
+      - eval_time: 1h50m
+        alertname: NexaGcStalled
+        exp_alerts: []
+      - eval_time: 2h20m
+        alertname: NexaGcStalled
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: stalled}
+            exp_annotations:
+              summary: The storage GC pass has not completed for over 2 hours.
+              runbook: Look for gc_pass and nexa_gc_errors_total in the API log and metrics.
+      - eval_time: 1h50m
+        alertname: NexaGcNeverCompleted
+        exp_alerts: []
+      - eval_time: 2h20m
+        alertname: NexaGcNeverCompleted
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: never}
+            exp_annotations:
+              summary: The storage GC pass has not completed since the API started 2 hours ago.
+              runbook: Look for gc_pass and nexa_gc_errors_total in the API log and metrics.
+      - eval_time: 30m
+        alertname: NexaOrphanBacklog
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: NexaOrphanBacklog
+        exp_alerts:
+          - exp_labels: {severity: warning, job: nexa-api, instance: backlog}
+            exp_annotations:
+              summary: Over 1 GiB of orphan blobs is waiting for GC.
+              runbook: GC is behind or failing; check nexa_gc_errors_total.

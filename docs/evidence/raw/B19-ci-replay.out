@@ -1,0 +1,88 @@
+# B19 CI replay 2026-10-04 (P): clean copy of git ls-files + untracked non-ignored files in /tmp/b19_ci, steps of .github/workflows/ci.yml job python; uv 0.9.27 (CI pins 0.12.15), PG nexa_b13_pg 17.11 DB nexa_b05_test_b19ci
+$ uv sync --frozen --all-groups --no-editable
+ + typing-inspection==0.4.4
+ + uvicorn==0.41.0
+exit=0
+$ uv run --no-sync ruff check .
+All checks passed!
+exit=0
+$ uv run --no-sync ruff format --check .
+737 files already formatted
+exit=0
+$ NEXA_TEST_PG_CLIENT_PREFIX="docker exec -i nexa_b13_pg" NEXA_TEST_DATABASE_URL=<URL>/nexa_b05_test_b19ci uv run --no-sync pytest -q --run-postgres -rs --durations=25
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+..........................                                               [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /private/tmp/b19_ci/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+.venv/lib/python3.12/site-packages/starlette/testclient.py:53
+  /private/tmp/b19_ci/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/integration/test_jobs_b08.py::test_concurrent_same_key_commits_one_job_and_replays_one_snapshot
+  /private/tmp/b19_ci/.venv/lib/python3.12/site-packages/pydantic/_internal/_generate_schema.py:2274: UnsupportedFieldAttributeWarning: The 'alias' attribute with value 'from' was provided to the `Field()` function, which has no effect in the context it was used. 'alias' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.
+    warnings.warn(
+
+tests/integration/test_jobs_b08.py::test_concurrent_different_keys_respect_queue_and_rate_limits[rate-429-rate_limited]
+  /private/tmp/b19_ci/.venv/lib/python3.12/site-packages/pydantic/_internal/_generate_schema.py:2274: UnsupportedFieldAttributeWarning: The 'alias' attribute with value 'If-Match' was provided to the `Field()` function, which has no effect in the context it was used. 'alias' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 25 durations =============================
+17.38s call     tests/integration/test_sweep_b16.py::test_one_hundred_child_sweep_latency
+11.59s call     tests/integration/test_cli_b12_vertical.py::test_product_cli_http_postgres_vertical_and_authorization
+10.74s call     tests/integration/test_rem_b13_r12_search_path.py::test_0021_decimal_helpers_match_b05_bodies
+7.28s call     tests/benchmarks/test_b13_runtime_fairness.py::test_realtime_cohort_keeps_queued_demand_and_records_three_windows
+5.13s call     tests/workloads/test_workload_supervisor.py::test_supervisor_kills_descendant_when_direct_parent_exits_first
+4.93s call     tests/integration/test_cli_b12_vertical.py::test_cli_token_response_loss_does_not_mint_a_second_secret
+4.84s call     tests/benchmarks/b04/test_cli.py::test_compare_uses_one_materialized_workload_for_all_policies
+4.31s call     tests/integration/test_jobs_b08.py::test_submit_replays_after_post_commit_api_crash_before_response
+4.10s call     tests/integration/test_cli_admin_b18.py::test_admin_read_token_lists_jobs_and_queries_fairness
+4.00s call     tests/integration/test_migrations.py::test_explicit_migration_target_is_not_overridden_by_runtime_database_url
+3.59s call     tests/integration/test_execution_closure_b11.py::test_http_graph_result_recognition_cleanup_and_replay
+3.22s call     tests/integration/test_coordinator_b13.py::test_eligibility_backlog_is_drained_before_dispatch
+3.07s call     tests/integration/test_rem_b13_r12_search_path.py::test_before_0021_plain_restore_fails
+3.03s call     tests/integration/test_coordinator_b13.py::test_default_quota_boundary_writes_bounded_job_rows_and_redispatches_after_release
+2.86s call     tests/integration/test_rem_b13_r12_search_path.py::test_plain_dump_restore_preserves_every_object_and_row
+2.80s call     tests/integration/test_control_b15.py::test_one_failing_lease_does_not_stop_the_reaper_or_the_tick
+2.79s call     tests/application/test_fairness_report_b18.py::test_closed_range_totals_match_the_ledger_charge
+2.52s call     tests/benchmarks/test_b13_queue_microbench.py::test_resume_window_does_not_read_all_queued_jobs[mixed]
+2.52s call     tests/benchmarks/test_b13_queue_microbench.py::test_resume_window_does_not_read_all_queued_jobs[multi]
+2.50s setup    tests/api/test_artifacts_b07.py::test_artifact_openapi_declares_binary_upload_and_range_download
+2.35s call     tests/benchmarks/test_b13_queue_microbench.py::test_resume_window_does_not_read_all_queued_jobs[fresh]
+2.34s call     tests/benchmarks/test_b13_queue_microbench.py::test_resume_window_does_not_read_all_queued_jobs[aged]
+2.25s call     tests/benchmarks/test_b13_queue_microbench.py::test_capability_change_stalls_each_tenant_until_its_own_replay_completes
+2.21s call     tests/benchmarks/test_b13_queue_microbench.py::test_resume_window_does_not_read_all_queued_jobs[after_resume]
+2.19s call     tests/integration/test_coordinator_ops_b19.py::test_coordinator_ops_ready_role_and_database_failure
+=========================== short test summary info ============================
+SKIPPED [1] tests/workloads/test_pytorch_workloads_b16.py:17: could not import 'torch': No module named 'torch'
+SKIPPED [1] tests/docker/test_b10_worker_restart.py:225: opt-in B10 worker restart evidence
+SKIPPED [2] tests/docker/test_b11_vertical.py:155: opt-in B11 Linux Docker vertical slice
+SKIPPED [1] tests/docker/test_b11_worker_ipc.py:20: opt-in B11 Linux Docker relay regression
+SKIPPED [1] tests/docker/test_b14_checkpoint_restore.py:974: opt-in B14 Docker checkpoint evidence
+SKIPPED [4] tests/docker/test_b15_control_recovery.py:91: opt-in B15 Docker control/recovery evidence
+SKIPPED [3] tests/docker/b16_support.py:63: opt-in B16 Docker evidence (NEXA_RUN_DOCKER=1)
+SKIPPED [1] tests/docker/test_real_executor.py:31: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_executor.py:96: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:388: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:508: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:648: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:903: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:949: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1076: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1120: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1160: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1219: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1285: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1348: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_real_runner.py:1359: opt-in real Docker suite; use scripts/b09_docker_tests.sh --require
+SKIPPED [1] tests/docker/test_rem_b14_k5_output_full.py:152: opt-in B14-K5 Docker evidence
+2591 passed, 28 skipped, 4 warnings in 810.87s (0:13:30)
+exit=0

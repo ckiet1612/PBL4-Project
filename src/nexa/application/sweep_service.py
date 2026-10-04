@@ -44,6 +44,7 @@ from nexa.infrastructure.persistence.schema import (
 from nexa.infrastructure.persistence.schema_v17 import SWEEP_PARENT_OPERATION
 from nexa.infrastructure.persistence.transactions import run_transaction
 from nexa.infrastructure.security import CursorError
+from nexa.observability import metrics_api
 
 # Codes that end the request instead of becoming a child outcome; a replay resumes.
 _ABORTING_CODES = frozenset(
@@ -126,8 +127,11 @@ class SweepService:
         base_spec = json_wire_value(decoded["base_spec"])
         base_spec_checksum = jcs_request_hash(request.base_spec.model_dump(mode="json"))
         sweep_id = new_uuid7()
+        reading = self.jobs.storage_reading()
+        replayed: list[bool] = []
 
         def open_parent(session: Session) -> tuple[UUID, UUID, list[int]]:
+            replayed.clear()
             live = self.jobs._authorize(session, principal, tenant_id, write=True)
             now = transaction_timestamp(session)
             outcome = begin_idempotency(
@@ -141,8 +145,9 @@ class SweepService:
                 pending_wait_milliseconds=self.settings.idempotency_pending_wait_milliseconds,
             )
             if outcome.replay is not None:
-                replayed = UUID(str((outcome.replay.body or {})["sweep_id"]))
-                return replayed, outcome.record_id, self._unfinished(session, replayed)
+                replayed.append(True)
+                existing = UUID(str((outcome.replay.body or {})["sweep_id"]))
+                return existing, outcome.record_id, self._unfinished(session, existing)
             template = JobService.enabled_template(
                 session, request.base_spec.template_id, request.base_spec.template_version
             )
@@ -154,6 +159,7 @@ class SweepService:
                     status=409,
                     message="New sweep submissions are disabled in the current operational mode",
                 )
+            self.jobs.enforce_storage(session, tenant_id, reading)
             session.execute(
                 insert(sweep_parents).values(
                     sweep_id=sweep_id,
@@ -179,7 +185,12 @@ class SweepService:
             )
             return sweep_id, outcome.record_id, list(range(len(expansion)))
 
-        opened, record_id, unfinished = run_transaction(self.session_factory, open_parent)
+        try:
+            opened, record_id, unfinished = run_transaction(self.session_factory, open_parent)
+        except ApplicationError as exc:
+            metrics_api.admission("sweep", "rejected", exc.code)
+            raise
+        metrics_api.admission("sweep", "replayed" if replayed else "accepted")
         for child_index in unfinished:
             self._admit_child(
                 principal,

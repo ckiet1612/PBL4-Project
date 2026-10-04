@@ -4,9 +4,10 @@ import type { Page, Response } from "@playwright/test";
 
 import { AdminApi, adminContextAs, expect, test } from "../admin-support";
 
-// Scenario 13 on its own stack (project w1-admin-mode): NORMAL → ADMISSION_OFF cannot be
-// handed back (B18-R05), and ADMISSION_OFF → WRITE_FROZEN is refused by the fail-closed proof
-// provider (B18-R18). The frozen side runs on the w1-admin-frozen stack.
+// Scenario 13 on its own stack (project w1-admin-mode): NORMAL → ADMISSION_OFF; this stack has
+// no worker, so reopening NORMAL is refused by the readiness proof (B19-R02), and
+// ADMISSION_OFF → WRITE_FROZEN is refused by the fail-closed freeze proof (B21). The frozen
+// side runs on the w1-admin-frozen stack; the ready reopen runs on W2 (B19).
 
 interface GlobalPolicy {
   version: number;
@@ -41,7 +42,7 @@ test("13. NORMAL → ADMISSION_OFF through the UI pauses submit; WRITE_FROZEN an
   await form.getByRole("radio", { name: /^Ngừng nhận job —/ }).check();
   await form.getByRole("button", { name: "Chuyển chế độ" }).click();
   const confirm = page.getByRole("dialog", { name: "Chuyển sang chế độ Ngừng nhận job?" });
-  await expect(confirm.getByText("Trong bản hiện tại không quay lại NORMAL qua API được.")).toBeVisible();
+  await expect(confirm.getByText("Mở lại NORMAL cần cơ sở dữ liệu, lưu trữ và worker sẵn sàng.")).toBeVisible();
   const switched = nextAnswer(page, "PATCH", "/v1/admin/policy");
   await confirm.getByRole("button", { name: "Chuyển chế độ" }).click();
   expect((await switched).status()).toBe(200);
@@ -68,16 +69,29 @@ test("13. NORMAL → ADMISSION_OFF through the UI pauses submit; WRITE_FROZEN an
   await expect(memberPage.getByText("Hệ thống đang tạm ngừng nhận job mới")).toBeVisible();
   expect((await member.allJobs(seed.tenants.a)).length).toBe(jobsBefore);
 
-  // ADMISSION_OFF → WRITE_FROZEN: refused while the proof provider fails closed (B18-R18).
-  for (const [label, title, reason] of [
-    ["Khóa ghi", "Chuyển sang chế độ Khóa ghi?", "Freeze requires stopped containers and reconciled unreleased allocations"],
-    ["Bình thường", "Chuyển sang chế độ Bình thường?", "Readiness and worker reconciliation are required"],
+  // ADMISSION_OFF → WRITE_FROZEN: refused while the freeze proof fails closed (B21);
+  // ADMISSION_OFF → NORMAL: refused because no worker is READY on this stack (B19-R02).
+  await expect(form.getByText("Bản hiện tại chưa hỗ trợ đóng băng/khôi phục qua API (B21).")).toBeVisible();
+  for (const [label, title, reason, hint] of [
+    [
+      "Khóa ghi",
+      "Chuyển sang chế độ Khóa ghi?",
+      "Freeze requires stopped containers and reconciled unreleased allocations",
+      "Bản hiện tại chưa hỗ trợ đóng băng/khôi phục qua API (B21).",
+    ],
+    [
+      "Bình thường",
+      "Chuyển sang chế độ Bình thường?",
+      "Readiness and worker reconciliation are required",
+      "Chỉ mở lại được khi cơ sở dữ liệu, lưu trữ và worker đều sẵn sàng. Nếu chưa, máy chủ từ chối và giữ nguyên chế độ.",
+    ],
   ] as const) {
     await form.getByRole("radio", { name: new RegExp(`^${label} —`) }).check();
-    await expect(form.getByText("Bản hiện tại chưa mở lại được chế độ qua API")).toBeVisible();
     await form.getByRole("button", { name: "Chuyển chế độ" }).click();
+    const dialog = page.getByRole("dialog", { name: title });
+    await expect(dialog.getByText(hint)).toBeVisible();
     const refused = nextAnswer(page, "PATCH", "/v1/admin/policy");
-    await page.getByRole("dialog", { name: title }).getByRole("button", { name: "Chuyển chế độ" }).click();
+    await dialog.getByRole("button", { name: "Chuyển chế độ" }).click();
     await expectRefused(refused, 409, "state_conflict", reason);
     const panel = form.locator(".error-panel");
     await expect(panel.getByText(`Chi tiết từ máy chủ: ${reason}`)).toBeVisible();

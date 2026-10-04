@@ -1,0 +1,23 @@
+# Sample Prometheus configuration for one Nexa node (B19). Each process exposes
+# /metrics only when NEXA_OPS_BIND is set; the listener is off by default and is
+# not served through Caddy. Replace the targets with the NEXA_OPS_BIND address of
+# each process in your deployment; the network between Prometheus and the node is
+# owned by B21. 15 s scrapes keep the API collectors on their 15 s cache.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 5s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: nexa-api
+    static_configs:
+      - targets: ["127.0.0.1:9464"]
+  - job_name: nexa-coordinator
+    static_configs:
+      - targets: ["127.0.0.1:9465"]
+  - job_name: nexa-worker
+    static_configs:
+      - targets: ["127.0.0.1:9466"]

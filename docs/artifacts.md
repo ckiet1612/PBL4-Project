@@ -87,8 +87,10 @@ Admissions lock this row before checking `committed + reserved + expected` again
 converted atomically on metadata commit/dedup. Filesystem `statvfs` is checked before
 streaming and immediately before durable commit. Defaults are 10 GiB per file, 100
 GiB per tenant, 85% high watermark, 95% critical watermark, and 24-hour staging/orphan
-TTLs. B07 supplies the primitive; B19 still owns operational metrics, alerts and full
-GC/reconciliation.
+TTLs. B07 supplies the primitive. B19 adds the per-operation watermark table (worker
+attempt uploads continue until critical), the tenant byte-quota admission check,
+metrics, alerts, GC G1/G2 and read-only counter reconciliation; see
+[observability](observability.md) §6.
 
 Upload commit, abort, and expiry use the same PostgreSQL lock order: idempotency
 record, tenant storage counter, then upload session. Expiry selects candidates without
@@ -106,7 +108,12 @@ endpoints recheck membership/ownership on every request. Content always transpor
 `206`/`Content-Range`; malformed, multi-range and out-of-range requests are rejected.
 
 Result publication and worker authority/fencing are B10/B11 responsibilities.
-Reference reachability, orphan sweep and production GC remain B19.
+B19 GC G2 removes only committed blob files that have no `artifacts` row and are
+older than the orphan TTL, under a per-blob advisory lock shared with metadata
+commit. Metadata commit re-checks the blob under that lock; a blob that is missing or
+cannot be inspected fails the upload with `503 dependency_unavailable` and releases the
+reservation, leaving any file for G2. Deleting unreferenced metadata rows is not
+implemented (B19-R05).
 
 ## CPU checkpoint artifacts (B14)
 
@@ -124,8 +131,8 @@ and verifies size and checksum against the committed metadata. A mismatch marks
 the checkpoint corrupt (insert-only `checkpoint_corruptions`) and never rewrites
 or deletes the blob. No B14 path deletes, prunes or overwrites a committed
 checkpoint artifact, so every committed checkpoint, and therefore at least the two
-newest, stays referenced. Operational GC that must honour these references is
-B19. Checkpoint content is never written to logs, events or error bodies.
+newest, stays referenced. B19 GC never deletes a blob that has an `artifacts` row,
+so every checkpoint chunk stays; pruning checkpoints is deferred (B19-R05). Checkpoint content is never written to logs, events or error bodies.
 
 ## AI workload artifacts (B16; đã triển khai, chờ Task Review)
 
@@ -158,6 +165,6 @@ with the exact checksum. A later attempt may only carry a chunk forward if its
 row matches exactly (same artifact, checksum, source attempt and fence).
 Restore selection re-reads every chunk blob the candidate checkpoint
 references; a chunk missing from the verified store (see Store identity) or a corrupt
-chunk marks the checkpoint `CORRUPT` and falls back (B16-R07). No B16 path deletes or overwrites a committed artifact. GC is
-still B19. Chunk, tensor, dataset and model bytes are never written to logs,
+chunk marks the checkpoint `CORRUPT` and falls back (B16-R07). No B16 path deletes or overwrites a committed artifact. B19 GC deletes only
+orphan blob files without metadata (B19-R05 defers metadata GC). Chunk, tensor, dataset and model bytes are never written to logs,
 events or error bodies. See [B16 evidence](evidence/B16-pytorch-sweep-inference.md).

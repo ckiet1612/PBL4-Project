@@ -1,0 +1,49 @@
+# B19 §7.C disk-full, worker image nexa/b19-worker:local (sha256:d563c2c33257b5e2c6612eb2a06b89be7d337be3c6ee6105e49b8f866ba2f8cf), 2026-10-03T19:53:11Z
+# docker run --rm --network none --read-only --tmpfs /artifacts:rw,size=16m --mount type=bind,src=$PWD/scripts/b19_disk_full.py,dst=/b19_disk_full.py,readonly --entrypoint python nexa/b19-worker:local /b19_disk_full.py /artifacts
+{
+  "checks": {
+    "first_blob_checksum_kept": true,
+    "only_first_blob_committed": true,
+    "readiness_fails_when_full": true,
+    "readiness_recovers": true,
+    "staging_removed": true,
+    "storage_full_code": true
+  },
+  "committed_after": [
+    "f71e259b6cd97cd25db957c5d9637f58"
+  ],
+  "critical_percent": 95,
+  "enospc": {
+    "code": "storage_full",
+    "message": "Artifact staging cannot be written",
+    "received": 15724544
+  },
+  "first_blob": {
+    "checksum": "sha256:206b4b957323c44f45f8e5509b067e797b3cab047f6d9fd6ba41a60b35fff54a",
+    "size": 1048576
+  },
+  "first_blob_after": "sha256:206b4b957323c44f45f8e5509b067e797b3cab047f6d9fd6ba41a60b35fff54a",
+  "readiness_after": "ready",
+  "readiness_before": "ready",
+  "readiness_when_full": "storage_unavailable: Artifact storage is at the critical watermark",
+  "root_fs": {
+    "free": 16773120,
+    "total": 16777216,
+    "used_percent": 0.02
+  },
+  "staging_after_abort": [],
+  "staging_when_full": [
+    "222e5ccd36e99b53d8bb15039bd5898c"
+  ],
+  "usage_after": {
+    "free": 15724544,
+    "total": 16777216,
+    "used_percent": 6.27
+  },
+  "usage_when_full": {
+    "free": 0,
+    "total": 16777216,
+    "used_percent": 100.0
+  }
+}
+# exit=0

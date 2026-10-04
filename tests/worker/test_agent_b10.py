@@ -90,7 +90,7 @@ def test_main_returns_unavailable_and_never_logs_transport_secret(
     monkeypatch.setattr("nexa.worker.main.WorkerConfig.from_environment", lambda: config)
     monkeypatch.setattr(
         "nexa.worker.main.run",
-        lambda _config, *, bootstrap: (_ for _ in ()).throw(
+        lambda _config, *, bootstrap, ops_bind, limits: (_ for _ in ()).throw(
             WorkerTransportError("worker API transport unavailable")
         ),
     )
@@ -99,7 +99,11 @@ def test_main_returns_unavailable_and_never_logs_transport_secret(
     with caplog.at_level(logging.ERROR, logger="nexa.worker"):
         assert main() == 75
     assert secret not in caplog.text
-    assert "worker API transport unavailable" in caplog.text
+    # B19: exception text can carry URLs or server responses, so only the event code and
+    # the exception class are logged.
+    assert "worker_unavailable" in caplog.text
+    assert "worker API transport unavailable" not in caplog.text
+    assert [record.nexa_fields["reason"] for record in caplog.records] == ["WorkerTransportError"]
 
 
 def test_periodic_reconciliation_preserves_prior_ready_until_scan_finishes() -> None:

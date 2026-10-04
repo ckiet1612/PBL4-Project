@@ -269,6 +269,22 @@ skipped under `WRITE_FROZEN` like the delete. See
 [B15 evidence](evidence/B15-control-recovery.md) and the
 [remediation evidence](evidence/B01-B16-findings-remediation.md).
 
+## Artifact byte quota and metrics (B19; đã triển khai, chờ Task Review)
+
+The coordinator gets `NEXA_TENANT_ARTIFACT_QUOTA_BYTES`. The snapshot reads
+`artifact_storage_counters` and gives the policy one boolean per tenant,
+`TenantPolicySnapshot.artifact_quota_available`; a tenant whose committed plus
+reserved bytes reach the quota has no eligible Job, and the policy stays pure
+(B19-R07). A separate maintenance step keeps the derived `waiting_for_quota`
+reason on that tenant's QUEUED Jobs and clears it once the tenant is under quota
+again. It runs in bounded batches of 256 with `SKIP LOCKED`, bumps the Job
+version, writes no event, and does nothing in `WRITE_FROZEN`.
+
+Coordinator metrics (leader, tick duration, decisions, dispatch wait, expired
+leases, maintenance failures, quota transitions) are recorded after commit and
+never feed a decision. `/livez` uses a process-local loop beat (stale after 60 s);
+see [observability](observability.md) §1.2 and §4.
+
 ## Fairness report (B18; đã triển khai, chờ Task Review)
 
 `adminQueryFairness` reads the ledger the coordinator writes; it never changes

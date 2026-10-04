@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from nexa.api.schemas import JobSubmitRequest
+from nexa.application import storage_pressure
 from nexa.application.errors import ApplicationError
 from nexa.application.idempotency import begin_idempotency, complete_idempotency
 from nexa.application.identity_service import IdentityService
@@ -52,6 +53,7 @@ from nexa.infrastructure.persistence.schema import (
 )
 from nexa.infrastructure.persistence.transactions import run_transaction
 from nexa.infrastructure.security import CursorCodec, CursorError, read_secret_file
+from nexa.observability import metrics_api
 
 
 @dataclass(frozen=True, slots=True)
@@ -787,8 +789,31 @@ class JobService(JobControlMixin):
             return None
         return "waiting_for_worker"
 
-    def _admit(self, session: Session, live: Principal, tenant_id: UUID):
-        """Lock policy, admission counters and rate buckets for one new Job of `live`."""
+    def storage_reading(self):
+        """Admission disk reading taken before the transaction (B19-R06); None without a store."""
+        if self.artifact_store is None:
+            return None
+        return storage_pressure.read_storage(self.artifact_store)
+
+    def enforce_storage(self, session: Session, tenant_id: UUID, reading) -> None:
+        """Watermark then byte-quota pre-check, after replay and the mode check (B19-R06/R07)."""
+        if reading is not None:
+            storage_pressure.enforce_watermark(reading, storage_pressure.ADMISSION, self.settings)
+        storage_pressure.enforce_byte_quota(session, tenant_id, self.settings)
+
+    def _admit(
+        self,
+        session: Session,
+        live: Principal,
+        tenant_id: UUID,
+        *,
+        check_storage: bool = False,
+        reading=None,
+    ):
+        """Lock policy, admission counters and rate buckets for one new Job of `live`.
+
+        Sweep children skip the storage check: their parent was checked at creation.
+        """
         global_policy = (
             session.execute(
                 select(policy_versions)
@@ -804,6 +829,8 @@ class JobService(JobControlMixin):
                 status=409,
                 message="New job submissions are disabled in the current operational mode",
             )
+        if check_storage:
+            self.enforce_storage(session, tenant_id, reading)
         tenant_policy = (
             session.execute(
                 select(tenant_policies)
@@ -1044,8 +1071,11 @@ class JobService(JobControlMixin):
         spec_checksum = jcs_request_hash(spec_payload)
         job_id = new_uuid7()
         session_id = new_uuid7()
+        reading = self.storage_reading()
+        replayed: list[bool] = []
 
         def operation(session: Session) -> JobOperationResult:
+            replayed.clear()
             live = self._authorize(session, principal, tenant_id, write=True)
             now = transaction_timestamp(session)
             outcome = begin_idempotency(
@@ -1059,13 +1089,16 @@ class JobService(JobControlMixin):
                 pending_wait_milliseconds=self.settings.idempotency_pending_wait_milliseconds,
             )
             if outcome.replay is not None:
+                replayed.append(True)
                 return JobOperationResult(
                     status=outcome.replay.status,
                     body=dict(outcome.replay.body or {}),
                     headers=dict(outcome.replay.headers),
                 )
 
-            tenant_policy, global_counter, user_scope_id = self._admit(session, live, tenant_id)
+            tenant_policy, global_counter, user_scope_id = self._admit(
+                session, live, tenant_id, check_storage=True, reading=reading
+            )
             self._create_job(
                 session,
                 live=live,
@@ -1097,7 +1130,14 @@ class JobService(JobControlMixin):
             )
             return JobOperationResult(status=202, body=body, headers=headers)
 
-        return run_transaction(self.session_factory, operation)
+        try:
+            result = run_transaction(self.session_factory, operation)
+        except ApplicationError as exc:
+            metrics_api.admission("job", "rejected", exc.code)
+            raise
+        # Counted only after the transaction committed (B19 event metrics).
+        metrics_api.admission("job", "replayed" if replayed else "accepted")
+        return result
 
     def _cursor(self, now: datetime) -> CursorCodec:
         return CursorCodec(

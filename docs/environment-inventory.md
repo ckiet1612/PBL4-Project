@@ -84,6 +84,16 @@ repository on purpose.
 | B17 service exposure | Caddy TLS (internal CA) on 127.0.0.1 is the only browser origin; the test API binds 127.0.0.1 and `/v1/internal/*` answers 404 at Caddy; PostgreSQL 17 test container on 127.0.0.1:15439 | observed | `scripts/b17_e2e_stack.py`, `deploy/web/Caddyfile` |
 | B17 boundary | Playwright runs against the Docker Desktop VM (environment P). It is not Linux host (L), GPU (G) or release (R) evidence; no VPS1 run was made for B17 | observed limitation | B17 evidence |
 
+## B19 environments (đã triển khai, chờ Task Review)
+
+| Item | Value | Label | Source |
+|---|---|---|---|
+| Mac Docker Desktop engine (P) | Engine 29.8.1, `aarch64` (same VM as B17) | observed | `docker version` during B19 |
+| Python metrics library | `prometheus-client` 0.26.0 (the only dependency B19 adds) | observed | `uv.lock` |
+| Prometheus / promtool | `prom/prometheus` v3.5.0 `sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996` (pulled by digest, `linux/arm64`, not pushed); used only for `promtool` and the test scrape | observed | `docs/evidence/raw/B19-promtool.out`, `deploy/prometheus/` |
+| B19 images (Mac, `linux/arm64`, local only, not pushed) | CPU `nexa/cpu-iterative@sha256:a35ca28733855ab40ff10207f69d94c028338073b74984ef9d0b9f3783b0d956` (rebuilt because the build context `src/nexa` changed; the 18-file runner import closure is byte-identical to the B18 image `ec419c61…`, see `docs/evidence/raw/B19-cpu-image-runner-closure.sha256`), worker `nexa/b19-worker:local` image id `sha256:d563c2c33257b5e2c6612eb2a06b89be7d337be3c6ee6105e49b8f866ba2f8cf` (from `deploy/b10/Dockerfile`); base `python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9` | observed | `docker image inspect`, `docs/evidence/raw/B19-build-*.out` |
+| B19 boundary | Docker, scrape, outage and disk-full (tmpfs ENOSPC) runs are on the Docker Desktop VM (P). Not Linux host (L), GPU (G) or release (R) evidence; no VPS1 run | observed limitation | B19 evidence |
+
 ## B02 prerequisite closure
 
 `uv.lock`, frozen Python install/quality checks, Node 24 LTS web checks and CI syntax/semantics are verified. No direct B02 blocker remains. Missing `psql`, bare Linux deployment, PostgreSQL runtime, two-host and GPU evidence belong to later tasks and are not B02 blockers; B09's Docker Desktop VM evidence is recorded separately and does not close those gates.

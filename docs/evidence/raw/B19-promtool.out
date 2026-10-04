@@ -1,0 +1,19 @@
+# promtool 3.5.0 (prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996)
+$ promtool check rules /rules/alerts.yml
+Checking /rules/alerts.yml
+  SUCCESS: 16 rules found
+
+rc=0
+$ promtool check config /rules/prometheus.yml
+Checking /rules/prometheus.yml
+  SUCCESS: 1 rule files found
+ SUCCESS: /rules/prometheus.yml is valid prometheus config file syntax
+
+Checking /rules/alerts.yml
+  SUCCESS: 16 rules found
+
+rc=0
+$ promtool test rules /rules/tests/alerts_test.yml
+  SUCCESS
+
+rc=0

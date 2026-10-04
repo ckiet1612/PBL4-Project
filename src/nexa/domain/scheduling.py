@@ -46,6 +46,9 @@ class TenantPolicySnapshot:
     resource_quota: ResourceCapacity
     max_active_attempts: int
     max_user_active_attempts: int
+    # False when the tenant's committed+reserved artifact bytes reached its byte quota
+    # (B19-R07); the counter read stays in the snapshot adapter.
+    artifact_quota_available: bool = True
 
 
 class CandidateState(StrEnum):

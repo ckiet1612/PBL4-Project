@@ -1,0 +1,29 @@
+# B19 final gates 2026-10-04 (P), final working tree
+$ uv run --no-sync ruff check .
+All checks passed!
+exit=0
+$ uv run --no-sync ruff format --check .
+563 files already formatted
+exit=0
+$ git diff --check
+exit=0
+$ pnpm --dir web install --frozen-lockfile
+Already up to date
+Done in 420ms using pnpm v11.9.0
+exit=0
+$ pnpm --dir web run typecheck
+$ node tools/openapi-gen/generate.mjs --check && tsc -b
+exit=0
+$ pnpm --dir web run build
+dist/index.html                   0.48 kB │ gzip:   0.31 kB
+dist/assets/index-B-fVmwfX.css   12.62 kB │ gzip:   2.97 kB
+dist/assets/index-Els8sKcM.js   465.60 kB │ gzip: 134.75 kB
+✓ built in 186ms
+exit=0
+$ pnpm --dir web exec vitest run
+ Test Files  29 passed (29)
+      Tests  217 passed (217)
+exit=0
+dist index sha256: b57852b8a94a
+$ for f in $(git ls-files --others --exclude-standard); do git diff --no-index --check /dev/null "$f"; done
+untracked=65 with_issues=0 (one trailing blank line at EOF of raw/B19-explain.out trimmed first)

@@ -356,8 +356,9 @@ the API response and in one bounded JSON log line each.
   silent.
 
 Neither line carries a credential, callback body, authority, lease, allocation or
-workload content. There is no metrics stack yet, so counters for these outcomes
-belong to B19.
+workload content. B19 adds worker metrics for these outcomes (loop failures by operation,
+execution outcomes and readiness checks) on the ops listener; see
+[observability](observability.md) §1.3.
 
 A worker can be `READY` while it holds live authority under desired `PAUSED`,
 that is, a `PAUSING` attempt or a `CHECKPOINT_FOR_PAUSE` offer, so that offer

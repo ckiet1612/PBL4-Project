@@ -12,8 +12,12 @@ from nexa.infrastructure.persistence.ids import new_uuid7
 from nexa.infrastructure.persistence.locking import clock_timestamp
 from nexa.infrastructure.persistence.schema import coordinator_leadership
 from nexa.infrastructure.persistence.transactions import run_transaction
+from nexa.observability import metrics_coordinator
+from nexa.observability.metrics import after_commit
 
 _RETRY_PROBE_SECONDS = 1.0
+# A blocked tenant's queue is re-marked this often, for Jobs that entered QUEUED since.
+_QUOTA_RESCAN_SECONDS = 30.0
 _LOG = logging.getLogger(__name__)
 
 
@@ -23,11 +27,23 @@ class LeadershipLost(RuntimeError):
 
 
 class CoordinatorService:
-    def __init__(self, session_factory, *, holder_id: UUID | None = None):
+    def __init__(
+        self,
+        session_factory,
+        *,
+        holder_id: UUID | None = None,
+        artifact_quota_bytes: int | None = None,
+    ):
         self.session_factory = session_factory
         self.holder_id = holder_id or new_uuid7()
         self.cursors = {}
         self._retry_probe_at = 0.0
+        # None disables the byte-quota dispatch gate (B19-R07), e.g. in older tests.
+        self.artifact_quota_bytes = artifact_quota_bytes
+        # Exhausted tenant -> monotonic time its queue was fully marked (None: in progress).
+        self._quota_blocked: dict = {}
+        # Tenants whose quota reason is still being cleared; None = clear every tenant once.
+        self._quota_clearing: set | None = None
 
     @staticmethod
     def _timeouts(session):
@@ -212,6 +228,80 @@ class CoordinatorService:
 
         return run_transaction(self.session_factory, operation)
 
+    def track_artifact_quota(self, epoch: int) -> int:
+        """Keep `waiting_for_quota` on QUEUED Jobs of byte-quota-exhausted tenants (B19-R07).
+
+        Dispatch is already gated by the snapshot boolean; this only maintains the
+        derived reason, in bounded batches. In-process state changes only after commit.
+        """
+        if self.artifact_quota_bytes is None:
+            return 0
+        from nexa.coordinator import artifact_quota
+        from nexa.infrastructure.persistence import schema as s
+
+        clock = time.monotonic()
+
+        def operation(session):
+            self._timeouts(session)
+            exhausted = artifact_quota.exhausted_tenants(session, self.artifact_quota_bytes)
+            if self._quota_clearing is None:
+                every = set(session.execute(select(s.tenants.c.tenant_id)).scalars())
+                clearing = every - exhausted
+            else:
+                clearing = (self._quota_clearing | (self._quota_blocked.keys() - exhausted)) - (
+                    exhausted
+                )
+            marking = [
+                tenant
+                for tenant in sorted(exhausted)
+                if self._quota_blocked.get(tenant) is None
+                or clock - self._quota_blocked[tenant] >= _QUOTA_RESCAN_SECONDS
+            ]
+            marked, cleared, wrote = {}, {}, False
+            if marking or clearing:
+                self._leader(session, epoch)
+                mode = session.execute(
+                    select(s.policy_versions.c.operational_mode)
+                    .where(s.policy_versions.c.is_current.is_(True))
+                    .with_for_update(read=True)
+                ).scalar_one()
+                now = self._leader(session, epoch)
+                if mode != "WRITE_FROZEN":
+                    for tenant in marking:
+                        marked[tenant] = artifact_quota.mark_batch(
+                            session, tenant, blocked=True, now=now
+                        )
+                    for tenant in sorted(clearing):
+                        cleared[tenant] = artifact_quota.mark_batch(
+                            session, tenant, blocked=False, now=now
+                        )
+                    self._leader(session, epoch)
+                    wrote = True
+            return exhausted, clearing, marked, cleared, wrote
+
+        exhausted, clearing, marked, cleared, wrote = run_transaction(
+            self.session_factory, operation
+        )
+        newly = exhausted - self._quota_blocked.keys()
+        gone = self._quota_blocked.keys() - exhausted
+        metrics_coordinator.quota_transition("blocked", len(newly))
+        metrics_coordinator.quota_transition("unblocked", len(gone))
+        for tenant in gone:
+            del self._quota_blocked[tenant]
+        for tenant in exhausted:
+            if tenant in marked:
+                full = marked[tenant] >= artifact_quota.BATCH_SIZE
+                self._quota_blocked[tenant] = None if full else clock
+            else:
+                self._quota_blocked.setdefault(tenant, None)
+        if wrote or (self._quota_clearing is None and not clearing):
+            self._quota_clearing = {
+                tenant
+                for tenant in clearing
+                if cleared.get(tenant, artifact_quota.BATCH_SIZE) >= artifact_quota.BATCH_SIZE
+            }
+        return sum(marked.values()) + sum(cleared.values())
+
     def reap_leases(self, epoch: int) -> int:
         """Revoke and fence expired leases, one transaction per lease, under live leadership."""
         from nexa.coordinator.reaper import expired_leases, reap_lease_locked
@@ -245,7 +335,9 @@ class CoordinatorService:
         reaped = 0
         for lease_id in run_transaction(self.session_factory, probe):
             try:
-                reaped += reap(lease_id)
+                if reap(lease_id):
+                    reaped += 1
+                    metrics_coordinator.leases_expired(1)
             except LeadershipLost:
                 raise
             except Exception:
@@ -292,6 +384,21 @@ class CoordinatorService:
         return run_transaction(self.session_factory, operation)
 
     def tick(self, epoch: int):
+        from nexa.domain.scheduling import CreateReservation, Dispatch, InvalidateReservation
+
+        decision = self._tick(epoch)
+        # run_transaction returned, so the decision (or its absence) is committed.
+        if isinstance(decision, Dispatch):
+            metrics_coordinator.decision("offer")
+        elif isinstance(decision, CreateReservation):
+            metrics_coordinator.decision("reservation")
+        elif isinstance(decision, InvalidateReservation):
+            metrics_coordinator.decision("invalidate")
+        else:
+            metrics_coordinator.decision("none")
+        return decision
+
+    def _tick(self, epoch: int):
         from nexa.application.job_service import JobService
         from nexa.coordinator.accounting import account_locked, account_now_locked, epoch_ms
         from nexa.coordinator.dispatch import apply_decision
@@ -332,7 +439,15 @@ class CoordinatorService:
                 return None
             if inventory is None or not JobService._worker_is_ready(dict(worker), now):
                 return None
-            snapshot = read_snapshot(session, now, policy, worker, inventory, self.cursors)
+            snapshot = read_snapshot(
+                session,
+                now,
+                policy,
+                worker,
+                inventory,
+                self.cursors,
+                artifact_quota_bytes=self.artifact_quota_bytes,
+            )
             # Ledger rows are locked only here, so the heartbeat never waits
             # for the replay and candidate reads above.
             persist_fairness_locked(session, snapshot, account_now_locked(session))
@@ -348,12 +463,14 @@ class CoordinatorService:
                 ("reap", self.reap_leases),
                 ("promote", self.promote_retries),
                 ("sweep", self.sweep_idempotency),
+                ("quota", self.track_artifact_quota),
             ):
                 try:
                     step(epoch)
                 except LeadershipLost:
                     raise
                 except Exception:
+                    metrics_coordinator.maintenance_failed(name)
                     _LOG.warning("coordinator_maintenance_failed", extra={"step": name})
         prepared = run_transaction(self.session_factory, snapshot_operation)
         if prepared is None:
@@ -423,7 +540,14 @@ class CoordinatorService:
             if not JobService._worker_is_ready(dict(worker), now):
                 return NoDecision("worker_changed")
             fresh = read_snapshot(
-                session, now, policy, worker, inventory, self.cursors, replay_eligibility=False
+                session,
+                now,
+                policy,
+                worker,
+                inventory,
+                self.cursors,
+                replay_eligibility=False,
+                artifact_quota_bytes=self.artifact_quota_bytes,
             )
             if reservation_replay_pending(session, fresh):
                 return NoDecision("reservation_eligibility_replay_pending")
@@ -444,6 +568,9 @@ class CoordinatorService:
                 holder_id=self.holder_id,
             )
             self._leader(session, epoch)
+            if isinstance(decision, Dispatch) and job["eligible_since"] is not None:
+                waited = (now - job["eligible_since"]).total_seconds()
+                after_commit(session, lambda: metrics_coordinator.dispatch_wait(waited))
             return decision
 
         return run_transaction(self.session_factory, commit_operation)

@@ -1,0 +1,677 @@
+{
+  "alert_for": "20s",
+  "alert_timeline": [
+    {
+      "active_at": "2026-10-03T19:49:42.946283207Z",
+      "after_s": 0.6,
+      "alert": "NexaGcNeverCompleted",
+      "job": "nexa-api",
+      "seen_at": "19:50:00.613Z",
+      "state": "pending"
+    },
+    {
+      "active_at": "2026-10-03T19:50:02.946283207Z",
+      "after_s": 3.7,
+      "alert": "NexaWorkerNotReady",
+      "job": "nexa-api",
+      "seen_at": "19:50:03.702Z",
+      "state": "pending"
+    },
+    {
+      "active_at": "2026-10-03T19:49:42.946283207Z",
+      "after_s": 3.7,
+      "alert": "NexaGcNeverCompleted",
+      "job": "nexa-api",
+      "seen_at": "19:50:03.702Z",
+      "state": "firing"
+    },
+    {
+      "active_at": "2026-10-03T19:50:07.946283207Z",
+      "after_s": 8.8,
+      "alert": "NexaTargetDown",
+      "job": "nexa-worker",
+      "seen_at": "19:50:08.833Z",
+      "state": "pending"
+    },
+    {
+      "active_at": "2026-10-03T19:50:02.946283207Z",
+      "after_s": 23.2,
+      "alert": "NexaWorkerNotReady",
+      "job": "nexa-api",
+      "seen_at": "19:50:23.227Z",
+      "state": "firing"
+    },
+    {
+      "active_at": "2026-10-03T19:50:07.946283207Z",
+      "after_s": 28.3,
+      "alert": "NexaTargetDown",
+      "job": "nexa-worker",
+      "seen_at": "19:50:28.349Z",
+      "state": "firing"
+    }
+  ],
+  "alerts_before_stop": [
+    {
+      "active_at": "2026-10-03T19:49:42.946283207Z",
+      "alert": "NexaGcNeverCompleted",
+      "job": "nexa-api",
+      "state": "pending"
+    }
+  ],
+  "caddy_metrics": {
+    "prometheus_text": false,
+    "status": 200
+  },
+  "finished": "19:50:28.349Z",
+  "groups": {
+    "admission": [
+      {
+        "metric": {
+          "kind": "job",
+          "outcome": "accepted"
+        },
+        "value": "1"
+      }
+    ],
+    "allocation": [
+      {
+        "metric": {
+          "__name__": "nexa_allocations",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "HELD"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_allocations",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "QUARANTINED"
+        },
+        "value": "0"
+      }
+    ],
+    "checkpoint": [
+      {
+        "metric": {
+          "__name__": "nexa_checkpoint_age_seconds",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      }
+    ],
+    "collectors": [
+      {
+        "metric": {
+          "__name__": "nexa_collector_up",
+          "collector": "queue",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_collector_up",
+          "collector": "allocation",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_collector_up",
+          "collector": "fairness",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_collector_up",
+          "collector": "checkpoint",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_collector_up",
+          "collector": "worker",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_collector_up",
+          "collector": "storage",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      }
+    ],
+    "coordinator_decisions": [
+      {
+        "metric": {
+          "__name__": "nexa_coordinator_decisions_total",
+          "instance": "host.docker.internal:49572",
+          "job": "nexa-coordinator",
+          "outcome": "none"
+        },
+        "value": "103"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_coordinator_decisions_total",
+          "instance": "host.docker.internal:49572",
+          "job": "nexa-coordinator",
+          "outcome": "offer"
+        },
+        "value": "1"
+      }
+    ],
+    "coordinator_leader": [
+      {
+        "metric": {
+          "__name__": "nexa_coordinator_leader",
+          "instance": "host.docker.internal:49572",
+          "job": "nexa-coordinator"
+        },
+        "value": "1"
+      }
+    ],
+    "coordinator_tick": [
+      {
+        "metric": {
+          "__name__": "nexa_coordinator_tick_duration_seconds_count",
+          "instance": "host.docker.internal:49572",
+          "job": "nexa-coordinator"
+        },
+        "value": "104"
+      }
+    ],
+    "fairness": [
+      {
+        "metric": {
+          "__name__": "nexa_fairness_dominant_resource_seconds",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "window": "1h"
+        },
+        "value": "0"
+      }
+    ],
+    "gc": [
+      {
+        "metric": {
+          "__name__": "nexa_gc_last_run_timestamp_seconds",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      }
+    ],
+    "http": [
+      {
+        "metric": {
+          "job": "nexa-api"
+        },
+        "value": "104"
+      }
+    ],
+    "jobs": [
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "QUEUED"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "DISPATCHING"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "RUNNING"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "PAUSING"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "PAUSED"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "RECOVERING"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "RETRY_WAIT"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_jobs",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "state": "CANCELLING"
+        },
+        "value": "0"
+      }
+    ],
+    "mode": [
+      {
+        "metric": {
+          "__name__": "nexa_operational_mode",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "mode": "NORMAL"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_operational_mode",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "mode": "ADMISSION_OFF"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_operational_mode",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "mode": "WRITE_FROZEN"
+        },
+        "value": "0"
+      }
+    ],
+    "queue": [
+      {
+        "metric": {
+          "__name__": "nexa_queue_outstanding",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      }
+    ],
+    "readiness": [
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "database",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "schema",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "storage",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "database",
+          "instance": "host.docker.internal:49572",
+          "job": "nexa-coordinator"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "schema",
+          "instance": "host.docker.internal:49572",
+          "job": "nexa-coordinator"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "reconciled",
+          "instance": "172.17.0.5:49573",
+          "job": "nexa-worker"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "heartbeat",
+          "instance": "172.17.0.5:49573",
+          "job": "nexa-worker"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_ready",
+          "check": "docker",
+          "instance": "172.17.0.5:49573",
+          "job": "nexa-worker"
+        },
+        "value": "1"
+      }
+    ],
+    "storage": [
+      {
+        "metric": {
+          "__name__": "nexa_storage_used_ratio",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0.7536084868946297"
+      }
+    ],
+    "watermark": [
+      {
+        "metric": {
+          "__name__": "nexa_storage_watermark_ratio",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "level": "high"
+        },
+        "value": "0.85"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_storage_watermark_ratio",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api",
+          "level": "critical"
+        },
+        "value": "0.95"
+      }
+    ],
+    "worker_executions": [
+      {
+        "metric": {
+          "__name__": "nexa_worker_executions_total",
+          "instance": "172.17.0.5:49573",
+          "job": "nexa-worker",
+          "outcome": "SUCCEEDED"
+        },
+        "value": "1"
+      }
+    ],
+    "worker_ready": [
+      {
+        "metric": {
+          "__name__": "nexa_worker_ready",
+          "instance": "172.17.0.5:49573",
+          "job": "nexa-worker"
+        },
+        "value": "0"
+      }
+    ],
+    "workers": [
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "ENABLED",
+          "health": "STARTING",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DRAINING",
+          "health": "STARTING",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DISABLED",
+          "health": "STARTING",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "ENABLED",
+          "health": "READY",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "1"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DRAINING",
+          "health": "READY",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DISABLED",
+          "health": "READY",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "ENABLED",
+          "health": "SUSPECT",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DRAINING",
+          "health": "SUSPECT",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DISABLED",
+          "health": "SUSPECT",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "ENABLED",
+          "health": "UNAVAILABLE",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DRAINING",
+          "health": "UNAVAILABLE",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      },
+      {
+        "metric": {
+          "__name__": "nexa_workers",
+          "admin_state": "DISABLED",
+          "health": "UNAVAILABLE",
+          "instance": "host.docker.internal:49571",
+          "job": "nexa-api"
+        },
+        "value": "0"
+      }
+    ]
+  },
+  "groups_missing": [],
+  "job": {
+    "job_id": "01a10350-b1a0-76b9-8b00-9e89248c347a",
+    "state": "SUCCEEDED"
+  },
+  "labels": {
+    "id_labels": [],
+    "names": 69,
+    "series_by_job": {
+      "nexa-api": 458,
+      "nexa-coordinator": 40,
+      "nexa-worker": 14
+    }
+  },
+  "probe_writes": {
+    "after": {
+      "audit": {
+        "ADMIN admin.membership.list": 3,
+        "ADMIN admin.membership.upsert": 9,
+        "ADMIN admin.policy.tenant.get": 3,
+        "ADMIN admin.policy.tenant.update": 3,
+        "ADMIN admin.tenant.create": 3,
+        "ADMIN admin.user.create": 9,
+        "ADMIN admin.worker.list": 26,
+        "COORDINATOR JOB_DISPATCHING": 1,
+        "SYSTEM identity.bootstrap_admin": 1,
+        "SYSTEM template.version.register": 3,
+        "SYSTEM worker.bootstrap_credential": 1,
+        "USER artifact.upload.commit": 5,
+        "USER auth.login": 5,
+        "USER job.submit": 1,
+        "WORKER allocation_released": 1,
+        "WORKER artifact.upload.commit": 2,
+        "WORKER attempt_started": 1,
+        "WORKER result_recognized": 1
+      },
+      "audit_total": 78,
+      "events": 5
+    },
+    "before": {
+      "audit": {
+        "ADMIN admin.membership.list": 3,
+        "ADMIN admin.membership.upsert": 9,
+        "ADMIN admin.policy.tenant.get": 3,
+        "ADMIN admin.policy.tenant.update": 3,
+        "ADMIN admin.tenant.create": 3,
+        "ADMIN admin.user.create": 9,
+        "ADMIN admin.worker.list": 26,
+        "COORDINATOR JOB_DISPATCHING": 1,
+        "SYSTEM identity.bootstrap_admin": 1,
+        "SYSTEM template.version.register": 3,
+        "SYSTEM worker.bootstrap_credential": 1,
+        "USER artifact.upload.commit": 5,
+        "USER auth.login": 5,
+        "USER job.submit": 1,
+        "WORKER allocation_released": 1,
+        "WORKER artifact.upload.commit": 2,
+        "WORKER attempt_started": 1,
+        "WORKER result_recognized": 1
+      },
+      "audit_total": 78,
+      "events": 5
+    },
+    "probes": {
+      "api/metrics 200": 50,
+      "api/readyz 200": 50,
+      "coordinator/metrics 200": 50,
+      "coordinator/readyz 200": 50,
+      "worker/metrics 200": 50,
+      "worker/readyz 200": 50
+    }
+  },
+  "readyz": {
+    "api": 200,
+    "coordinator": 200,
+    "worker": 200
+  },
+  "started": "19:49:33.676Z",
+  "up": {
+    "nexa-api": "1",
+    "nexa-coordinator": "1",
+    "nexa-worker": "1"
+  },
+  "worker_stopped_at": "19:50:00.022Z",
+  "worker_succeeded_direct": 1.0
+}

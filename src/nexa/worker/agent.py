@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 
 from nexa.infrastructure.persistence.ids import new_uuid7
+from nexa.observability import metrics_worker
 
 from .capabilities import ResourceProvider, inventory_to_json
 from .checkpoint_flow import reconcile_adoption
@@ -20,12 +21,19 @@ from .errors import ExecutorError
 from .execution import WorkerExecutionMixin
 from .executor import DockerExecutor, runtime_identity_digest
 from .journal import ExecutionJournal, JournalCorruption, JournalRecord
+from .local_cleanup import remove_released_attempt_dirs
 from .models import Authority, ContainerIdentity, ResourceVector
 from .protocol import SequenceState, canonical_envelope_effect
 from .runner_control import TERMINAL_MESSAGE_TYPES, RunnerControl, RunnerControlError
 from .state import PendingOperationStore
 
 LOG = logging.getLogger(__name__)
+# Ops readiness/liveness bounds (docs/observability.md §4); never used for decisions.
+HEARTBEAT_READY_SECONDS = 30
+LIVENESS_STALE_SECONDS = 60
+STATS_INTERVAL_SECONDS = 30.0
+STATS_TIMEOUT_SECONDS = 5.0
+STATS_MAX_CONTAINERS = 8
 
 
 def _loop_failure_detail(exc: BaseException) -> str:
@@ -114,6 +122,8 @@ class WorkerAgent(WorkerExecutionMixin):
         self._reconcile_logged_complete = False
         self._readiness_blocked = False
         self._server_ready = False
+        self._heartbeat_accepted_ns: int | None = None
+        self._loop_beat_ns = monotonic_ns()
         self._stop = asyncio.Event()
         self.operation_timeout_seconds = 8.0
 
@@ -149,6 +159,8 @@ class WorkerAgent(WorkerExecutionMixin):
         agent._reconcile_logged_complete = False
         agent._readiness_blocked = False
         agent._server_ready = False
+        agent._heartbeat_accepted_ns = None
+        agent._loop_beat_ns = agent.monotonic_ns()
         agent._stop = asyncio.Event()
         agent.operation_timeout_seconds = 8.0
         return agent
@@ -257,11 +269,29 @@ class WorkerAgent(WorkerExecutionMixin):
                     self._server_ready = False
                 self._containers = discovered
                 self._log_reconciliation(result)
+                if result.complete:
+                    self._remove_released_local_dirs()
                 return result
             except WorkerApiError as exc:
                 if exc.status != 409 or restart >= self.page_restart_limit:
                     raise
         raise RuntimeError("reconciliation restart bound exhausted")
+
+    def _remove_released_local_dirs(self) -> None:
+        """B19-R17: drop verified-cleaned attempts' inputs, only after a complete scan."""
+        staging_root = getattr(self.executor, "staging_root", None)
+        if self.journal is None or staging_root is None:
+            return
+        try:
+            remove_released_attempt_dirs(self.journal, staging_root, adopted=tuple(self._adopted))
+        except OSError as exc:
+            # Disk housekeeping never fails reconciliation; the next scan retries.
+            LOG.warning(
+                json.dumps(
+                    {"event": "worker_local_cleanup_failed", "error": type(exc).__name__},
+                    separators=(",", ":"),
+                )
+            )
 
     def _can_replay_claim(self, item: dict, discovered: dict[str, ContainerIdentity]) -> bool:
         """Resume only the original callback after a complete identity scan."""
@@ -934,6 +964,9 @@ class WorkerAgent(WorkerExecutionMixin):
             self.state.finish(callback_id)
             if record["operation"] == "cleanup":
                 self._discard_released_authority(payload["attempt_id"])
+            else:
+                # Counted once, by whichever sender finished the acknowledged failure.
+                metrics_worker.execution(payload["body"].get("failure_class", "INTERNAL"))
             return True
 
     def _journal_resolution(self, attempt_id: str, operation: str, callback_id: str) -> None:
@@ -1264,6 +1297,7 @@ class WorkerAgent(WorkerExecutionMixin):
                 )
                 self.state.acknowledge(callback_id, response)
             self.state.finish(callback_id)
+            self._heartbeat_accepted_ns = self.monotonic_ns()
             return response
 
         discovered = self.provider.discover()
@@ -1289,7 +1323,61 @@ class WorkerAgent(WorkerExecutionMixin):
         self.state.acknowledge(callback_id, response)
         self.state.finish(callback_id)
         self._server_ready = locally_ready
+        self._heartbeat_accepted_ns = self.monotonic_ns()
         return response
+
+    # -- ops listener (B19): process-local observations, never decisions ---------------
+    def live(self) -> bool:
+        """The heartbeat loop iterates at least every interval + operation timeout."""
+        return self.monotonic_ns() - self._loop_beat_ns < LIVENESS_STALE_SECONDS * 1_000_000_000
+
+    def readiness_checks(self) -> dict[str, str]:
+        accepted = self._heartbeat_accepted_ns
+        fresh = (
+            accepted is not None
+            and self.monotonic_ns() - accepted <= HEARTBEAT_READY_SECONDS * 1_000_000_000
+        )
+        return {
+            "reconciled": "ok"
+            if self._reconcile_complete and not self._readiness_blocked
+            else "fail",
+            "heartbeat": "ok" if fresh else "fail",
+        }
+
+    def reported_ready(self) -> bool:
+        return self._server_ready
+
+    def sample_containers(self) -> None:
+        """One bounded `docker stats` sample of running workloads (B19-R18)."""
+        tracked: dict[str, int] = {}
+        for attempt_id in tuple(self._adopted)[:STATS_MAX_CONTAINERS]:
+            record = self.journal.load(attempt_id) if self.journal.exists(attempt_id) else None
+            if record is not None and record.container is not None:
+                tracked[record.container.container_id] = record.resources.cpu_millis
+        samples = self.docker.stats(tuple(tracked), timeout_seconds=STATS_TIMEOUT_SECONDS)
+        memory = max((sample[0] / 100 for sample in samples.values()), default=0.0)
+        cpu = max(
+            (
+                (sample[1] / 100) / (tracked[container_id] / 1000)
+                for container_id, sample in samples.items()
+                if tracked[container_id] > 0
+            ),
+            default=0.0,
+        )
+        metrics_worker.container_usage(memory, cpu)
+
+    async def _stats_loop(self) -> None:
+        # Separate from _loop: a failed sample must never block READY or dispatch.
+        while not self._stop.is_set():
+            try:
+                await asyncio.wait_for(
+                    asyncio.to_thread(self.sample_containers),
+                    timeout=STATS_TIMEOUT_SECONDS + 1,
+                )
+            except Exception:  # noqa: BLE001 - sampling is best effort
+                metrics_worker.loop_failed("stats")
+            with suppress(TimeoutError):
+                await asyncio.wait_for(self._stop.wait(), timeout=STATS_INTERVAL_SECONDS)
 
     async def run(self) -> None:
         loops = (
@@ -1301,6 +1389,7 @@ class WorkerAgent(WorkerExecutionMixin):
             asyncio.create_task(
                 self._loop(self._result_once, self.loop_intervals.get("result", 0.25))
             ),
+            asyncio.create_task(self._stats_loop()),
         )
         try:
             await self._stop.wait()
@@ -1326,6 +1415,8 @@ class WorkerAgent(WorkerExecutionMixin):
         )
         try:
             while not self._stop.is_set():
+                if operation == self.heartbeat_once:
+                    self._loop_beat_ns = self.monotonic_ns()
                 if in_flight is None:
                     in_flight = asyncio.create_task(asyncio.to_thread(operation))
                 try:
@@ -1334,7 +1425,17 @@ class WorkerAgent(WorkerExecutionMixin):
                     )
                 except TimeoutError:
                     if not timed_out:
-                        LOG.warning("worker_loop_timeout operation=%s", operation.__name__)
+                        metrics_worker.loop_failed(operation.__name__)
+                        LOG.warning(
+                            "worker_loop_timeout operation=%s",
+                            operation.__name__,
+                            extra={
+                                "nexa_fields": {
+                                    "event": "worker_loop_timeout",
+                                    "operation": operation.__name__,
+                                }
+                            },
+                        )
                     self._server_ready = False
                     if operation != self._poll_once:
                         self._reconcile_complete = False
@@ -1348,8 +1449,17 @@ class WorkerAgent(WorkerExecutionMixin):
                         timed_out = True
                 except errors as exc:
                     detail = _loop_failure_detail(exc)
+                    metrics_worker.loop_failed(operation.__name__)
                     LOG.warning(
-                        "worker_loop_failed operation=%s detail=%s", operation.__name__, detail
+                        "worker_loop_failed operation=%s detail=%s",
+                        operation.__name__,
+                        detail,
+                        extra={
+                            "nexa_fields": {
+                                "event": "worker_loop_failed",
+                                "operation": operation.__name__,
+                            }
+                        },
                     )
                     self._server_ready = False
                     if operation != self._poll_once:

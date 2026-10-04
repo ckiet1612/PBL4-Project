@@ -3,9 +3,26 @@
 import re
 from dataclasses import dataclass
 
+from nexa.config import ResourceLimits
+
 from .models import InputMount, StartExecution
 
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+DEFAULT_PID_LIMIT = 512
+PID_LIMIT_RANGE = (32, 32_768)
+# /tmp scratch is a tmpfs and counts against the memory limit, so it is capped at a
+# quarter of the allocated memory as well as at NEXA_SCRATCH_MAX_BYTES.
+SCRATCH_MEMORY_DIVISOR = 4
+# Workload stdout/stderr goes to the runner, which only counts it against the attempt
+# log bound (LOG_OVERFLOW fails the attempt; nothing is truncated). The json-file log
+# holds only the runner's own short messages, so it keeps the earlier 1 MiB cap.
+RUNNER_LOG_FILE_BYTES = 1024**2
+
+
+def attempt_bounds(memory_bytes: int, limits: ResourceLimits) -> tuple[int, int]:
+    """(scratch_bytes, log_bytes) for an attempt; scratch always stays below memory."""
+    scratch = min(limits.scratch_max_bytes, memory_bytes // SCRATCH_MEMORY_DIVISOR)
+    return scratch, limits.attempt_log_max_bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +77,7 @@ class ContainerConfig:
             "--log-driver",
             "json-file",
             "--log-opt",
-            f"max-size={self.log_bytes}",
+            f"max-size={min(self.log_bytes, RUNNER_LOG_FILE_BYTES)}",
             "--log-opt",
             "max-file=1",
             "--restart",
@@ -108,12 +125,15 @@ def build_container_config(
     image: str,
     control_dir: str | None = None,
     installation_id: str | None = None,
+    pid_limit: int = DEFAULT_PID_LIMIT,
 ) -> ContainerConfig:
     digest = request.context.image_digest
     if "@" not in image or image.rsplit("@", 1)[1] != digest or not _DIGEST.fullmatch(digest):
         raise ValueError("image must use the exact verified digest")
     if request.scratch_bytes >= request.context.resources.memory_bytes:
         raise ValueError("scratch_bytes must fit inside the hard memory budget")
+    if not PID_LIMIT_RANGE[0] <= pid_limit <= PID_LIMIT_RANGE[1]:
+        raise ValueError("pid_limit is outside the contract range")
     labels = {
         "nexa.managed": "true",
         "nexa.attempt_id": request.context.authority.attempt_id,
@@ -132,7 +152,7 @@ def build_container_config(
         no_new_privileges=True,
         seccomp_profile="default",
         privileged=False,
-        pid_limit=128,
+        pid_limit=pid_limit,
         cpu_millis=request.context.resources.cpu_millis,
         memory_bytes=request.context.resources.memory_bytes,
         scratch_bytes=request.scratch_bytes,

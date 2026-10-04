@@ -87,6 +87,8 @@ def candidate_ineligibility_reason(
         return "capability_incompatible"
     if not candidate.policy_compatible:
         return "policy_incompatible"
+    if not limits.artifact_quota_available:
+        return "artifact_quota_exhausted"
     if not _fits(candidate.resources, capacity):
         return "request_exceeds_capacity"
     if not _fits(_add_resources(held, candidate.resources), limits.resource_quota):
